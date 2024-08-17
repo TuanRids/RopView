@@ -17,7 +17,7 @@ namespace omcn {
         }
         catch (const std::exception& e)
         {
-            std::cerr << "e.what() << std::endl << "Press any key to exit.";
+            std::cerr << e.what() << std::endl << "Press any key to exit.";
             std::cin .get();
             return false;
         }
