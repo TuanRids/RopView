@@ -1,0 +1,51 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file Equipment/IMultiElementConnector.h.
+///
+/// NDE file domain path: probes[index] / phasedArrayLinear / elements[index] / connectorName
+/// 
+/// Declares the IMultiElementConnector interface
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+#include <cstddef>
+#include <memory>
+
+namespace Olympus { namespace Equipment {
+
+  class IMultiPulserReceiverPort;
+  using IMultiPulserReceiverPortPtr = std::shared_ptr<IMultiPulserReceiverPort>;
+  using IMultiPulserReceiverPortConstPtr = std::shared_ptr<const IMultiPulserReceiverPort>;
+
+class IMultiElementConnector
+{
+public:
+  virtual ~IMultiElementConnector() = default;
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Sets a connection port
+  ///
+  /// @param port The port.
+  ///
+  /// @returns True if it succeeds, false if it fails.
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  virtual bool SetConnection(IMultiPulserReceiverPortPtr port) = 0;
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Gets the connection port
+  ///
+  /// @returns The connection.
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  virtual IMultiPulserReceiverPortPtr GetConnection() const = 0;
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Gets element count
+  ///
+  /// @returns The element count.
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  virtual std::size_t GetElementCount() const = 0;
+};
+
+using IMultiElementConnectorPtr = std::shared_ptr<IMultiElementConnector>;
+using IMultiElementConnectorConstPtr =
+  std::shared_ptr<const IMultiElementConnector>;
+}}

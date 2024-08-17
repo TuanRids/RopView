@@ -1,0 +1,51 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file Equipment/IMultiElementConnectorCollection.h.
+///
+/// NDE file domain path: probes[index] / phasedArrayLinear / elements[index] / connectorName
+/// 
+/// Declares the IMultiElementConnectorCollection interface
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+#include <cstddef>
+#include <memory>
+#include <Equipment/IMultiElementConnector.h>
+
+namespace Olympus { namespace Equipment
+{
+class IMultiElementConnectorCollection
+{
+public:
+  virtual ~IMultiElementConnectorCollection() = default;
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Gets the count of multi-element connector
+  ///
+  /// @returns The count.
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  virtual std::size_t GetCount() const = 0;
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Gets a connector
+  ///
+  /// @param connect The 0 based index of the connector.
+  ///
+  /// @returns The connector.
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  virtual IMultiElementConnectorConstPtr GetConnector(std::size_t connect) const = 0;
+
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Gets a connector
+  ///
+  /// @param connect The 0 based index of the connector.
+  ///
+  /// @returns The connector.
+  /////////////////////////////////////////////////////////////////////////////////////////////////
+  virtual IMultiElementConnectorPtr GetConnector(std::size_t connect) = 0;
+};
+
+using IMultiElementConnectorCollectionPtr =
+  std::shared_ptr<IMultiElementConnectorCollection>;
+using IMultiElementConnectorCollectionConstPtr =
+  std::shared_ptr<const IMultiElementConnectorCollection>;
+}}

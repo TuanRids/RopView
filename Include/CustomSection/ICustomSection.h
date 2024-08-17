@@ -1,0 +1,54 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file ICustomSection.h.
+///
+/// NDE file domain path / The custom section are not part of the Domain, 
+/// they must be put in the root of the file under "APP/Replace_By_Your_App_Name" in the HDF 5 tree
+/// 
+/// Declares the ICustomSection interface
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+#include <cstddef>
+#include <string>
+#include <memory>
+
+namespace Olympus
+{
+  namespace FileManagement
+  {
+    class ICustomSection
+    {
+    public:
+      virtual ~ICustomSection() = default;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the name
+      ///
+      /// @returns The name.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual const std::wstring& GetName() const = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the size
+      ///
+      /// @returns The size.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual std::size_t GetSize() const = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the data
+      ///
+      /// @returns The data.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual void* GetData() = 0;
+      virtual const void* GetData() const = 0;
+
+      virtual const std::wstring& GetFormat() const = 0;
+
+      virtual const std::wstring& GetUsage() const = 0;
+    };
+
+    using ICustomSectionPtr = std::shared_ptr<ICustomSection>;
+    using ICustomSectionConstPtr = std::shared_ptr<const ICustomSection>;
+  }
+}

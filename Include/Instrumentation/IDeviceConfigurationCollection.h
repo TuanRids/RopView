@@ -1,0 +1,61 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file ultrasoundConfiguration/IDeviceConfigurationCollection.h
+///
+/// Declares the IDeviceConfigurationCollection interface.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma once
+#include <ultrasoundConfiguration/UltrasoundTypes.h>
+#include <instrumentation/IDeviceInfo.h>
+
+namespace Instrumentation
+{
+  class IDeviceConfiguration;
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Gives access to the device configurations in this collection as well as the Voltage of the assigned pulser.
+  /// A beam set can be fired on a device configuration with the IFiringBeamSetCollection interface.
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  class IDeviceConfigurationCollection
+  {
+  public:
+    virtual ~IDeviceConfigurationCollection() = default;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Get the count for the number of device configurations in this collection.
+    ///
+    /// @return
+    /// The number of device configurations.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual std::size_t GetCount() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Get the interface of one device configuration in this set by giving its index in the collection. 
+    ///
+    /// @param index The index of the requested device configuration in this collection.
+    ///
+    /// @return
+    /// The interface IDeviceConfiguration of the requested device configuration.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual std::shared_ptr<IDeviceConfiguration> GetDeviceConfiguration(std::size_t index) const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Add a device configuration to this set and chain it back.
+    ///
+    /// @param deviceName  The unique device name.
+    ///
+    /// @param platform.
+    ///
+    /// @param model.
+    /// @return
+    /// The chained IDeviceConfiguration.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual std::shared_ptr<IDeviceConfiguration> Add(const std::wstring& deviceName, IDeviceInfo::Platform platform, IDeviceInfo::Model model) = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Remove an interface IDeviceConfiguration in this collection by giving its index.
+    ///
+    /// @param index The position of the IDeviceConfiguration desired to be removed.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual void Remove(std::size_t index) = 0;
+  };
+}

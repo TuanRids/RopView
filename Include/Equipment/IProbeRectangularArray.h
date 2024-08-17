@@ -1,0 +1,116 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file IProbeRectangularArray.h.
+///
+/// NDE file domain path probes[index] / PhasedArrayLinear
+/// 
+/// Declares the IProbeRectangularArray interface.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma once
+#include <memory>
+#include <Equipment/IProbe.h>
+
+namespace Olympus
+{
+  namespace Equipment
+  {
+    class IMultiElementConnector;
+    using IMultiElementConnectorPtr = std::shared_ptr<IMultiElementConnector>;
+    using IMultiElementConnectorConstPtr = std::shared_ptr<const IMultiElementConnector>;
+
+    class IMultiElementConnectorCollection;
+    using IMultiElementConnectorCollectionPtr = std::shared_ptr<IMultiElementConnectorCollection>;
+    using IMultiElementConnectorCollectionConstPtr = std::shared_ptr<const IMultiElementConnectorCollection>;
+
+    class ITransducerRectangularArray;
+    using ITransducerRectangularArrayPtr = std::shared_ptr<ITransducerRectangularArray>;
+    using ITransducerRectangularArrayConstPtr = std::shared_ptr<const ITransducerRectangularArray>;
+
+    class IProbeRectangularArray;
+    using IProbeRectangularArrayPtr = std::shared_ptr<IProbeRectangularArray>;
+    using IProbeRectangularArrayConstPtr = std::shared_ptr<const IProbeRectangularArray>;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Phased-array ultrasonic probe including a transducer 2D array of elements
+    /// The information of this section is important to allow RayTracing inside the wedge.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    class IProbeRectangularArray : public IProbe
+    {
+    public:
+
+      virtual ~IProbeRectangularArray() = default;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the transducer.
+      ///
+      /// NDE file domain path probes[index] / PhasedArrayLinear
+      /// 
+      /// @return
+      /// The transducer.
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      virtual ITransducerRectangularArrayPtr GetTransducer() = 0;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the transducer.
+      ///
+      /// NDE file domain path probes[index] / PhasedArrayLinear
+      /// 
+      /// @return
+      /// The transducer.
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      virtual ITransducerRectangularArrayConstPtr GetTransducer() const = 0;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      /// Sets a transducer.
+      ///
+      /// @param transducer The transducer.
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      virtual void SetTransducer(ITransducerRectangularArrayPtr transducer) = 0;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the mounting orientation.
+      ///
+      /// NDE file domain path probes[index] / wedgeAssociation / orientation  ["Normal", "Reverse"]
+      /// 
+      /// @return
+      /// The mounting orientation.
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      virtual MountingOrientation GetMountingOrientation() const = 0;
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      /// Sets a mounting orientation.
+      ///
+      /// @param orientation The orientation.
+      ////////////////////////////////////////////////////////////////////////////////////////////////////
+      virtual void SetMountingOrientation(MountingOrientation orientation) = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the connector
+      ///
+      /// @returns The connector.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IMultiElementConnectorConstPtr GetConnector() const = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the connector
+      ///
+      /// @returns The connector.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IMultiElementConnectorPtr GetConnector() = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the connectors
+      ///
+      /// @returns The connectors.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IMultiElementConnectorCollectionConstPtr
+      GetConnectors() const = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the connectors
+      ///
+      /// @returns The connectors.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IMultiElementConnectorCollectionPtr GetConnectors() = 0;
+    };
+  }
+}

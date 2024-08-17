@@ -1,0 +1,9 @@
+#pragma once
+#include <View/IViewProperties.h>
+#include <View/IPaletteCollection.h>
+#include <View/IPalette.h>
+#include <View/IColors.h>
+#include <View/IOverlay.h>
+#include <View/ISegmentCollection.h>
+#include <View/ISegment.h>
+#include <View/IPoint.h>

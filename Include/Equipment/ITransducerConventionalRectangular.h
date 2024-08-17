@@ -1,0 +1,61 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file Equipment\ITransducerConventionalRectangular.h.
+///
+/// Declares the ITransducerConventionalRectangular interface
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+#include <memory>
+#include <Equipment/ITransducer.h>
+
+namespace Olympus { namespace Equipment {
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  /// Single rectangular transducer for a conventional ultrasonic probe
+  /// The information of this section is important to allow RayTracing inside the wedge.
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  class ITransducerConventionalRectangular : public ITransducer
+  {
+  public:
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Gets the length of the transducer in millimeters.
+    ///
+    /// @image width=30% html Length.png width=30%
+    ///
+    /// @return The length of the transducer in millimeters. The length is the
+    ///         measurement in the axis
+    ///         that has the larger value.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual double GetLength() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Sets a length for the transducer in millimeters.
+    ///
+    /// @param length The length of the transducer in millimeters. The length is the measurement in the
+    /// axis that has the larger value.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual void SetLength(double length) = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Gets the width of the transducer in millimeters.
+    ///
+    /// @image html Width.png width=30%
+    ///
+    /// @return The width of the transducer in millimeters. The width is the measurement in the axis
+    /// that has the smaller value.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual double GetWidth() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Sets a width for the transducer in millimeters.
+    ///
+    /// @param width The width of the transducer in millimeters. The width is the measurement in the axis
+    /// that has the smaller value.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual void SetWidth(double width) = 0;
+  };
+
+  using ITransducerConventionalRectangularPtr = std::shared_ptr<ITransducerConventionalRectangular>;
+  using ITransducerConventionalRectangularConstPtr = std::shared_ptr<const ITransducerConventionalRectangular>;
+}}

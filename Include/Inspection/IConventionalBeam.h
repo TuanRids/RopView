@@ -1,0 +1,41 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file Inspection\IConventionalBeam.h.
+///
+/// Declares the IConventionalBeam interface
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+#include <Inspection/InspectionEnums.h>
+#include <memory>
+
+namespace Olympus { namespace Inspection {
+
+  class IConventionalBeam
+  {
+  public:
+
+    virtual ~IConventionalBeam() = default;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Gets the wave type.
+    /// 
+    /// NDE file domain path "dataGroups"[index] / "ultrasound" / "conventionalPulseEcho" / "waveMode"
+    ///
+    /// @return
+    /// The wave type.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual WaveType GetWaveType() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Sets the wave type.
+    ///
+    /// NDE file domain path "dataGroups"[index] / "ultrasound" / "conventionalPulseEcho" / "waveMode"
+    /// 
+    /// @param waveType Type of the wave.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual void SetWaveType(WaveType waveType) = 0;
+  };
+
+  using IConventionalBeamPtr = std::shared_ptr<IConventionalBeam>;
+  using IConventionalBeamConstPtr = std::shared_ptr<const IConventionalBeam>;
+}}

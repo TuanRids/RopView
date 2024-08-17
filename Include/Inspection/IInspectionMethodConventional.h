@@ -1,0 +1,39 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file Inspection\IInspectionMethodConventional.h.
+///
+/// NDE file domain path  dataGroups[index] / ultrasound / conventionalPulseEcho or conventionalPitchCatch
+/// 
+/// Declares the IInspectionMethodConventional interface
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+#include <memory>
+#include <Inspection/BeamSet.h>
+
+namespace Olympus { namespace Inspection {
+
+  class IInspectionMethodConventional : public IInspectionMethod
+  {
+  public:
+
+    virtual ~IInspectionMethodConventional() = default;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Gets the beam.
+    ///
+    /// @return
+    /// The beam.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual IConventionalBeamPtr GetBeam() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Sets a beam.
+    ///
+    /// @param beam The beam.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual void SetBeam(IConventionalBeamPtr beam) = 0;
+  };
+
+  using IInspectionMethodConventionalPtr = std::shared_ptr<IInspectionMethodConventional>;
+  using IInspectionMethodConventionalConstPtr = std::shared_ptr<const IInspectionMethodConventional>;
+}}

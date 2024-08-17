@@ -1,0 +1,76 @@
+#pragma once
+#include <memory>
+#include <string>
+
+#ifdef SWIG
+%typemap(cstype) int* "global::System.IntPtr"
+%typemap(csout, excode=SWIGEXCODE) int* "{ $excode return $imcall; }"
+#endif
+
+namespace Instrumentation
+{
+  class IDataRange;
+  class ICscan
+  {
+  public:
+    virtual ~ICscan() = default;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// The device Serial number that has produce this C-Scan
+    ///
+    /// @return
+    /// Serial number 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual std::string GetDeviceSerialNumber() const = 0;
+
+    __declspec(deprecated("Deprecated. Use GetCrossingTime.")) virtual double GetTimeData() const = 0;
+    
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Return the saturation status
+    ///
+    /// @return
+    /// True if the signal is saturated in the C-Scan
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual bool IsSaturated() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Return the detection status
+    ///
+    /// @return
+    /// True if no signal crosses the gate in the C-Scan
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual bool IsNotDetect() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Get the range of the gate used to create the C-Scan
+    ///
+    /// @return
+    /// IDataRange object providing the begin and end of the gate used to create the C-Scan, units nanoseconds
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual std::shared_ptr<IDataRange> GetTimeDataRange() const = 0;
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Get the position of the crossing signal in the C-Scan
+    ///
+    /// @return
+    /// Position in nanosecond relative to Zero.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual double GetCrossingTime() const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// Get Beam Firing Order
+    ///
+    /// @return
+    /// Get the index of this A-Scan in the firing sequence on the device given by GetDeviceSerialNumber 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    virtual std::size_t GetBeamFiringOrder() const = 0;
+
+
+
+    //FUTURE virtual int GetPeakAmplitude() const = 0; // Contains the amplitude of the peak
+    //FUTURE virtual double GetPeakTime() const = 0; // Contains the position of the peak
+  };
+
+  using ICscanPtr = std::shared_ptr<ICscan>;
+}

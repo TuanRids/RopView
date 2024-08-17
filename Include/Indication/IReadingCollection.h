@@ -1,0 +1,85 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file Indication\IReadingCollection.h
+///
+/// Declares the IReadingCollection interface
+///////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma once
+#include <memory>
+#include "IReading.h"
+
+namespace Olympus
+{
+  namespace Indication
+  {
+    /// Collection of readings.
+    class IReadingCollection
+    {
+    public:
+      virtual ~IReadingCollection() = default;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets the number of readings in the collection
+      ///
+      /// @returns The readings count.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual std::size_t GetCount() const = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Searches for the reading with the given name.
+      ///
+      /// @param name The name of the desired reading.
+      ///
+      /// @returns A pointer to the found reading.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IReadingPtr FindReading(const std::wstring& name) = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Searches for the reading with the given name.
+      ///
+      /// @param name The name of the desired reading.
+      ///
+      /// @returns The a constant pointer of the found reading.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IReadingConstPtr FindReading(const std::wstring& name) const = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets a reading at a given index
+      ///
+      /// @param index Zero-based index of the reading.
+      ///
+      /// @returns A pointer to the pointed reading.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IReadingPtr GetReading(std::size_t index) = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Gets a reading at a given index
+      ///
+      /// @param index Zero-based index of the reading.
+      ///
+      /// @returns A constant pointer to the pointed reading.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IReadingConstPtr GetReading(std::size_t index) const = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Adds a reading to the Readings Collection
+      ///
+      /// @param name  The name of the reading. Standard names can be selected from PredefinedReadingNames.h.
+      ///              Custom reading names can also be used and must be formatted as "YourCompanyName\ReadingName"
+      /// @param value The value of the reading.
+      ///
+      /// @returns A pointer to an IReading.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual IReadingPtr Add(const std::wstring& name, double value) = 0;
+
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      /// Removes the reading at a given index
+      ///
+      /// @param index The index of the reading to remove.
+      /////////////////////////////////////////////////////////////////////////////////////////////
+      virtual void Remove(std::size_t index) = 0;
+    };
+
+    using IReadingCollectionPtr = std::shared_ptr<IReadingCollection>;
+    using IReadingCollectionConstPtr = std::shared_ptr<const IReadingCollection>;
+  }
+}

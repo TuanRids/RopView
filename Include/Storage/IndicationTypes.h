@@ -1,0 +1,10 @@
+#pragma once
+#include <Indication/IIndication.h>
+#include <Indication/IIndicationCollection.h>
+#include <Indication/IPatchPosition.h>
+#include <Indication/IReading.h>
+#include <Indication/IReadingCollection.h>
+#include <Indication/IVolumePosition.h>
+#include <Indication/PredefinedReadingNames.h>
+#include <Indication/ICustomField.h>
+#include <Indication/ICustomFieldCollection.h>

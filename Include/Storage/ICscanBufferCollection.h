@@ -1,0 +1,39 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// @file ICscanBufferCollection.h.
+///
+/// Declares the ICscanBufferCollection interface used to store the CScan of one beamset
+////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma once
+#include <memory>
+#include <Storage/ICscanBuffer.h>
+
+namespace Olympus {
+  namespace Ultrasound {
+    namespace Data
+    {
+      class ICscanBufferCollection
+      {
+      public:
+        virtual ~ICscanBufferCollection() = default;
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// Gets the ICScan buffer count, equal to the beam quantity of the beamset
+        ///
+        /// @returns  The IAScan buffer count.
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual size_t GetCount() const = 0;
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// Gets a buffer
+        ///
+        /// @param  index Zero-based index of the ICscanbuffer.
+        ///
+        /// @returns  The buffer.
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual ICscanBufferPtr GetBuffer(size_t index) const = 0;
+      };
+
+      using ICscanBufferCollectionConstPtr = std::shared_ptr<const ICscanBufferCollection>;
+    }
+  }
+}
