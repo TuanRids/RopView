@@ -1,12 +1,12 @@
 #include "OmConnect.h"
 
 
-using namespace std;
+
 using namespace Instrumentation;
 namespace omcn {
     bool OmConnect::omConnectDevice()
     {
-        ipAddress = omcn::loadjson::getconfig().getIPaddress();
+        ipAddress = readcf::readconfig("ipAddress");
         try
         {
             cout << "Connecting to device " << ipAddress << "..." << endl;
@@ -17,15 +17,14 @@ namespace omcn {
         }
         catch (const std::exception& e)
         {
-            std::cerr << e.what() << std::endl << "Press any key to exit.";
-            std::cin .get();
+            std::cerr << e.what() << std::endl ;
             return false;
         }
     }
 
     shared_ptr<IDevice> OmConnect::DiscoverDevice()
     {
-        Duration timeout = 5000;
+        Duration timeout = 500;
         auto discovery = IDeviceDiscovery::Create(ipAddress.c_str());
         DiscoverResult result = discovery->DiscoverFor(timeout);
 

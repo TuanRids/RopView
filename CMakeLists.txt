@@ -12,6 +12,7 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     message(STATUS "Using vcpkg toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
 endif()
 
+set(BUILD_SHARED_LIBS OFF)
 
 project (RopView VERSION 1.0)
 
@@ -19,39 +20,61 @@ project (RopView VERSION 1.0)
 find_package(Boost REQUIRED COMPONENTS filesystem system)
 find_package(ZeroMQ CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(RapidJSON CONFIG REQUIRED)
+find_package(hdf5 CONFIG REQUIRED)
+find_package(OpenCV CONFIG REQUIRED)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 # Add source to this project's executable.
-file(GLOB SOURCES "Source/*.cpp" "Source/*.h" "Source/*.hpp" )
+file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp")
 
-message("Sources: ${SOURCES}")
+# Add the header files that contain Q_OBJECT
+set(HEADER_FILES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/event/ZoomableGraphicsView.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/MainUI/mainwindow.h
+)
 
-add_executable (RopView "RopView.cpp" "pch.h" ${SOURCES} "Source/Omconnect/OmConnect.h" "Source/Omconnect/OmConnect.cpp" "Source/OmConnect/loadjson.cpp")
+# Use qt6_wrap_cpp to process the headers with Q_OBJECT
+qt6_wrap_cpp(MOC_SOURCES ${HEADER_FILES})
+
+# Combine all sources and moc-generated sources
+add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} Source/Validate/fileformat.rc )
+
+# Add precompiled header
 target_precompile_headers(RopView PRIVATE "pch.h")
 
 # Add include directories for headers
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/Include")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/Source")
+target_include_directories(RopView PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+target_link_libraries(RopView PRIVATE ${OpenCV_LIBS})
+target_link_libraries(RopView PRIVATE opencv_ml opencv_dnn opencv_core opencv_flann)
+target_link_libraries(RopView PRIVATE Qt6::Widgets)
+set(QT_PLUGIN_PATH "C:/vcpkg/vcpkg/installed/x64-windows/Qt6/plugins/platforms")
 
 # Add library directories for linking
 if (MSVC)
-    # For Release build
     link_directories("${CMAKE_CURRENT_SOURCE_DIR}/Lib/Release")
-    # For Debug build
     link_directories("${CMAKE_CURRENT_SOURCE_DIR}/Lib/Debug")
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET RopView PROPERTY CXX_ STANDARD 20)
+    set_property(TARGET RopView PROPERTY CXX_STANDARD 20)
 endif()
 
-# Link Boost libraries
+# Link libraries
 target_link_libraries(RopView PRIVATE Boost::filesystem Boost::system OlympusNDT.Instrumentation.lib)
+target_link_libraries(RopView PRIVATE hdf5::hdf5-shared hdf5::hdf5_hl-shared hdf5::hdf5_tools-shared)
 
 include_directories(${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
-# lib & dll OMNICSAN 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Lib/x64-release DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Bin/x64-release DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Lib/x64-debug DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Bin/x64-debug DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Config.json DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build/x64-debug/settings)
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Config.json DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build/x64-release/settings)
 
+# Custom command for copying files after build
+add_custom_command(TARGET RopView POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/config.ini" "$<TARGET_FILE_DIR:RopView>"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/sample" "$<TARGET_FILE_DIR:RopView>/sample"    
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/seting_lib.bat" "$<TARGET_FILE_DIR:RopView>"
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_BINARY_DIR} cmd /c seting_lib.bat
+)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Lib/x64-release DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Lib/x64-debug DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)

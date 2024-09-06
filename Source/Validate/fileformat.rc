@@ -1,0 +1,19 @@
+// resource.rc
+#define valid0 101
+#define valid1 102
+#define valid2 103
+#define valid3 104
+#define valid4 105
+#define valid5 106
+#define LOGO 107
+
+valid0 JSON "valid_form_00_0.json"
+valid1 JSON "valid_form_00_1.json"
+valid2 JSON "valid_form_01_0.json"
+valid3 JSON "valid_form_01_1.json"
+valid4 JSON "valid_form_02_0.json"
+valid5 JSON "valid_form_03_0.json"
+LOGO   RCDATA	"material/ultrasound1.png"
+
+
+
