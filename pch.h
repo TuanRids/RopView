@@ -44,6 +44,13 @@
 #include <QDockWidget>		 // Dock widget
 #include <QSize>			 // Qsize
 #include <QStyleFactory>	 // QStyleFactory
+#include <QGraphicsTextItem> // QGraphicsTextItem
+
+// Qt Charts headers
+#include <QtCharts/qchart.h>
+#include <QtCharts/QChartView>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QValueAxis>
 
 // Project-specific headers
 #include <instrumentation/Instrumentation.h>  // Instrumentation for performance tracking

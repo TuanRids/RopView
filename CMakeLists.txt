@@ -24,15 +24,20 @@ find_package(RapidJSON CONFIG REQUIRED)
 find_package(hdf5 CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6Charts REQUIRED)
+find_package(CUDA REQUIRED)
 
+set(CMAKE_CUDA_STANDARD 11)
+set(CMAKE_CUDA_ARCHITECTURES 75) # adjust based on our architecture
 # Add source to this project's executable.
-file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp")
+file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu")
 
 # Add the header files that contain Q_OBJECT
 set(HEADER_FILES 
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/event/ZoomableGraphicsView.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/MainUI/mainwindow.h
 )
+
 
 # Use qt6_wrap_cpp to process the headers with Q_OBJECT
 qt6_wrap_cpp(MOC_SOURCES ${HEADER_FILES})
@@ -50,8 +55,10 @@ target_include_directories(RopView PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
 target_link_libraries(RopView PRIVATE ${OpenCV_LIBS})
 target_link_libraries(RopView PRIVATE opencv_ml opencv_dnn opencv_core opencv_flann)
 target_link_libraries(RopView PRIVATE Qt6::Widgets)
-set(QT_PLUGIN_PATH "C:/vcpkg/vcpkg/installed/x64-windows/Qt6/plugins/platforms")
+target_link_libraries(RopView PRIVATE Qt6::Charts)
+#target_link_libraries(RopView CUDA::cudart)
 
+set(QT_PLUGIN_PATH "C:/vcpkg/vcpkg/installed/x64-windows/Qt6/plugins/platforms")
 # Add library directories for linking
 if (MSVC)
     link_directories("${CMAKE_CURRENT_SOURCE_DIR}/Lib/Release")

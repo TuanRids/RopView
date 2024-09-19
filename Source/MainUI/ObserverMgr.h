@@ -2,8 +2,7 @@
 #define NOBSERVER_H
 
 #include "vector"
-
-
+#include "FactoryMgr.h"
 class nObserver {
 public: 
 	virtual void update() = 0;
@@ -20,7 +19,7 @@ public:
 	}
 
 
-	void notify(int x, int y, int z) {
+	void notify() {
 		for (const auto& object : observers) {
 			if (object) {
 				object->update();

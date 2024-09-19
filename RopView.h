@@ -174,3 +174,67 @@
 
 
 */
+
+/*
+
+State Diagram:
+
+[Initial State] ----------------------> [Waiting for Update]
+                                         |  (notify() called)
+                                         v
+                              [Receiving Data from nSubject]
+                                         |
+                                         v
+                            [Processing Data in nLogFrame]
+                                         |
+                                         v
+                                [Update nGraphicsFrame]
+                                         |
+                                         v
+                       [Rendering Graphics in nGraphicsFrame]
+                                         |
+                                         v
+                         [Return to Waiting for Update State]
+                         (notify() called or data change detected)
+---------------------------------------------------------
+Error State:
+   - If data processing or rendering fails, transition to
+     [Error State] and log the issue using StatusLogs.
+
+
+*/
+
+/*
+Performance Considerations:
+---------------------------------------------------------
+1. CPU-GPU Workload Division:
+   - CUDA for compute-heavy tasks
+   - Vulkan for render-heavy tasks (e.g., 3D rendering).
+   - Ensure asynchronous data transfer between CPU and GPU.
+
+2. CUDA-Vulkan Interop:
+   - Use CUDA-Vulkan Interop to share resources directly (zero-copy).
+   - Avoid data transfer overhead with mapped memory.
+
+3. GPU Memory Management:
+   - Use Unified Memory to share data between CPU and GPU.
+   - Implement memory pooling in Vulkan to reduce memory allocation overhead.
+
+4. Render Pipeline Optimization:
+   - Prebuild Vulkan pipeline state objects (PSO) for faster execution.
+   - Reuse command buffers and descriptor sets to minimize setup cost.
+
+5. Scalability:
+   - Use Dynamic Level of Detail (LOD) to reduce polygon count.
+   - Implement Frustum Culling to avoid rendering unnecessary objects.
+   - Take advantage of Vulkan’s multithreading for parallel rendering.
+
+6. Real-time Rendering:
+   - Employ Vulkan async compute to handle continuous data streams.
+   - Reduce latency with low-latency rendering (reduce buffer and queue depth).
+
+7. Error Handling:
+   - Use cudaGetLastError() for error checks in CUDA.
+   - Enable Vulkan Validation Layers to catch runtime issues.
+
+*/

@@ -16,7 +16,11 @@ public:
         setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     }
 
+signals:
+        void mouseClicked(int x, int y);
+
 protected:
+    
     void wheelEvent(QWheelEvent* event) override {
         if (event->angleDelta().y() > 0) {
             // Zoom in
@@ -26,12 +30,20 @@ protected:
             // Zoom out
             scale(1.0 / zoomFactor, 1.0 / zoomFactor);
         }
+
     }
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
+            // zoom
 			isPanning = true;
 			panStartPoint = event->pos();
             setCursor(Qt::ClosedHandCursor);
+
+            QPointF scenePos = mapToScene(event->pos());
+            int x = static_cast<int>(scenePos.x());
+            int y = static_cast<int>(scenePos.y());
+
+            emit mouseClicked(x, y);
         }
         QGraphicsView::mousePressEvent(event);
     }

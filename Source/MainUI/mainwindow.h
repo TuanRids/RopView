@@ -19,15 +19,15 @@ namespace nmainUI {
         int mainloop(int argc, char* argv[]);
 
 
-        void logical(nFrame* frame);
-        void refreshxyz(const int x, const int y, const int z);
+        void logical();
+        void refreshxyz();
 
     private:
         UIFrame();
         ~UIFrame() { };
         
         // UI settings
-        void UISETTING();
+        void UISETTING(QApplication* app);
 
         // Disable copy constructor and assignment operator
         UIFrame(const UIFrame&) = delete;
@@ -36,20 +36,16 @@ namespace nmainUI {
         // settings
         QPixmap loadLogoFromResource();
         
-        // Main properties
-        QApplication* app;
-        QMainWindow* mainWindow;
-        QWidget* centralWidget;
-        QPushButton* button;
-        QGraphicsView* graphicsView;
-        QGraphicsScene* scene;
-        QSplitter* splitter;
-        
         //logs
         statuslogs* sttlogs;
         // Other object
         std::shared_ptr<AscanProcessor> processor;
 
+
+        //
+        QWidget* createLogFrame();
+        QWidget* createAscanFrame();
+        QWidget* createCScanBScanFrame();
     };
 }
 

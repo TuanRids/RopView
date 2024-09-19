@@ -12,18 +12,19 @@
 ///  Virtual Basic Frame 
 /// </summary>
 
-
+// forward declaration for fixing Circular reference
 class nLogFrame;
 class CscanFrame;
 class BscanFrame;
+class AscanFrame;
 
 struct curpt3d 
 { 
-    float x, y, z;
-    bool CheckIdx(float nx, float ny, float nz)
+    int x{ -1 }, y{ -1 }, z{ -1 };
+    bool CheckIdx(int nx, int ny, int nz)
     {
         if (nx != this->x && nx != -1) { this->x = nx;  return true; }
-        if (ny != this->y && ny != -1) { this->y = ny; true; }
+        if (ny != this->y && ny != -1) { this->y = ny; return true; }
         if (nz != this->z && nz != -1) { this->z = nz;  return true; }
 		return false;
     }
@@ -32,8 +33,7 @@ struct curpt3d
 class nFrame {
 public:
 	virtual QWidget* createFrame() = 0;
-	virtual ~nFrame() = default;
-	
+	virtual ~nFrame() = default;	
     void setScandat(const AscanData& dataa) { scandat = dataa; }
     void setSttlogs() { if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); } }
 
@@ -108,9 +108,10 @@ protected:
 // Frame Factory
 class nFactoryFrame {
 public:
-	static std::shared_ptr<nLogFrame> createLogFrame();
-	static std::shared_ptr<CscanFrame> createGraphicsFrame();
-    static std::shared_ptr<BscanFrame> createBscanFrame();
+	static std::shared_ptr<nLogFrame> crLogFrm();
+	static std::shared_ptr<CscanFrame> crCscanFrm(nmainUI::UIFrame* uifmr);
+    static std::shared_ptr<BscanFrame> crBscanFrm(nmainUI::UIFrame* uifmr);
+    static std::shared_ptr<AscanFrame> crAscanFrm(nmainUI::UIFrame* uifmr);
 };
 
 #endif // FACTORYMGR_H

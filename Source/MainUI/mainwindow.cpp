@@ -1,15 +1,14 @@
 #include "mainwindow.h"
 #include "ObserverMgr.h"
 #include "FactoryMgr.h"
-#include "..\Source\Frames\nLogFrame.h"
-#include "..\Source\Frames\CscanFrame.h"
+#include "Frames/nLogFrame.h"
+#include "Frames/CscanFrame.h"
 #include "Frames/BscanFrame.h"
-#include "Frames/BscanFrame.h"
-nmainUI::UIFrame::UIFrame() : app(nullptr), mainWindow(nullptr), centralWidget(nullptr), splitter(nullptr),
-                              button(nullptr), sttlogs(nullptr), graphicsView(nullptr), scene(nullptr), processor(nullptr) 
+#include "Frames/AscanFrame.h"
+nmainUI::UIFrame::UIFrame() : sttlogs(nullptr),  processor(nullptr) 
 { processor = std::make_shared<AscanProcessor>(); }
 
-void nmainUI::UIFrame::UISETTING()
+void nmainUI::UIFrame::UISETTING(QApplication* app)
 {
     app->setStyle(QStyleFactory::create("Fusion"));
 
@@ -38,80 +37,104 @@ void nmainUI::UIFrame::UISETTING()
         "QComboBox QAbstractItemView { background-color: #353535; }");
 }
 
-std::shared_ptr<CscanFrame> cScanFrm;
-std::shared_ptr<BscanFrame> bScanFrm;
-std::shared_ptr<nLogFrame> logframe;
 std::shared_ptr<nSubject> nsubject;
 
+
 int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
-    QApplication appct(argc, argv);
-    this->app = &appct;
+    unique_ptr<QApplication> app = make_unique<QApplication>(argc, argv);
     nsubject = std::make_shared<nSubject>();
 
     app->setWindowIcon(QIcon(loadLogoFromResource()));
-    UISETTING();
+    UISETTING(&*app);
+
     // Create main window
-    mainWindow = new QMainWindow();
+    auto mainWindow = new QMainWindow();
     mainWindow->setWindowTitle("RoqView");
 
     // Create central widget
-    centralWidget = new QWidget(mainWindow);
+    auto centralWidget = new QWidget(mainWindow);
     mainWindow->setCentralWidget(centralWidget);
 
-    // Create layout
+    // Set layout for the central widget
     QVBoxLayout* layout = new QVBoxLayout(centralWidget);
     centralWidget->setLayout(layout);
     mainWindow->resize(1080, 720);
     mainWindow->showMaximized();
 
-    // Create splitter
-    splitter = new QSplitter(Qt::Vertical);
+    // Create the overall splitter
+    auto splitter = new QSplitter(Qt::Vertical);
 
-    // Create Layout 1 (contains logframe and button in horizontal layout)
-    QWidget* layout1Widget = new QWidget();
-    QHBoxLayout* layout1 = new QHBoxLayout(layout1Widget);
+    // Add frames to splitter using helper functions
+    splitter->addWidget(createLogFrame());
+    splitter->addWidget(createCScanBScanFrame());
 
-    logframe = nFactoryFrame::createLogFrame();
-    nsubject->addObserver(logframe);
-    layout1->addWidget(logframe->createFrame());
+    splitter->addWidget(createAscanFrame());
 
-    QPushButton* btn = new QPushButton("Load");
-    btn->setFixedSize(100, 40);
-    QObject::connect(btn, &QPushButton::clicked, [=]() mutable {
-        logical(&*cScanFrm); });
-    layout1->addWidget(btn);
 
-    // Create Layout 2 (contains cScanFrm and bScanFrm in horizontal layout)
-    QSplitter* splitter2= new QSplitter(Qt::Horizontal);
-    QWidget* layout2Widget = new QWidget();
-    QHBoxLayout* layout2 = new QHBoxLayout(layout2Widget);
-
-    cScanFrm = nFactoryFrame::createGraphicsFrame();
-    cScanFrm->setUIFrame(this);
-    nsubject->addObserver(cScanFrm);
-    splitter2->addWidget(cScanFrm->createFrame());
-
-    bScanFrm = nFactoryFrame::createBscanFrame();
-    bScanFrm->setUIFrame(this);
-    nsubject->addObserver(bScanFrm);
-    splitter2->addWidget(bScanFrm->createFrame());
-
-    // Add layouts to the splitter
-    splitter->addWidget(layout1Widget);
-    splitter->addWidget(splitter2);
-
-    nsubject->notify(-1, -1, -1);
+    nsubject->notify();
     mainWindow->show();
 
     // Save and restore splitter sizes
     QSettings settings("RoqView COM", "RoqView APP");
-    QObject::connect(app, &QApplication::aboutToQuit, [&]() {
-        settings.setValue("splitterSizes", splitter->saveState()); });
+    QObject::connect(&*app, &QApplication::aboutToQuit, [&]() {
+        settings.setValue("splitterSizes", splitter->saveState());
+        });
     QByteArray splitterState = settings.value("splitterSizes").toByteArray();
     splitter->restoreState(splitterState);
 
     layout->addWidget(splitter);
     return app->exec();
+}
+
+QWidget* nmainUI::UIFrame::createLogFrame() {
+    // Create Log Frame layout
+    QWidget* logWidget = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(logWidget);
+
+    auto logframe = nFactoryFrame::crLogFrm();
+    nsubject->addObserver(logframe);
+    layout->addWidget(logframe->createFrame());
+
+    // Add a button (example for log)
+    QPushButton* btn = new QPushButton("Load");
+    btn->setFixedSize(100, 40);
+    QObject::connect(btn, &QPushButton::clicked, [=]() mutable {
+        logical();
+        });
+    layout->addWidget(btn);
+
+    return logWidget;
+}
+
+QWidget* nmainUI::UIFrame::createAscanFrame() {
+    // Create Ascan Frame layout
+    QWidget* ascanWidget = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(ascanWidget);
+
+    auto aScanFrm = nFactoryFrame::crAscanFrm(this);
+    nsubject->addObserver(aScanFrm);
+    layout->addWidget(aScanFrm->createFrame());
+
+    return ascanWidget;
+}
+
+QWidget* nmainUI::UIFrame::createCScanBScanFrame() {
+    // Create layout for Cscan and Bscan
+    QSplitter* splitter2 = new QSplitter(Qt::Horizontal);
+    QWidget* frameWidget = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(frameWidget);
+
+    auto cScanFrm = nFactoryFrame::crCscanFrm(this);
+    nsubject->addObserver(cScanFrm);
+    splitter2->addWidget(cScanFrm->createFrame());
+
+    auto bScanFrm = nFactoryFrame::crBscanFrm(this);
+    nsubject->addObserver(bScanFrm);
+    splitter2->addWidget(bScanFrm->createFrame());
+
+    layout->addWidget(splitter2);
+
+    return frameWidget;
 }
 
 QPixmap nmainUI::UIFrame::loadLogoFromResource()
@@ -134,21 +157,21 @@ QPixmap nmainUI::UIFrame::loadLogoFromResource()
     return QPixmap();
 }
 
-
-void nmainUI::UIFrame::logical(nFrame* frame) {
+void nmainUI::UIFrame::logical() {
 
     if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
     if (processor) 
     { 
-        auto res = processor->analyze(frame); 
-        frame->setSttlogs();
+        auto factframe = nFactoryFrame::crCscanFrm(this);
+        auto res = processor->analyze(&*factframe);
+        factframe->setSttlogs();
         if (res) { sttlogs->logInfo("Scanning Data is Loaded."); }
-        nsubject->notify(1,1,1);
-    }
-
+        factframe->setter_Curpt(1, 1, 1);
+        nsubject->notify();
+    }    
 }
 
-void nmainUI::UIFrame::refreshxyz(const int x, const int y, const int z)
+void nmainUI::UIFrame::refreshxyz()
 {
-    nsubject->notify(x,y,z); 
+    nsubject->notify(); 
 }
