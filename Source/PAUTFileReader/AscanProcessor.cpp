@@ -163,6 +163,9 @@ AscanData AscanProcessor::ReadAscanData(hid_t fileId_, const rj::Value& ascanDat
     errorCode = H5Dread(dsetId, H5Dget_type(dsetId), dspaceId, dspaceId, H5P_DEFAULT, ascanData.Statuses.data());
     errorCode = H5Sclose(dspaceId);
     errorCode = H5Dclose(dsetId);
+
+    
+
     return ascanData;
 }
 

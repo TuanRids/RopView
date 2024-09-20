@@ -47,7 +47,6 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
 
     cv::Mat orgimage(zsize, ysize, CV_8UC3);
     std::vector<Color> everyColors = CreateColorPalette();
-
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {
             uint64_t index = z * (xsize * ysize) + y * xsize + curpt.x;
@@ -60,19 +59,22 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
             int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
             double percentAmplitude = samplingAmplitude / (32768 / 100.0);
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
-
             orgimage.at<cv::Vec3b>(z, y) = cv::Vec3b(color.B, color.G, color.R);
         }
     }
+    cv::Mat scaledImage;
 
     int frameWidth = graphicsView->size().width();
     int frameHeight = graphicsView->size().height();
 
     double frameRatio = static_cast<double>(frameWidth) / static_cast<double>(frameHeight);
-
+    // scale images if necessary for exact position when clicking on it.
+    /*if (frameRatio > 1.0) {
+        auto delta_rows = orgimage.cols / (static_cast<int>(frameRatio) * orgimage.rows);
+        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage.rows), 0, 0, cv::INTER_LINEAR);
+    }*/
     double imageRatio = static_cast<double>(orgimage.cols) / static_cast<double>(orgimage.rows);
 
-    cv::Mat scaledImage;
 
     if (frameRatio > imageRatio) {
         int newWidth = static_cast<int>(orgimage.rows * frameRatio);

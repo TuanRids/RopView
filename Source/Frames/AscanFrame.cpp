@@ -8,30 +8,9 @@ QWidget* AscanFrame::createFrame() {
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    // setup for graphicviews
-
-    // slider int for logical function
-    QSlider* sliderx = new QSlider(Qt::Horizontal);
-    sliderx->setRange(0, 7000);
-    sliderx->setValue(0);
-    QObject::connect(sliderx, &QSlider::valueChanged, [=](int value) mutable {
-        x_level_ = static_cast<unsigned int>(value);
-        uiframe->refreshxyz();
-        });
-    QSlider* slidery = new QSlider(Qt::Horizontal);
-    slidery->setRange(0, 7000);
-    slidery->setValue(0);
-    QObject::connect(slidery, &QSlider::valueChanged, [=](int value) mutable {
-        y_level_ = static_cast<unsigned int>(value);
-        uiframe->refreshxyz();
-        });
-
-
     QVBoxLayout* layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->addWidget(graphicsView.get());
-    layout->addWidget(sliderx);
-    layout->addWidget(slidery);
     frame->setLayout(layout);
 
     return frame;
@@ -186,6 +165,7 @@ void AscanFrame::CreateAScan()
     // ********** PARAMETER PROCESSING **********
     lineSeries->clear();
     uint64_t zsize = scandat.AmplitudeAxes[0].Quantity;
+    uint64_t ysize = scandat.AmplitudeAxes[1].Quantity;
     uint64_t xsize = scandat.AmplitudeAxes[2].Quantity;
 
     QVector<QPointF> points;
@@ -195,7 +175,7 @@ void AscanFrame::CreateAScan()
     double maxY = std::numeric_limits<double>::min();
 
     for (uint64_t z = 0; z < zsize; ++z) {
-        uint64_t index = z * (xsize * scandat.AmplitudeAxes[1].Quantity) + curpt.y + curpt.x;
+        uint64_t index = z * (xsize * ysize) + curpt.y*xsize + curpt.x;
 
         if (index >= scandat.Amplitudes.size()) {
             sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(scandat.Amplitudes.size()));
@@ -203,17 +183,19 @@ void AscanFrame::CreateAScan()
         }
 
         int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
-        double percentAmplitude = samplingAmplitude / (32.768 );
+        double percentAmplitude = samplingAmplitude / (32768 / 100.0);
 
         minY = std::min(minY, percentAmplitude);
         maxY = std::max(maxY, percentAmplitude);
         points.append(QPointF(z, percentAmplitude));
 
     }
+    
+
     lineSeries->replace(points);
     // ********** DISPLAY **********
     // Auto-scale Y-axis based on data range
-    axisY->setRange(minY, maxY);
+    axisY->setRange(-150, 150);
 
     // Auto-scale X-axis
     axisX->setRange(0, zsize);
