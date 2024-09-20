@@ -11,16 +11,7 @@ QWidget* CscanFrame::createFrame() {
     graphicsView->setScene(&*scene);
     MouseGetPosXY(graphicsView);
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatioByExpanding);
-    // slider int for logical function
-    QSlider* slider = new QSlider(Qt::Horizontal);
-    slider->setRange(0,700);
-    slider->setValue(1);
-    QObject::connect(slider, &QSlider::valueChanged, [=](int value) mutable {
-        z_level_ = static_cast<unsigned int>(value);  
-        uiframe->refreshxyz();
-        }); 
     
-    layout->addWidget(slider);
     layout->addWidget(graphicsView.get());
     frame->setLayout(layout);
 
@@ -28,7 +19,7 @@ QWidget* CscanFrame::createFrame() {
 }
 
 void CscanFrame::update() {
-    if (!curpt.CheckIdx(-1, -1, z_level_)) {
+    if (!curpt.CheckIdx(-1, -1, 0)) {
         return;
     }    
     static bool first = true;
@@ -48,7 +39,12 @@ void CscanFrame::CreateXYScan() {
     xsize = scandat.AmplitudeAxes[2].Quantity;
     zsize = scandat.AmplitudeAxes[0].Quantity; 
 
-    cv::Mat orgimage(ysize, xsize, CV_8UC3);
+    if (orgimage) { orgimage.reset(); }
+    if (scaledImage) { scaledImage.reset(); }
+
+    scaledImage = std::make_unique<cv::Mat>();
+    orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
+
     std::vector<Color> everyColors = CreateColorPalette();
 
     for (uint64_t y = 0; y < ysize; ++y) {      // uint64_t x = 0; x < xsize; ++x
@@ -79,7 +75,7 @@ void CscanFrame::CreateXYScan() {
             double percentAmplitude = samplingAmplitude / (32768 / 100.0);*/
 
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
-            orgimage.at<cv::Vec3b>( y,x) = cv::Vec3b(color.B, color.G, color.R);
+            orgimage->at<cv::Vec3b>( y,x) = cv::Vec3b(color.B, color.G, color.R);
         }
     }
 
@@ -87,22 +83,21 @@ void CscanFrame::CreateXYScan() {
     int frameHeight = graphicsView->size().height();
 
     double frameRatio = static_cast<double>(frameWidth) / static_cast<double>(frameHeight);
-    double imageRatio = static_cast<double>(orgimage.cols) / static_cast<double>(orgimage.rows);
-    cv::Mat scaledImage;
+    double imageRatio = static_cast<double>(orgimage->cols) / static_cast<double>(orgimage->rows);
 
     if (frameRatio > imageRatio) {
-        int newWidth = static_cast<int>(orgimage.rows * frameRatio);
-        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage.rows), 0, 0, cv::INTER_LINEAR);
+        int newWidth = static_cast<int>(orgimage->rows * frameRatio);
+        cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, orgimage->rows), 0, 0, cv::INTER_LINEAR);
     }
     else {
-        int newHeight = static_cast<int>(orgimage.cols / frameRatio);
-        cv::resize(orgimage, scaledImage, cv::Size(orgimage.cols, newHeight), 0, 0, cv::INTER_LINEAR);
+        int newHeight = static_cast<int>(orgimage->cols / frameRatio);
+        cv::resize(*orgimage, *scaledImage, cv::Size(orgimage->cols, newHeight), 0, 0, cv::INTER_LINEAR);
     }
 
-    cv::GaussianBlur(scaledImage, scaledImage, cv::Size(5, 5), 0);
+    cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(5, 5), 0);
 
-    // std::shared_ptr<QImage> qImage = std::make_shared<QImage>(scaledImage.data, scaledImage.cols, scaledImage.rows, scaledImage.step, QImage::Format_RGB888);
-    std::shared_ptr<QImage> qImage = std::make_shared<QImage>(orgimage.data, orgimage.cols, orgimage.rows, orgimage.step, QImage::Format_RGB888);
+    std::shared_ptr<QImage> qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+    //std::shared_ptr<QImage> qImage = std::make_shared<QImage>(orgimage->data, orgimage->cols, orgimage->rows, orgimage->step, QImage::Format_RGB888);
     *qImage = qImage->rgbSwapped();
 
     QPixmap pixmap = QPixmap::fromImage(*qImage);
@@ -114,15 +109,35 @@ void CscanFrame::CreateXYScan() {
 
 void CscanFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
 {
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int x, int y) {
-        if (curpt.x < 0 || curpt.y < 0 || x > xsize || y > ysize) {
-            sttlogs->logCritical("Out of Range"); return;
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_y) {
+        auto scale_x = static_cast<double>(orgimage->cols) / static_cast<double>(scaledImage->cols);
+        auto scale_y = static_cast<double>(orgimage->rows) / static_cast<double>(scaledImage->rows);
+
+        int original_x = static_cast<int>(scaled_x * scale_x);
+        int original_y = static_cast<int>(scaled_y * scale_y);
+
+        if (original_y < 0 || original_x < 0 || original_x >= xsize || original_y >= ysize) {
+            sttlogs->logCritical("Out of Range");
+            return;
         }
-        curpt.x = x;
-        curpt.y = y;
+
+        curpt.x = original_x;
+        curpt.y = original_y;
+
         uiframe->refreshxyz();
         });
 }
+//void CscanFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
+//{
+//    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int x, int y) {
+//        if (curpt.x < 0 || curpt.y < 0 || x > xsize || y > ysize) {
+//            sttlogs->logCritical("Out of Range"); return;
+//        }
+//        curpt.x = x;
+//        curpt.y = y;
+//        uiframe->refreshxyz();
+//        });
+//}
 
 
 
@@ -169,24 +184,24 @@ void CscanFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
 //
 //    double frameRatio = static_cast<double>(frameWidth) / static_cast<double>(frameHeight);
 //
-//    double imageRatio = static_cast<double>(orgimage.cols) / static_cast<double>(orgimage.rows);
+//    double imageRatio = static_cast<double>(orgimage->cols) / static_cast<double>(orgimage->rows);
 //    cv::Mat scaledImage;
 //
 //    if (frameRatio > imageRatio) {
-//        int newWidth = static_cast<int>(orgimage.rows * frameRatio);
-//        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage.rows), 0, 0, cv::INTER_LINEAR);
+//        int newWidth = static_cast<int>(orgimage->rows * frameRatio);
+//        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage->rows), 0, 0, cv::INTER_LINEAR);
 //    }
 //    else {
 //        int newHeight = static_cast<int>(image.cols / frameRatio);
-//        cv::resize(orgimage, scaledImage, cv::Size(orgimage.cols, newHeight), 0, 0, cv::INTER_LINEAR);
+//        cv::resize(orgimage, scaledImage, cv::Size(orgimage->cols, newHeight), 0, 0, cv::INTER_LINEAR);
 //    }
 //    cv::GaussianBlur(scaledImage, scaledImage, cv::Size(5, 5), 0);
 //
 //
-//    std::shared_ptr<QImage> qImage = std::make_shared<QImage>(scaledImage.data, scaledImage.cols, scaledImage.rows, scaledImage.step, QImage::Format_RGB888);
+//    std::shared_ptr<QImage> qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
 //    *qImage = qImage->rgbSwapped();
 //
-//    std::shared_ptr<QImage> nsImage = std::make_shared<QImage>(orgimage.data, orgimage.cols, orgimage.rows, orgimage.step, QImage::Format_RGB888);
+//    std::shared_ptr<QImage> nsImage = std::make_shared<QImage>(orgimage->data, orgimage->cols, orgimage->rows, orgimage->step, QImage::Format_RGB888);
 //    *nsImage = nsImage->rgbSwapped();
 //
 //    return nsImage;

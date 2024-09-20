@@ -45,7 +45,11 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
     ysize = scandat.AmplitudeAxes[1].Quantity;
     xsize = scandat.AmplitudeAxes[2].Quantity;
 
-    cv::Mat orgimage(zsize, ysize, CV_8UC3);
+    if (orgimage) { orgimage.reset();}
+    if (scaledImage) { scaledImage.reset();  }
+
+    scaledImage = std::make_unique<cv::Mat>();
+    orgimage = std::make_unique<cv::Mat>(zsize, ysize, CV_8UC3);
     std::vector<Color> everyColors = CreateColorPalette();
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {
@@ -59,10 +63,9 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
             int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
             double percentAmplitude = samplingAmplitude / (32768 / 100.0);
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
-            orgimage.at<cv::Vec3b>(z, y) = cv::Vec3b(color.B, color.G, color.R);
+            orgimage->at<cv::Vec3b>(z, y) = cv::Vec3b(color.B, color.G, color.R);
         }
     }
-    cv::Mat scaledImage;
 
     int frameWidth = graphicsView->size().width();
     int frameHeight = graphicsView->size().height();
@@ -70,40 +73,50 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
     double frameRatio = static_cast<double>(frameWidth) / static_cast<double>(frameHeight);
     // scale images if necessary for exact position when clicking on it.
     /*if (frameRatio > 1.0) {
-        auto delta_rows = orgimage.cols / (static_cast<int>(frameRatio) * orgimage.rows);
-        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage.rows), 0, 0, cv::INTER_LINEAR);
+        auto delta_rows = orgimage->cols / (static_cast<int>(frameRatio) * orgimage->rows);
+        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage->rows), 0, 0, cv::INTER_LINEAR);
     }*/
-    double imageRatio = static_cast<double>(orgimage.cols) / static_cast<double>(orgimage.rows);
-
+    double imageRatio = static_cast<double>(orgimage->cols) / static_cast<double>(orgimage->rows);
+    
 
     if (frameRatio > imageRatio) {
-        int newWidth = static_cast<int>(orgimage.rows * frameRatio);
-        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage.rows), 0, 0, cv::INTER_LINEAR);
+        int newWidth = static_cast<int>(orgimage->rows * frameRatio);
+        cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, orgimage->rows), 0, 0, cv::INTER_LINEAR);
     }
     else {
-        int newHeight = static_cast<int>(orgimage.cols / frameRatio);
-        cv::resize(orgimage, scaledImage, cv::Size(orgimage.cols, newHeight), 0, 0, cv::INTER_LINEAR);
+        int newHeight = static_cast<int>(orgimage->cols / frameRatio);
+        cv::resize(*orgimage, *scaledImage, cv::Size(orgimage->cols, newHeight), 0, 0, cv::INTER_LINEAR);
     }
-    cv::GaussianBlur(orgimage, orgimage, cv::Size(5, 5), 0);
-    cv::GaussianBlur(scaledImage, scaledImage, cv::Size(5, 5), 0);
+    cv::GaussianBlur(*orgimage, *orgimage, cv::Size(5, 5), 0);
+    cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(5, 5), 0);
     
     //cv::GaussianBlur(orgimage, orgimage, cv::Size(5, 5), 0);
 
 
-    std::shared_ptr<QImage> qImage = std::make_shared<QImage>(orgimage.data, orgimage.cols, orgimage.rows, orgimage.step, QImage::Format_RGB888);
-    // std::shared_ptr<QImage> qImage = std::make_shared<QImage>(scaledImage.data, scaledImage.cols, scaledImage.rows, scaledImage.step, QImage::Format_RGB888);
+    //std::shared_ptr<QImage> qImage = std::make_shared<QImage>(orgimage->data, orgimage->cols, orgimage->rows, orgimage->step, QImage::Format_RGB888);
+    std::shared_ptr<QImage> qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
     *qImage = qImage->rgbSwapped();
     return qImage;
 }
 
 void BscanFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
 {
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int y, int z) {
-        if (curpt.z < 0 || curpt.y < 0 || z > zsize || y > ysize) {
-            sttlogs->logCritical("Out of Range"); return;
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_y, int scaled_z) {
+        auto scale_y = static_cast<double>(orgimage->cols) / static_cast<double>(scaledImage->cols);
+        auto scale_x = static_cast<double>(orgimage->rows) / static_cast<double>(scaledImage->rows);
+
+        int original_y = static_cast<int>(scaled_y * scale_y);
+        int original_z = static_cast<int>(scaled_z * scale_x);
+
+        if (original_y < 0 || original_z < 0 || original_z >= zsize || original_y >= ysize) {
+            sttlogs->logCritical("Out of Range");
+            return;
         }
-        curpt.y = y;
-        curpt.z = z;
+
+        curpt.y = original_y;
+        curpt.z = original_z;
+
         uiframe->refreshxyz();
         });
 }
+

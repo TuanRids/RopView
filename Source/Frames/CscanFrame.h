@@ -20,7 +20,9 @@ private:
     nmainUI::UIFrame* uiframe;
     uint64_t ysize, xsize, zsize;
 
-    unsigned int z_level_ = 0;
+    std::unique_ptr<cv::Mat> orgimage;
+    std::unique_ptr<cv::Mat> scaledImage;
+
 
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }

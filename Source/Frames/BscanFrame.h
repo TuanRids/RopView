@@ -18,6 +18,9 @@ private:
     std::shared_ptr<ZoomableGraphicsView> graphicsView;
     nmainUI::UIFrame* uiframe;
     uint64_t ysize, xsize, zsize;
+    std::unique_ptr<cv::Mat> orgimage;
+    std::unique_ptr<cv::Mat> scaledImage;
+
 
     unsigned int x_level_ = 0;
 public:
