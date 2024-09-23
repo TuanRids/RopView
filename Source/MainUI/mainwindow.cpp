@@ -111,7 +111,6 @@ QWidget* nmainUI::UIFrame::createAscanFrame() {
     QWidget* ascanWidget = new QWidget();
     QHBoxLayout* layout = new QHBoxLayout(ascanWidget);
 
-    auto aScanFrm = nFactoryFrame::crAscanFrm(this);
     nsubject->addObserver(aScanFrm);
     layout->addWidget(aScanFrm->createFrame());
 
