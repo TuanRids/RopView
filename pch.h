@@ -1,57 +1,83 @@
-// Standard C++ headers
-#include <iostream>      // Standard input/output streams
-#include <fstream>       // File input/output streams
-#include <memory>        // Smart pointers (unique_ptr, shared_ptr)
-#include <string>        // String operations
-#include <vector>        // Vector container
-#include <algorithm>     // Common algorithms (sort, find, etc.)
-#include <cassert>       // Assert macro for debugging
-#include <cstdio>        // C-style I/O functions
-#include <cstdlib>       // C standard library functions (exit, malloc, etc.)
-#include <chrono>        // Time-related utilities
-
-// Windows-specific headers
-#include <windows.h>     // Windows API (for system-level operations)
-
-// JSON Parsing Library (nlohmann)
-#include "nlohmann/json.hpp"  // For parsing JSON data
 #ifndef PCH_H
 #define PCH_H
-// Qt Framework headers (for building UI components)
-#include <QApplication>      // Application management
-#include <QTextEdit>         // Multi-line text editor widget
-#include <QWidget>           // Base class for all UI objects
-#include <QPushButton>       // Button widget
-#include <QMainWindow>       // Main window framework
-#include <QVBoxLayout>       // Vertical box layout manager
-#include <QLabel>            // Label widget for displaying text
-#include <QSplitter>         // Widget for splitting areas horizontally/vertically
-#include <QFrame>            // Frame widget for grouping and styling widgets
-#include <QSettings>         // Settings handler (for saving/restoring application state)
-#include <QObject>           // Base class for all Qt objects, provides signal/slot mechanism
-#include <QString>           // Qt string class
-#include <QFile>             // File I/O in Qt
-#include <QTextStream>       // Stream for reading/writing text files
-#include <QMutex>            // Mutex for thread synchronization
-#include <QTime>             // Time representation in Qt
 
-// Additional Qt UI components
-#include <QComboBox>         // Dropdown list widget
-#include <QSlider>           // Slider widget for selecting a range
-#include <QLineEdit>         // Single-line text editor widget
-#include <QCheckBox>         // Checkable box widget
-#include <QRadioButton>      // Radio button widget
-#include <QDockWidget>		 // Dock widget
-#include <QSize>			 // Qsize
-#include <QStyleFactory>	 // QStyleFactory
-#include <QGraphicsTextItem> // QGraphicsTextItem
+// ======== Standard C++ Headers ============
+#include <iostream>
+#include <fstream>
+#include <memory>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <chrono>
 
-// Qt Charts headers
+// ======== Windows-Specific Headers ============
+#include <windows.h>
+
+// ======== JSON Parsing Library ============
+#include "nlohmann/json.hpp"
+
+// ======== QT UI ============
+#include <QApplication>
+#include <QTextEdit>
+#include <QWidget>
+#include <QPushButton>
+#include <QMainWindow>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QSplitter>
+#include <QFrame>
+#include <QSettings>
+#include <QObject>
+#include <QString>
+#include <QFile>
+#include <QTextStream>
+#include <QMutex>
+#include <QTime>
+#include <QTabWidget>
+#include <QMessageBox>
+#include <QFileDialog>
+
+// ======== Additional QT UI Components ============
+#include <QComboBox>
+#include <QSlider>
+#include <QLineEdit>
+#include <QCheckBox>
+#include <QRadioButton>
+#include <QDockWidget>
+#include <QSize>
+#include <QStyleFactory>
+#include <QGraphicsTextItem>
+#include <QSpinBox>
+#include <QToolTip>
+#include <QMenu>
+#include <QGroupBox>
+#include <qcustomplot.h>
+#include <QMenuBar>
+#include <QMenu>
+
+// ======== Qt Charts ============
 #include <QtCharts/qchart.h>
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
 #include <QtCharts/QValueAxis>
 
-// Project-specific headers
-#include <instrumentation/Instrumentation.h>  // Instrumentation for performance tracking
+// ======== Project-Specific Headers ============
+#include <instrumentation/Instrumentation.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+// ======== QTVulkan ============
+#include <QVulkanWindow>
+#include <QVulkanFunctions>
+#include <QVulkanFunctions>
+#include <QApplication>
+#include <QVBoxLayout>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QLCDNumber>
+
 #endif // PCH_H

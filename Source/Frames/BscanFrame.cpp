@@ -1,44 +1,54 @@
 #include "BscanFrame.h"
 
 QWidget* BscanFrame::createFrame() {
-    scene = std::make_shared<QGraphicsScene>();
-    graphicsView = std::make_shared<ZoomableGraphicsView>();  
-    graphicsView->setScene(&*scene);
+    if (!graphicsView) {
+        graphicsView = std::make_shared<ZoomableGraphicsView>();
+    }
+    if (!scene) {
+        scene = std::make_shared<QGraphicsScene>();
+    }
+    graphicsView->setScene(scene.get());
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatioByExpanding);
     MouseGetPosXY(graphicsView);
-    QSlider* slider = new QSlider(Qt::Horizontal);
-    slider->setRange(0, 700);
-    slider->setValue(0);
-    QObject::connect(slider, &QSlider::valueChanged, [=](int value) mutable {
-        x_level_ = static_cast<unsigned int>(value);
-        uiframe->refreshxyz();
-        });
 
+    // Main layout
     QVBoxLayout* layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->addWidget(graphicsView.get());
-    layout->addWidget(slider);
     frame->setLayout(layout);
+    
+    //// Container to hold both graphicsView and navigator
+    //QWidget* containerWidget = new QWidget(frame);
+    //containerWidget->setLayout(layout);
+    //
+    //// Navigator Mini View
+    //navigatorView = new QGraphicsView(containerWidget);
+    //navigatorView->setScene(scene.get());
+    //navigatorView->setFixedSize(200, 150);
+    //navigatorView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    //navigatorView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    //
+    //// Absolute positioning for navigatorView in the top right corner
+    //navigatorView->setGeometry(containerWidget->width() - navigatorView->width() - 10, 10, 200, 150);
+    //navigatorView->raise();  // Make sure it's on top of the graphicsView
+    //return containerWidget;
 
     return frame;
+
 }
 
 
-void BscanFrame::update() {    
-    std::shared_ptr<QImage> nimg = CreateYZScan();
-    if (nimg && !nimg->isNull()) {
-        QPixmap pixmap = QPixmap::fromImage(*nimg);
-        scene->clear();
-        scene->addPixmap(pixmap);
-        graphicsView->update();
-        sttlogs->logInfo("Bscan [x] at: " + std::to_string(curpt.x) + " position.");
-    }
+
+void BscanFrame::update() {   
+    if (isPanningLocal) { return; }
+    CreateYZScan();   
+    render_graphic();
 }
 
 
-std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
+void BscanFrame::CreateYZScan() {
     if (scandat.Amplitudes.empty()) {
-        return nullptr;
+        return;
     }
 
     zsize = scandat.AmplitudeAxes[0].Quantity;
@@ -57,7 +67,7 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
 
             if (index >= scandat.Amplitudes.size()) {
                 sttlogs->logWarning("[Bscan] Out of range data: " + std::to_string(index) + " - " + std::to_string(scandat.Amplitudes.size()));
-                return nullptr;
+                return ;
             }
 
             int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
@@ -67,17 +77,82 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
         }
     }
 
+}
+std::pair<int, int> BscanFrame::calculateOriginalPos(int scaled_y, int scaled_z) {
+    if (orgimage == nullptr || scaledImage == nullptr) {
+        throw std::exception();
+    }
+    auto scale_y = static_cast<double>(orgimage->cols) / static_cast<double>(scaledImage->cols);
+    auto scale_z = static_cast<double>(orgimage->rows) / static_cast<double>(scaledImage->rows);
+
+    int original_y = static_cast<int>(scaled_y * scale_y);
+    int original_z = static_cast<int>(scaled_z * scale_z);
+
+    if (original_y < 0 || original_z < 0 || original_z >= zsize || original_y >= ysize) {
+        throw std::exception();
+    }
+    return { original_y, original_z };
+}
+
+
+void BscanFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
+{
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseMoved, [=](int scaled_y, int scaled_z) {
+        try
+        {
+            auto [original_y, original_z] = calculateOriginalPos(scaled_y, scaled_z);
+
+            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(curpt.x).arg(original_y).arg(original_z);
+            QToolTip::showText(QCursor::pos(), tooltipText);
+
+        }
+        catch (const std::exception& e) { (void)0; }
+        });
+
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_y, int scaled_z) {
+        try
+        {
+            auto [original_y, original_z] = calculateOriginalPos(scaled_y, scaled_z);
+
+            curpt.y = original_y;
+            curpt.z = original_z;
+            isPanning = false;
+            uiframe->refreshxyz();
+        }
+		catch (const std::exception& e) { (void)0; }
+        });
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseDragClicked, [=](int scaled_y, int scaled_z) {
+        try
+        {
+            auto [original_y, original_z] = calculateOriginalPos(scaled_y, scaled_z);
+
+            curpt.y = original_y;
+            curpt.z = original_z;
+            isPanning = true;
+            isPanningLocal = true;
+            uiframe->refreshxyz();
+        }
+        catch (const std::exception& e) { (void)0; }
+        });
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseStopDragClicked, [=]() {
+        try
+        {
+            isPanning = false;
+            isPanningLocal = false;
+            uiframe->refreshxyz();
+        }
+        catch (const std::exception& e) { (void)0; }
+        });
+}
+
+void BscanFrame::render_graphic()
+{
+
     int frameWidth = graphicsView->size().width();
     int frameHeight = graphicsView->size().height();
 
     double frameRatio = static_cast<double>(frameWidth) / static_cast<double>(frameHeight);
-    // scale images if necessary for exact position when clicking on it.
-    /*if (frameRatio > 1.0) {
-        auto delta_rows = orgimage->cols / (static_cast<int>(frameRatio) * orgimage->rows);
-        cv::resize(orgimage, scaledImage, cv::Size(newWidth, orgimage->rows), 0, 0, cv::INTER_LINEAR);
-    }*/
     double imageRatio = static_cast<double>(orgimage->cols) / static_cast<double>(orgimage->rows);
-    
 
     if (frameRatio > imageRatio) {
         int newWidth = static_cast<int>(orgimage->rows * frameRatio);
@@ -87,36 +162,20 @@ std::shared_ptr<QImage> BscanFrame::CreateYZScan() {
         int newHeight = static_cast<int>(orgimage->cols / frameRatio);
         cv::resize(*orgimage, *scaledImage, cv::Size(orgimage->cols, newHeight), 0, 0, cv::INTER_LINEAR);
     }
-    cv::GaussianBlur(*orgimage, *orgimage, cv::Size(5, 5), 0);
+    // high resolution
+    if (!isPanning || SettingsManager::getInstance()->getResolutionBscan())
+    { cv::resize(*scaledImage, *scaledImage, cv::Size(scaledImage->cols * uiframe->get_resolution(), scaledImage->rows * uiframe->get_resolution()), 0, 0, cv::INTER_LANCZOS4); }
+    else // low resolution
+    { cv::resize(*scaledImage, *scaledImage, cv::Size(scaledImage->cols, scaledImage->rows), 0, 0, cv::INTER_NEAREST); }
     cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(5, 5), 0);
-    
-    //cv::GaussianBlur(orgimage, orgimage, cv::Size(5, 5), 0);
 
-
-    //std::shared_ptr<QImage> qImage = std::make_shared<QImage>(orgimage->data, orgimage->cols, orgimage->rows, orgimage->step, QImage::Format_RGB888);
-    std::shared_ptr<QImage> qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+    auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
     *qImage = qImage->rgbSwapped();
-    return qImage;
-}
 
-void BscanFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
-{
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_y, int scaled_z) {
-        auto scale_y = static_cast<double>(orgimage->cols) / static_cast<double>(scaledImage->cols);
-        auto scale_x = static_cast<double>(orgimage->rows) / static_cast<double>(scaledImage->rows);
-
-        int original_y = static_cast<int>(scaled_y * scale_y);
-        int original_z = static_cast<int>(scaled_z * scale_x);
-
-        if (original_y < 0 || original_z < 0 || original_z >= zsize || original_y >= ysize) {
-            sttlogs->logCritical("Out of Range");
-            return;
-        }
-
-        curpt.y = original_y;
-        curpt.z = original_z;
-
-        uiframe->refreshxyz();
-        });
+    QPixmap pixmap = QPixmap::fromImage(*qImage);
+    scene->clear();
+    scene->addPixmap(pixmap);
+    graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+    graphicsView->update();
 }
 

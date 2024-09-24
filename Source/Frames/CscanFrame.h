@@ -14,16 +14,18 @@ class CscanFrame : public nFrame, public nObserver {
 private:
     void CreateXYScan();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
-
+    
+    void render_graphic();
     std::shared_ptr<QGraphicsScene> scene;
     std::shared_ptr<ZoomableGraphicsView> graphicsView;
     nmainUI::UIFrame* uiframe;
     uint64_t ysize, xsize, zsize;
+    std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
 
     std::unique_ptr<cv::Mat> orgimage;
     std::unique_ptr<cv::Mat> scaledImage;
-
-
+    QGraphicsView* navigatorView;
+    bool isLocalPanning = false;
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;

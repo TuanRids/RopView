@@ -7,12 +7,13 @@
 #include "..\Source\MainUI\ObserverMgr.h"
 #include "..\Source\MainUI\mainwindow.h"
 #include "..\Source\event\ZoomableGraphicsView.h"
-
+#include "..\MainUI\SettingPara.h"
 // Graphics Frame
 class BscanFrame : public nFrame, public nObserver {
 private:
-    std::shared_ptr<QImage> CreateYZScan();
+    void CreateYZScan();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
+    void render_graphic();
 
     std::shared_ptr<QGraphicsScene> scene;
     std::shared_ptr<ZoomableGraphicsView> graphicsView;
@@ -20,9 +21,10 @@ private:
     uint64_t ysize, xsize, zsize;
     std::unique_ptr<cv::Mat> orgimage;
     std::unique_ptr<cv::Mat> scaledImage;
+    std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
 
-
-    unsigned int x_level_ = 0;
+    bool isPanningLocal = false;
+    QGraphicsView* navigatorView;
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;

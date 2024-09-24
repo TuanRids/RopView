@@ -7,7 +7,7 @@
 AscanData nFrame::scandat;
 nmainUI::statuslogs* nFrame::sttlogs = nullptr;
 curpt3d nFrame::curpt { 0,0,0 };
-
+bool nFrame::isPanning = false;
 std::shared_ptr<nLogFrame> nFactoryFrame::crLogFrm() {
     return std::make_unique<nLogFrame>();
 }

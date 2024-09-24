@@ -35,9 +35,11 @@ public:
 	virtual QWidget* createFrame() = 0;
 	virtual ~nFrame() = default;	
     void setScandat(const AscanData& dataa) { scandat = dataa; }
+    void clearScandat() { scandat = AscanData(); }
     void setSttlogs() { if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); } }
 
 protected:
+    static bool isPanning ;
     static curpt3d curpt;
 	static AscanData scandat;
     static nmainUI::statuslogs* sttlogs ;
@@ -66,7 +68,7 @@ protected:
         colors.emplace_back(Color{ 145, 12, 29 });   // red
 
         // Number of interpolation points between each pair of key colors.
-        size_t interpolationPoints = 7;
+        size_t interpolationPoints{ 7 };
         double f = 1.0 / interpolationPoints;   // Fractional step size for interpolation.
 
         // Interpolate between each pair of consecutive key colors.

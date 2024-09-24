@@ -1,5 +1,5 @@
 #include "AscanFrame.h"
-
+#include "..\pch.h"
 QWidget* AscanFrame::createFrame() {
     scene = std::make_shared<QGraphicsScene>();
     graphicsView = std::make_shared<QGraphicsView>();
@@ -32,7 +32,6 @@ void AscanFrame::update() {
         scene->addPixmap(pixmap);
         graphicsView->update();
     }*/
-    sttlogs->logInfo("Ascan [x,y] updated at: " + std::to_string(curpt.x) + " " + std::to_string(curpt.y)  + " position.");
 
 }
 
@@ -105,8 +104,6 @@ void AscanFrame::CreateAScan()
     // Pen for line series
     static QPen linePen(QColor(0, 102, 204));
 
-    // Grid and tick settings
-
     // ********** PARAMETER VALIDATION **********
     if (scandat.Amplitudes.empty()) {
         if (sttlogs) {
@@ -126,7 +123,7 @@ void AscanFrame::CreateAScan()
         // Attach series and axes
         chart->addSeries(lineSeries);
         chart->legend()->hide();
-        chart->addAxis(axisX, Qt::AlignBottom);
+        chart->addAxis(axisX, Qt::AlignTop);
         chart->addAxis(axisY, Qt::AlignLeft);
         lineSeries->attachAxis(axisX);
         lineSeries->attachAxis(axisY);
@@ -134,8 +131,8 @@ void AscanFrame::CreateAScan()
         lineSeries->setPointsVisible(false);
 
         // Axis settings
-        axisX->setTitleText("Z Position");
-        axisY->setTitleText("Amplitude");
+        //axisX->setTitleText("Amplitude");
+        //axisY->setTitleText("Z Position");
         axisX->setTitleBrush(QBrush(QColor(Qt::darkCyan)));
 		axisY->setTitleBrush(QBrush(QColor(Qt::darkCyan)));
         axisY->setLabelsColor(QColor(Qt::cyan));
@@ -145,19 +142,21 @@ void AscanFrame::CreateAScan()
         axisY->setLabelsColor(QColor(Qt::cyan));
         axisX->setGridLineColor(QColor(80,80,80)); // Set grid line color to gray
         axisY->setGridLineColor(QColor(80, 80, 80));
-        axisY->setLabelFormat("%06.2f");
+        axisX->setLabelFormat("%02i");
         axisX->setTickCount(10);  // Optional: Customize tick count
         axisY->setTickCount(10);
 
         // Chart settings
         chart->setBackgroundBrush(Qt::NoBrush);  // Transparent background
+        chart->setMargins(QMargins(0, 0, 0, 0));  // No margin around the chart
         chartView = new QChartView(chart);
         chartView->setStyleSheet("background: transparent");
         chartView->setAttribute(Qt::WA_TranslucentBackground);
         chartView->setRenderHint(QPainter::Antialiasing, true);
-        chartView->setMinimumSize(800, 600);
+        chartView->setMinimumSize(1900, 1080);
         chartView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         chartView->setRubberBand(QChartView::RectangleRubberBand);
+        chartView->setRenderHint(QPainter::Antialiasing, true);
 
         scene->addWidget(chartView);
     }
@@ -187,7 +186,7 @@ void AscanFrame::CreateAScan()
 
         minY = std::min(minY, percentAmplitude);
         maxY = std::max(maxY, percentAmplitude);
-        points.append(QPointF(z, percentAmplitude));
+        points.append(QPointF( percentAmplitude,z));
 
     }
     
@@ -195,16 +194,24 @@ void AscanFrame::CreateAScan()
     lineSeries->replace(points);
     // ********** DISPLAY **********
     // Auto-scale Y-axis based on data range
-    axisY->setRange(-150, 150);
+    axisX->setRange(minY, 100);
 
     // Auto-scale X-axis
-    axisX->setRange(0, zsize);
-
+    axisY->setRange(0, zsize);
+    axisY->setReverse(true);
     // Adjust aspect ratio based on the graphicsView's size
-    int viewWidth = graphicsView->width();
-    int viewHeight = graphicsView->height();
+    int viewWidth = graphicsView->width()*1.0;
+    int viewHeight = graphicsView->height() * 1.0;
     double aspectRatio = static_cast<double>(viewWidth) / static_cast<double>(viewHeight);
     chartView->setFixedSize(viewWidth, viewHeight);
+    chartView->setGeometry(-10, 10, viewWidth, viewHeight);  // Adjust based on desired position
 
     graphicsView->update();
+    // Logging coordinates
+    if (!isPanning)
+    {
+        sttlogs->logInfo("Coord x: " + std::to_string(curpt.x) + " - Coord y: " + std::to_string(curpt.y) + " Coord z: " + std::to_string(curpt.z) + ".");
+    }
 }
+
+

@@ -21,6 +21,7 @@ private:
     
     std::shared_ptr<QGraphicsScene> scene;
     std::shared_ptr<QGraphicsView> graphicsView;
+
     QChart* chart;
     QLineSeries* lineSeries;
     QChartView* chartView;

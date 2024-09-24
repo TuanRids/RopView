@@ -26,24 +26,31 @@ find_package(OpenCV CONFIG REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qt6Charts REQUIRED)
 find_package(CUDA REQUIRED)
+find_package(Vulkan REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_ARCHITECTURES 75) # adjust based on our architecture
 # Add source to this project's executable.
-file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu")
+file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu" "Source/*.qrc")
 
 # Add the header files that contain Q_OBJECT
 set(HEADER_FILES 
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/event/ZoomableGraphicsView.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/MainUI/mainwindow.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Model3D/MainViewport.h
+
 )
 
 
 # Use qt6_wrap_cpp to process the headers with Q_OBJECT
 qt6_wrap_cpp(MOC_SOURCES ${HEADER_FILES})
+qt_add_resources(RopView_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shader/shaders.qrc)
+
+
 
 # Combine all sources and moc-generated sources
-add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} Source/Validate/fileformat.rc )
+add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc )
 
 # Add precompiled header
 target_precompile_headers(RopView PRIVATE "pch.h")
@@ -56,6 +63,8 @@ target_link_libraries(RopView PRIVATE ${OpenCV_LIBS})
 target_link_libraries(RopView PRIVATE opencv_ml opencv_dnn opencv_core opencv_flann)
 target_link_libraries(RopView PRIVATE Qt6::Widgets)
 target_link_libraries(RopView PRIVATE Qt6::Charts)
+target_link_libraries(RopView PRIVATE Vulkan::Vulkan)
+target_link_libraries(RopView PRIVATE glm::glm)
 #target_link_libraries(RopView CUDA::cudart)
 
 set(QT_PLUGIN_PATH "C:/vcpkg/vcpkg/installed/x64-windows/Qt6/plugins/platforms")

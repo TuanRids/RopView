@@ -9,15 +9,15 @@ public:
 	virtual ~nObserver() = default;
 };
 
+// Free to create and call notify anywhere
 class nSubject {
 private:
-	std::vector<std::shared_ptr<nObserver>> observers;
+	std::vector<std::shared_ptr<nObserver>> observers; // Static observers
 public:
 	void addObserver(const std::shared_ptr<nObserver>& a_object)
 	{
 		observers.push_back(a_object);
 	}
-
 
 	void notify() {
 		for (const auto& object : observers) {
@@ -25,8 +25,6 @@ public:
 				object->update();
 			}
 		}
-
-
 	}
 };
 
