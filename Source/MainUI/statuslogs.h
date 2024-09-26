@@ -11,21 +11,21 @@ namespace nmainUI {
             return instance;
         }
 
-        void initialize(QTextEdit* logOutputWidget) {
-            if (!this->logOutputWidget) {
-                this->logOutputWidget = logOutputWidget;
-                logOutputWidget->setReadOnly(true);
+        void initialize(QTextEdit* plogOutputWidget) {
+            if (!this->plogOutputWidget) {
+                this->plogOutputWidget = plogOutputWidget;
+                plogOutputWidget->setReadOnly(true);
             }
         }
 
         void addLogMessage(const QString& message, const QColor& color) {
-            QMutexLocker locker(&mutex);
-            if (logOutputWidget) {
-                logOutputWidget->setTextColor(color);  
-                logOutputWidget->append(message);  
+            QMutexLocker locker(&mtx);
+            if (plogOutputWidget) {
+                plogOutputWidget->setTextColor(color);  
+                plogOutputWidget->append(message);  
             }
-            if (logFile.isOpen()) {
-                QTextStream out(&logFile);
+            if (filelog.isOpen()) {
+                QTextStream out(&filelog);
                 out << message << "\n";
             }
         }
@@ -52,27 +52,27 @@ namespace nmainUI {
         }
 
         void clearLogs() {
-            QMutexLocker locker(&mutex);
-            if (logOutputWidget) {
-                logOutputWidget->clear();
+            QMutexLocker locker(&mtx);
+            if (plogOutputWidget) {
+                plogOutputWidget->clear();
             }
         }
 
         void startLoggingToFile() {
-            if (!filePath) { filePath = std::make_unique<QString>("application.log"); }
-            QMutexLocker locker(&mutex);
-            if (!logFile.isOpen()) {
-                logFile.setFileName(*filePath);
-                if (!logFile.open(QIODevice::Append | QIODevice::Text)) {
+            if (!upFilePath) { upFilePath = std::make_unique<QString>("application.log"); }
+            QMutexLocker locker(&mtx);
+            if (!filelog.isOpen()) {
+                filelog.setFileName(*upFilePath);
+                if (!filelog.open(QIODevice::Append | QIODevice::Text)) {
                     logCritical("Unable to open log file for writing.");
                 }
             }
         }
 
         void stopLoggingToFile() {
-            QMutexLocker locker(&mutex);
-            if (logFile.isOpen()) {
-                logFile.close();
+            QMutexLocker locker(&mtx);
+            if (filelog.isOpen()) {
+                filelog.close();
             }
         }
 
@@ -84,10 +84,10 @@ namespace nmainUI {
         statuslogs(const statuslogs&) = delete;
         statuslogs& operator=(const statuslogs&) = delete;
 
-        QTextEdit* logOutputWidget = nullptr;
-        QFile logFile;
-        QMutex mutex;
-        std::unique_ptr<QString> filePath;
+        QTextEdit* plogOutputWidget = nullptr;
+        QFile filelog;
+        QMutex mtx;
+        std::unique_ptr<QString> upFilePath;
     };
 
 }

@@ -45,3 +45,32 @@ void VulkanWindow::GetDeviceInfo()
 
     nmainUI::statuslogs::getinstance().logInfo(info.toStdString());
 }
+void VulkanWindow::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::RightButton) {
+        isRightMouseButtonPressed = true;
+        lastMousePosition = event->pos();
+    }
+}
+
+void VulkanWindow::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::RightButton) {
+        isRightMouseButtonPressed = false;
+    }
+}
+
+void VulkanWindow::mouseMoveEvent(QMouseEvent* event)
+{
+    if (isRightMouseButtonPressed) {
+        QPoint currentPosition = event->pos();
+        QPoint delta = currentPosition - lastMousePosition;
+        lastMousePosition = currentPosition;
+
+        // G?i updateRotation t? TriangleRenderer thông qua getRenderer()
+        if (getRenderer()) {
+            getRenderer()->updateRotation(delta.x(), delta.y());
+        }
+    }
+
+}

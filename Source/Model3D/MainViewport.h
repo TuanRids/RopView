@@ -11,12 +11,24 @@ class VulkanWindow : public QVulkanWindow
     Q_OBJECT
 
 public:
-    // auto generated
-    QVulkanWindowRenderer* createRenderer() override {return new TriangleRenderer(this, 1); };
+    VulkanWindow() : m_renderer(nullptr) {}
+
+    QVulkanWindowRenderer* createRenderer() override
+    {
+        m_renderer = new TriangleRenderer(this, 1);
+        return m_renderer;
+    }
+
+    TriangleRenderer* getRenderer() const { return m_renderer; }
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+
 private:
     void GetDeviceInfo();
-signals: // no need to declare for the signals
-    void frameQueued(int colorValue);
+    QPoint lastMousePosition;
+    bool isRightMouseButtonPressed = false;
+    TriangleRenderer* m_renderer;
 };
-
-

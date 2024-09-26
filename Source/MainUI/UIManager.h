@@ -31,7 +31,6 @@ namespace nmainUI {
         void saveWidgetState(QWidget* widget);
         void restoreWidgetState(QWidget* widget);
     protected:
-        std::unique_ptr<QSettings> settings;
         void onNewFile() {};
         void onOpenFile() {};
         void onSaveFile() {};

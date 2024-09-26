@@ -12,10 +12,10 @@ public:
     }
 
     // Getters
-    bool getResolutionBscan() const { return highResolutionBscan; }
+    bool getResolutionBscan() const { return bhighResBscan; }
 
     // Setters
-    void setResolutionBscan(bool value) { highResolutionBscan = value; }
+    void setResolutionBscan(bool value) { bhighResBscan = value; }
 
     // Load/Save settings to registry (Windows specific)
     void saveToRegistry();
@@ -38,7 +38,7 @@ private:
 
     static SettingsManager* instance;  // Singleton instance
     // variables
-    bool highResolutionBscan ;
+    bool bhighResBscan ;
 };
 
 
