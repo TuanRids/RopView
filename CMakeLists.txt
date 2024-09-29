@@ -28,7 +28,8 @@ find_package(Qt6Charts REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(glm CONFIG REQUIRED)
-
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_ARCHITECTURES 75) # adjust based on our architecture
 # Add source to this project's executable.
@@ -65,6 +66,8 @@ target_link_libraries(RopView PRIVATE Qt6::Widgets)
 target_link_libraries(RopView PRIVATE Qt6::Charts)
 target_link_libraries(RopView PRIVATE Vulkan::Vulkan)
 target_link_libraries(RopView PRIVATE glm::glm)
+target_link_libraries(RopView PRIVATE PkgConfig::libusb)
+
 #target_link_libraries(RopView CUDA::cudart)
 
 set(QT_PLUGIN_PATH "C:/vcpkg/vcpkg/installed/x64-windows/Qt6/plugins/platforms")

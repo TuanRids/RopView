@@ -2,7 +2,39 @@
 static const int UNIFORM_DATA_SIZE = 16 * sizeof(float);
 int ResourceBuilder::concurrentFrameCount = 0;
 
-static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
+#include <vulkan/vulkan.h>
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData) {
+
+    std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+    return VK_FALSE;
+}
+
+void setupDebugMessenger(QVulkanInstance& vulkanInstance) {
+    VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                 VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                 VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                             VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                             VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    createInfo.pfnUserCallback = debugCallback;
+
+    VkDebugUtilsMessengerEXT debugMessenger;
+    PFN_vkCreateDebugUtilsMessengerEXT func =
+        (PFN_vkCreateDebugUtilsMessengerEXT)vulkanInstance.getInstanceProcAddr("vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        func(vulkanInstance.vkInstance(), &createInfo, nullptr, &debugMessenger);
+    }
+}
+
+
+inline VkDeviceSize ResourceBuilder::aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
     return (v + byteAlign - 1) & ~(byteAlign - 1);
 }
@@ -13,79 +45,83 @@ ResourceBuilder& ResourceBuilder::createBuffer(QVulkanWindow* m_VulWindow, Mesh&
     VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 
     const VkDeviceSize uniAlign = m_VulWindow->physicalDeviceProperties()->limits.minUniformBufferOffsetAlignment;
-    bufin->vertexAllocSize = aligned(gmesh.vertices.size() * sizeof(Vertex), uniAlign);
-    bufin->indexAllocSize = aligned(gmesh.indices.size() * sizeof(uint16_t), uniAlign);
-    bufin->uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
+    gmesh.vertexAllocSize = aligned(gmesh.vertices.size() * sizeof(Vertex), uniAlign);
+    gmesh.indexAllocSize = aligned(gmesh.indices.size() * sizeof(uint16_t), uniAlign);
+    gmesh.uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
 
-    bufInfo.size = bufin->vertexAllocSize + bufin->indexAllocSize + concurrentFrameCount * bufin->uniformAllocSize;
-    bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    VkResult result = m_deviFunc->vkCreateBuffer(m_device, &bufInfo, nullptr, &bufin->buffer);
+    bufInfo.size = gmesh.vertexAllocSize + gmesh.indexAllocSize + concurrentFrameCount * gmesh.uniformAllocSize;
+    bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    bufInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkResult result = m_deviFunc->vkCreateBuffer(m_device, &bufInfo, nullptr, &gmesh.buffer);
     if (result != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create vertex buffer.");
-    }
-
-    VkBufferCreateInfo indexBufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    indexBufferInfo.size = bufin->indexAllocSize;
-    indexBufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    result = m_deviFunc->vkCreateBuffer(m_device, &indexBufferInfo, nullptr, &bufin->idbuffer);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create index buffer.");
+        throw std::runtime_error("Failed to create buffer.");
     }
 
     return *this;
-}
 
+}
 
 ResourceBuilder& ResourceBuilder::allocateMemory(QVulkanWindow* m_VulWindow, Mesh& gmesh)
 {
-    // Alloc and bind vertex and index buffer memory
+
+    // Allocate bind vertex buffer memory
     VkMemoryRequirements memReq = {};
-    m_deviFunc->vkGetBufferMemoryRequirements(m_device, bufin->buffer, &memReq);
-    VkMemoryAllocateInfo memAllocInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, memReq.size, m_VulWindow->hostVisibleMemoryIndex() };
+    m_deviFunc->vkGetBufferMemoryRequirements(m_device, gmesh.buffer, &memReq);
 
-    VkResult result = m_deviFunc->vkAllocateMemory(m_device, &memAllocInfo, nullptr, &bufin->memory);
-    if (result != VK_SUCCESS) { throw std::runtime_error("Failed to allocate memory."); }
-
-    result = m_deviFunc->vkBindBufferMemory(m_device, bufin->buffer, bufin->memory, 0);
-    if (result != VK_SUCCESS) { throw std::runtime_error("Failed to bind vertex buffer memory."); }
-
-    // Allocate index buffer memory
-    m_deviFunc->vkGetBufferMemoryRequirements(m_device, bufin->idbuffer, &memReq);
+    VkMemoryAllocateInfo memAllocInfo = {};
+    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     memAllocInfo.allocationSize = memReq.size;
-    result = m_deviFunc->vkAllocateMemory(m_device, &memAllocInfo, nullptr, &bufin->indexmemory);
-    if (result != VK_SUCCESS) { throw std::runtime_error("Failed to allocate index buffer memory."); }
+    memAllocInfo.memoryTypeIndex = m_VulWindow->hostVisibleMemoryIndex();
 
-    result = m_deviFunc->vkBindBufferMemory(m_device, bufin->idbuffer, bufin->indexmemory, bufin->indexAllocSize);  // Bind after vertex buffer
-    if (result != VK_SUCCESS) { throw std::runtime_error("Failed to bind index buffer memory."); }
+
+    VkResult result = m_deviFunc->vkAllocateMemory(m_device, &memAllocInfo, nullptr, &gmesh.memory);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate memory.");
+    }
+
+    result = m_deviFunc->vkBindBufferMemory(m_device, gmesh.buffer, gmesh.memory, 0);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to bind buffer memory.");
+    }
+
 
     // Map and copy vertex data
     quint8* p = nullptr;
-    result = m_deviFunc->vkMapMemory(m_device, bufin->memory, 0, memReq.size, 0, reinterpret_cast<void**>(&p));
+    result = m_deviFunc->vkMapMemory(m_device, gmesh.memory, 0, gmesh.vertexAllocSize, 0, reinterpret_cast<void**>(&p));
+    //result = m_deviFunc->vkMapMemory(m_device, gmesh.memory, 0, gmesh.vertexAllocSize + gmesh.indexAllocSize, 0, reinterpret_cast<void**>(&p));
     if (result != VK_SUCCESS) { throw std::runtime_error("Failed to map vertex memory."); }
     memcpy(p, gmesh.vertices.data(), gmesh.vertices.size() * sizeof(Vertex));
-    m_deviFunc->vkUnmapMemory(m_device, bufin->memory);
+    m_deviFunc->vkUnmapMemory(m_device, gmesh.memory);
 
     // Map and copy index data (right after vertex data)
-    result = m_deviFunc->vkMapMemory(m_device, bufin->indexmemory, bufin->indexAllocSize, gmesh.indices.size(), 0, reinterpret_cast<void**>(&p));
+    result = m_deviFunc->vkMapMemory(m_device, gmesh.memory, gmesh.vertexAllocSize, gmesh.indexAllocSize, 0, reinterpret_cast<void**>(&p));
     if (result != VK_SUCCESS) { throw std::runtime_error("Failed to map index memory."); }
     memcpy(p, gmesh.indices.data(), gmesh.indices.size()*sizeof(uint16_t));
-    m_deviFunc->vkUnmapMemory(m_device, bufin->indexmemory);
+    m_deviFunc->vkUnmapMemory(m_device, gmesh.memory);
+
+    // Map and copy uniform buffer data for each frame
+
+    result = m_deviFunc->vkMapMemory(m_device, gmesh.memory, gmesh.vertexAllocSize + gmesh.indexAllocSize, concurrentFrameCount * gmesh.uniformAllocSize, 0, reinterpret_cast<void**>(&p));
+    if (result != VK_SUCCESS) { throw std::runtime_error("Failed to map uniform memory."); }
 
     // Set up uniform buffer info based on vertex data
+    // HAVE_TODO_CUSTOMIZE: Optimize by staging buffer instead of mapping
     QMatrix4x4 ident;
-    memset(bufin->uniformBufferInfo, 0, sizeof(bufin->uniformBufferInfo));
+    ident.setToIdentity();
+    memset(gmesh.uniformBufferInfo, 0, sizeof(gmesh.uniformBufferInfo));
     for (int i = 0; i < concurrentFrameCount; ++i) {
-        const VkDeviceSize offset = bufin->vertexAllocSize + i * bufin->uniformAllocSize;
-        memcpy(p + offset, ident.constData(), 16 * sizeof(float));
-        bufin->uniformBufferInfo[i].buffer = bufin->buffer;
-        bufin->uniformBufferInfo[i].offset = offset;
-        bufin->uniformBufferInfo[i].range = bufin->uniformAllocSize;
+        const VkDeviceSize offset = gmesh.vertexAllocSize + gmesh.indexAllocSize + i * gmesh.uniformAllocSize;
+        memcpy(p , ident.constData(), 16 * sizeof(float));
+        gmesh.uniformBufferInfo[i].buffer = gmesh.buffer;
+        gmesh.uniformBufferInfo[i].offset = offset;
+        gmesh.uniformBufferInfo[i].range = gmesh.uniformAllocSize;
     }
+    m_deviFunc->vkUnmapMemory(m_device, gmesh.memory);
 
     return *this;
 }
 
-ResourceBuilder& ResourceBuilder::createDescriptor( )
+ResourceBuilder& ResourceBuilder::createDescriptor(Mesh& gmesh)
 {
 
     // Set up and create descriptor pool
@@ -96,45 +132,45 @@ ResourceBuilder& ResourceBuilder::createDescriptor( )
     descPoolInfo.maxSets = concurrentFrameCount;
     descPoolInfo.poolSizeCount = 1;
     descPoolInfo.pPoolSizes = &descPoolSizes;
-    result = m_deviFunc->vkCreateDescriptorPool(m_device, &descPoolInfo, nullptr, &desin->descPool);
+    result = m_deviFunc->vkCreateDescriptorPool(m_device, &descPoolInfo, nullptr, &gmesh.descPool);
     if (result != VK_SUCCESS) { throw std::runtime_error("Failed to create descriptor pool."); }
 
     // Set up and create descriptor layout
     VkDescriptorSetLayoutBinding layoutBinding = { 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr };
     VkDescriptorSetLayoutCreateInfo descLayoutInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,nullptr,0,1,&layoutBinding };
-    result = m_deviFunc->vkCreateDescriptorSetLayout(m_device, &descLayoutInfo, nullptr, &desin->descSetLayout);
+    result = m_deviFunc->vkCreateDescriptorSetLayout(m_device, &descLayoutInfo, nullptr, &gmesh.descSetLayout);
 	if (result != VK_SUCCESS) { throw std::runtime_error("Failed to create descriptor set layout."); }
 
     // Set up and create descriptor set
     for (int i = 0; i < concurrentFrameCount; ++i) {
-        VkDescriptorSetAllocateInfo descSetAllocInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, nullptr, desin->descPool, 1, &desin->descSetLayout };
-        result = m_deviFunc->vkAllocateDescriptorSets(m_device, &descSetAllocInfo, &desin->descSet[i]);
+        VkDescriptorSetAllocateInfo descSetAllocInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, nullptr, gmesh.descPool, 1, &gmesh.descSetLayout };
+        result = m_deviFunc->vkAllocateDescriptorSets(m_device, &descSetAllocInfo, &gmesh.descSet[i]);
 		if (result != VK_SUCCESS) { throw std::runtime_error("Failed to allocate descriptor set."); }
         VkWriteDescriptorSet descWrite;
         memset(&descWrite, 0, sizeof(descWrite));
         descWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descWrite.dstSet = desin->descSet[i];
+        descWrite.dstSet = gmesh.descSet[i];
         descWrite.descriptorCount = 1;
         descWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descWrite.pBufferInfo = &bufin->uniformBufferInfo[i];
+        descWrite.pBufferInfo = &gmesh.uniformBufferInfo[i];
         m_deviFunc->vkUpdateDescriptorSets(m_device, 1, &descWrite, 0, nullptr);
     }
 }
 
-ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow)
+ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow, Mesh& gmesh)
 {
     VkPipelineCacheCreateInfo pipelineCacheInfo;
     memset(&pipelineCacheInfo, 0, sizeof(pipelineCacheInfo));
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    result = m_deviFunc->vkCreatePipelineCache(m_device, &pipelineCacheInfo, nullptr, &pipein->pipelineCache);
+    result = m_deviFunc->vkCreatePipelineCache(m_device, &pipelineCacheInfo, nullptr, &gmesh.pipelineCache);
     if (result != VK_SUCCESS) { throw std::runtime_error("Failed to create pipeline cache."); }
     // Pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo;
     memset(&pipelineLayoutInfo, 0, sizeof(pipelineLayoutInfo));
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &desin->descSetLayout;
-    result = m_deviFunc->vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &pipein->pipelineLayout);
+    pipelineLayoutInfo.pSetLayouts = &gmesh.descSetLayout;
+    result = m_deviFunc->vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &gmesh.pipelineLayout);
     if (result != VK_SUCCESS) { throw std::runtime_error("Failed to create pipeline layout."); }
     // Shaders
     VkShaderModule vertShaderModule = createShader(QStringLiteral(":/color_vert.spv"));
@@ -158,6 +194,7 @@ ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow)
         //{ 2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, texCoord) },      // Texture coordinates
         //{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color) }       // Color
     };
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo;
 
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.pNext = nullptr;
@@ -227,10 +264,10 @@ ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow)
     dyn.pDynamicStates = dynEnable;
     pipelineInfo.pDynamicState = &dyn;
 
-    pipelineInfo.layout = pipein->pipelineLayout;
+    pipelineInfo.layout = gmesh.pipelineLayout;
     pipelineInfo.renderPass = m_VulWindow->defaultRenderPass();
 
-    result = m_deviFunc->vkCreateGraphicsPipelines(m_device, pipein->pipelineCache, 1, &pipelineInfo, nullptr, &pipein->pipeline);
+    result = m_deviFunc->vkCreateGraphicsPipelines(m_device, gmesh.pipelineCache, 1, &pipelineInfo, nullptr, &gmesh.pipeline);
     if (result != VK_SUCCESS) { throw std::runtime_error("Failed to create graphics pipeline."); }
     if (vertShaderModule)
         m_deviFunc->vkDestroyShaderModule(m_device, vertShaderModule, nullptr);

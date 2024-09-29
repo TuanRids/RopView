@@ -1,10 +1,10 @@
 #pragma once
 #include "..\pch.h"
 #include <QVulkanWindow>
-#include "TriangleTModel.h"
+#include "MeshManager.h"
 #include <QVulkanFunctions>
 #include "..\MainUI\statuslogs.h"
-class TriangleRenderer;
+class MeshRenderer;
 
 class VulkanWindow : public QVulkanWindow
 {
@@ -15,20 +15,21 @@ public:
 
     QVulkanWindowRenderer* createRenderer() override
     {
-        m_renderer = new TriangleRenderer(this, 1);
+        m_renderer = new MeshRenderer(this, 1);
         return m_renderer;
     }
 
-    TriangleRenderer* getRenderer() const { return m_renderer; }
+    MeshRenderer* getRenderer() const { return m_renderer; }
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
-
+    void wheelEvent(QWheelEvent* event) override;
 private:
     void GetDeviceInfo();
     QPoint lastMousePosition;
     bool isRightMouseButtonPressed = false;
-    TriangleRenderer* m_renderer;
+    MeshRenderer* m_renderer;
+    float m_zoomLevel;
 };

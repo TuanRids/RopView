@@ -67,10 +67,29 @@ void VulkanWindow::mouseMoveEvent(QMouseEvent* event)
         QPoint delta = currentPosition - lastMousePosition;
         lastMousePosition = currentPosition;
 
-        // G?i updateRotation t? TriangleRenderer thông qua getRenderer()
         if (getRenderer()) {
             getRenderer()->updateRotation(delta.x(), delta.y());
         }
+    }
+
+}
+
+void VulkanWindow::wheelEvent(QWheelEvent* event)
+{
+    int delta = event->angleDelta().y();
+
+    float zoomSpeed = 0.1f; 
+    if (delta > 0) {
+        m_zoomLevel += zoomSpeed;
+    }
+    else if (delta < 0) {
+        m_zoomLevel -= zoomSpeed;
+    }
+
+    m_zoomLevel = std::clamp(m_zoomLevel, 0.1f, 5.0f);
+
+    if (getRenderer()) {
+        getRenderer()->wheelZoom(m_zoomLevel);
     }
 
 }

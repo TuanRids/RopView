@@ -259,6 +259,7 @@ namespace nmainUI {
 
         // Initialize Vulkan instance
         QVulkanInstance* inst = new QVulkanInstance();
+        inst->setLayers({ "VK_LAYER_KHRONOS_validation" });
         if (!inst->create()) {
             qFatal("Failed to create Vulkan instance");
         }

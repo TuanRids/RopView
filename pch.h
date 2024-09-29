@@ -79,5 +79,4 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QLCDNumber>
-
 #endif // PCH_H

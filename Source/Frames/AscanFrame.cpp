@@ -8,6 +8,8 @@ QWidget* AscanFrame::createFrame() {
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
+    // y_level_/ x_level_
+
     QVBoxLayout* layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->addWidget(graphicsView.get());
