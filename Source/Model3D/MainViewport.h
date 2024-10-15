@@ -4,6 +4,7 @@
 #include "MeshManager.h"
 #include <QVulkanFunctions>
 #include "..\MainUI\statuslogs.h"
+#include "Transformation.h"
 class MeshRenderer;
 
 class VulkanWindow : public QVulkanWindow
@@ -11,25 +12,28 @@ class VulkanWindow : public QVulkanWindow
     Q_OBJECT
 
 public:
-    VulkanWindow() : m_renderer(nullptr) {}
+    VulkanWindow() : m_renderer(nullptr) { transform = std::make_unique<TransForm>(); }
 
-    QVulkanWindowRenderer* createRenderer() override
-    {
-        m_renderer = new MeshRenderer(this, 1);
-        return m_renderer;
-    }
-
-    MeshRenderer* getRenderer() const { return m_renderer; }
+    QVulkanWindowRenderer* createRenderer() override { m_renderer = new MeshRenderer(this, 1); return m_renderer; }
+    void PautINIT(Mesh& mesh) {
+        GetDeviceInfo();
+        //m_renderer->MeshInit(mesh);  
+          };
+    void GetDeviceInfo();
 
 protected:
+
+private:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
-private:
-    void GetDeviceInfo();
+    //void GetDeviceInfo();
     QPoint lastMousePosition;
     bool isRightMouseButtonPressed = false;
+    bool isMidMouseButtonPressed = false;
     MeshRenderer* m_renderer;
-    float m_zoomLevel;
+    float m_zoomLevel = -1.0f;
+    // ========= 
+    std::unique_ptr<TransForm> transform;
 };

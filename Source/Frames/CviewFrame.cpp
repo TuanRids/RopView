@@ -1,63 +1,63 @@
 #include "..\pch.h"
-#include "CscanFrame.h"
+#include "CviewFrame.h"
 
-QWidget* CscanFrame::createFrame() {
+QWidget* CviewFrame::createFrame(){
+    overlay = nullptr;
     scene = std::make_shared<QGraphicsScene>();
     graphicsView = std::make_shared<ZoomableGraphicsView>();
-    QVBoxLayout* layout = new QVBoxLayout();
-    QWidget* frame = new QWidget();
-
     graphicsView->setScene(scene.get());
-    MouseGetPosXY(graphicsView);
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatioByExpanding);
-    
-    layout->addWidget(graphicsView.get());
-    frame->setLayout(layout);
+    graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    // Container to hold both graphicsView and navigator
-    QWidget* containerWidget = new QWidget(frame);
-    containerWidget->setLayout(layout);
-    
-    // Navigator Mini View
-    navigatorView = new QGraphicsView(containerWidget);
+    MouseGetPosXY(graphicsView);
+
+    // Create layout and frame
+    QVBoxLayout* layout = new QVBoxLayout();
+    layout->addWidget(graphicsView.get());
+
+    navigatorView = new QGraphicsView();
     navigatorView->setScene(scene.get());
-    navigatorView->setFixedSize(graphicsView->size().width()/10, graphicsView->size().height()/10);
-    // transparent background
-	navigatorView->setBackgroundBrush(Qt::transparent);
+    navigatorView->setFixedSize(graphicsView->size().width() / 10, graphicsView->size().height() / 10);
+    navigatorView->setBackgroundBrush(Qt::transparent);
     navigatorView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     navigatorView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    
-    // Absolute positioning for navigatorView in the top right corner
-    navigatorView->setGeometry(20, 30, 200, 150);
-    navigatorView->raise();  // Make sure it's on top of the graphicsView
+    navigatorView->setGeometry(20, 30, 200, 150); // Positioning navigator view
+    navigatorView->raise();
+
     graphicsView->setNavigator(navigatorView);
+        
+    // Container
+    QWidget* containerWidget = new QWidget();
+    containerWidget->setLayout(layout);
+
     return containerWidget;
 
-    return frame;
+
 }
 
-void CscanFrame::update() {
+void CviewFrame::update() {
+    if (scandat.Amplitudes.empty()) { return; }
     static int lastResolution = -1;
+    if (overlay) { overlay->clearEvery(); }
     if (lastResolution != uiframe->get_resolution()) {
         lastResolution = uiframe->get_resolution();
-        CreateXYScan();
-        render_graphic();
+        CreateXYview();
     }
     // if Bscan and Cscan layer
-    if (!isLocalPanning && uiframe->check_isCscanLayer()) {
-        CreateXYScan();
-        render_graphic();
+    if (uiframe->check_isCscanLayer()) {
+        CreateXYview();
     }
-    
+
     static bool lastIsCscanLayer = false;
     if (lastIsCscanLayer != uiframe->check_isCscanLayer()) {
         lastIsCscanLayer = uiframe->check_isCscanLayer();
-        CreateXYScan();
-        render_graphic();
+        CreateXYview();
     }
+    addPoints(true,-1,-1);
 }
 
-void CscanFrame::CreateXYScan() {
+void CviewFrame::CreateXYview() {
     // Declaration and initialization
     if (scandat.Amplitudes.empty()) {
         return;
@@ -106,47 +106,25 @@ void CscanFrame::CreateXYScan() {
             orgimage->at<cv::Vec3b>(y, x) = cv::Vec3b(color.B, color.G, color.R);
         }
     }
+    UpdateGraphic(orgimage, scaledImage, scene, graphicsView, 1,Qt::blue, Qt::red);
+    //UpdateGraphic(orgimage, scaledImage, scene, graphicsView, uiframe->get_resolution());
+
 }
 
-void CscanFrame::render_graphic(){
-    // Resize and adjust the image for the viewport
-    int frameWidth = graphicsView->size().width();
-    int frameHeight = graphicsView->size().height();
-    double frameRatio = static_cast<double>(frameWidth) / static_cast<double>(frameHeight);
-    double imageRatio = static_cast<double>(orgimage->cols) / static_cast<double>(orgimage->rows);
+void CviewFrame::addPoints(bool Cviewlink, int x, int y)
+{
+    double pixelX= (Cviewlink) ? static_cast<double>(curpt.x) * scaledImage->cols / xsize : static_cast<double>(x);
+    double pixelY = (Cviewlink) ? static_cast<double>(curpt.y) * scaledImage->rows / ysize : static_cast<double>(y);
 
-    if (frameRatio > imageRatio) {
-        int newWidth = static_cast<int>(orgimage->rows * frameRatio);
-        cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, orgimage->rows), 0, 0, cv::INTER_LINEAR);
+    if (overlay) {
+        overlay->updatePoints(pixelX, pixelY, Qt::blue, Qt::red);
     }
-    else {
-        int newHeight = static_cast<int>(orgimage->cols / frameRatio);
-        cv::resize(*orgimage, *scaledImage, cv::Size(orgimage->cols, newHeight), 0, 0, cv::INTER_LINEAR);
-    }
-
-    // Apply resolution and blur
-    if (!isPanning)
-    { cv::resize(*scaledImage, *scaledImage, cv::Size(scaledImage->cols * uiframe->get_resolution(), scaledImage->rows * uiframe->get_resolution()), 0, 0, cv::INTER_LANCZOS4); }
-
-    cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(5, 5), 0);
-
-    // Convert to QImage and display
-    auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
-    *qImage = qImage->rgbSwapped();
-    QPixmap pixmap = QPixmap::fromImage(*qImage);
-    scene->clear();
-    scene->addPixmap(pixmap);
-
-    // Fit the scene to the viewports   
-    graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);    
-    navigatorView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
 
     graphicsView->update();
-
-
+    return;
 }
 
-std::pair<int, int> CscanFrame::calculateOriginalPos(int scaled_x, int scaled_y) {
+std::pair<int, int> CviewFrame::calculateOriginalPos(int scaled_x, int scaled_y) {
     if (orgimage == nullptr || scaledImage == nullptr) {
         throw std::exception();
     }
@@ -162,51 +140,55 @@ std::pair<int, int> CscanFrame::calculateOriginalPos(int scaled_x, int scaled_y)
     return { original_x, original_y };
 }
 
-void CscanFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
+void CviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
 {
+    static int temX{ 0 }, temY{ 0 };
+    overlay = std::make_shared<XYOverlayGrid>(scene.get());
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseMoved, [=](int scaled_x, int scaled_y) {
         try
         {
+            temX = scaled_x; temY = scaled_y;
             auto [original_x, original_y] = calculateOriginalPos(scaled_x, scaled_y);
-
             QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(original_y).arg(curpt.z);
             QToolTip::showText(QCursor::pos(), tooltipText);
+            overlay->updateOverlay(scaled_x, scaled_y, scaledImage->cols, scaledImage->rows);
+            graphicsView->update();
+
         }
-        catch (const std::exception& e) { (void)0; }
+        catch (...) { (void)0; }
         });
 
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_y) {
         try
         {
-            auto [original_x, original_y] = calculateOriginalPos(scaled_x, scaled_y);
-
-            curpt.x = original_x;
-            curpt.y = original_y;
+            temX = scaled_x; temY = scaled_y;
+            std::tie(curpt.x, curpt.y) = calculateOriginalPos(scaled_x, scaled_y);
             isPanning = false;
-            uiframe->refreshxyz();
+            uiframe->refreshxyz(this);
+            addPoints(false, scaled_x, scaled_y);
         }
-        catch (const std::exception& e) { (void)0; }
+        catch (...) { (void)0; }
         });
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseDragClicked, [=](int scaled_x, int scaled_y) {
         try
         {
-            auto [original_x, original_y] = calculateOriginalPos(scaled_x, scaled_y);
-
-            curpt.x = original_x;
-            curpt.y = original_y;
+            temX = scaled_x; temY = scaled_y;
+            std::tie(curpt.x, curpt.y) = calculateOriginalPos(scaled_x, scaled_y);
             isPanning = true;
-            isLocalPanning = true;
-            uiframe->refreshxyz();
+            uiframe->refreshxyz(this);
+            addPoints(false, scaled_x, scaled_y);
         }
-        catch (const std::exception& e) { (void)0; }
+        catch (...) { (void)0; }
         });
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseStopDragClicked, [=]() {
         try
         {
             isPanning = false;
-			isLocalPanning = false;
-            uiframe->refreshxyz();
+            uiframe->refreshxyz(this);
         }
-        catch (const std::exception& e) { (void)0; }
+        catch (...) { (void)0; }
+        });
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseLeftView, [=]() {
+        overlay->ClearLineGroup();
         });
 }

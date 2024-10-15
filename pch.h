@@ -79,4 +79,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QLCDNumber>
+
+// ======== OpenCV CUDA ============
+#include <opencv2/opencv.hpp>
 #endif // PCH_H

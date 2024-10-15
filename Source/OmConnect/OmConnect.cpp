@@ -6,7 +6,7 @@ using namespace Instrumentation;
 namespace omcn {
     bool OmConnect::omConnectDevice()
     {
-        ipAddress = readcf::readconfig("ipAddress");
+        ipAddress = SettingsManager::getInstance()->getSettings().ipAddress;
         try
         {
             cout << "Connecting to device " << ipAddress << "..." << endl;
@@ -24,7 +24,7 @@ namespace omcn {
 
     shared_ptr<IDevice> OmConnect::DiscoverDevice()
     {
-        Duration timeout = 500;
+        Duration timeout = SettingsManager::getInstance()->getSettings().timeout;
         auto discovery = IDeviceDiscovery::Create(ipAddress.c_str());
         DiscoverResult result = discovery->DiscoverFor(timeout);
 

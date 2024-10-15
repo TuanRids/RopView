@@ -10,14 +10,12 @@ namespace nmainUI {
             static statuslogs instance;
             return instance;
         }
-
         void initialize(QTextEdit* plogOutputWidget) {
             if (!this->plogOutputWidget) {
                 this->plogOutputWidget = plogOutputWidget;
                 plogOutputWidget->setReadOnly(true);
             }
         }
-
         void addLogMessage(const QString& message, const QColor& color) {
             QMutexLocker locker(&mtx);
             if (plogOutputWidget) {
@@ -29,35 +27,28 @@ namespace nmainUI {
                 out << message << "\n";
             }
         }
-
-
         void logDebug(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
             addLogMessage( crtime() + ": [DEBUG] " + qmessage, Qt::gray);
         }
-
         void logInfo(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
             addLogMessage( crtime() + ": [INFO] " + qmessage, Qt::cyan);
         }
-
         void logWarning(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
             addLogMessage(crtime() + ": [WARNING] " + qmessage, Qt::yellow);
         }
-
         void logCritical(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
             addLogMessage( crtime() + ": [CRITICAL] " + qmessage, Qt::red);
         }
-
         void clearLogs() {
             QMutexLocker locker(&mtx);
             if (plogOutputWidget) {
                 plogOutputWidget->clear();
             }
         }
-
         void startLoggingToFile() {
             if (!upFilePath) { upFilePath = std::make_unique<QString>("application.log"); }
             QMutexLocker locker(&mtx);
@@ -68,14 +59,12 @@ namespace nmainUI {
                 }
             }
         }
-
         void stopLoggingToFile() {
             QMutexLocker locker(&mtx);
             if (filelog.isOpen()) {
                 filelog.close();
             }
         }
-
     private:
         QString crtime(){return QTime::currentTime().toString("hh:mm:ss");}
         statuslogs() = default;

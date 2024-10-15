@@ -25,15 +25,25 @@ find_package(hdf5 CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(Qt6Charts REQUIRED)
-find_package(CUDA REQUIRED)
+enable_language(CUDA)
+find_package(CUDAToolkit REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(VTK REQUIRED COMPONENTS 
+  RenderingVolumeOpenGL2 
+  RenderingVolume 
+  RenderingCore 
+  InteractionStyle 
+  RenderingContextOpenGL2 
+  RenderingOpenGL2)
+
+
 pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_ARCHITECTURES 75) # adjust based on our architecture
 # Add source to this project's executable.
-file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu" "Source/*.qrc")
+file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu" "Source/*.qrc" )
 
 # Add the header files that contain Q_OBJECT
 set(HEADER_FILES 
@@ -53,6 +63,18 @@ qt_add_resources(RopView_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shader/shade
 # Combine all sources and moc-generated sources
 add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc )
 
+
+# Depending on the compiler (MSVC or GCC), add specific flags or settings
+if (MSVC)
+    # Enable MASM (Microsoft Macro Assembler) in MSVC
+    set(CMAKE_ASM_MASM_SOURCE_FILE_EXTENSIONS asm)
+    enable_language(ASM_MASM)
+else()
+    # Enable inline assembly for GCC or Clang
+    enable_language(ASM)
+endif()
+
+
 # Add precompiled header
 target_precompile_headers(RopView PRIVATE "pch.h")
 
@@ -67,6 +89,8 @@ target_link_libraries(RopView PRIVATE Qt6::Charts)
 target_link_libraries(RopView PRIVATE Vulkan::Vulkan)
 target_link_libraries(RopView PRIVATE glm::glm)
 target_link_libraries(RopView PRIVATE PkgConfig::libusb)
+target_link_libraries(RopView PRIVATE ${VTK_LIBRARIES})
+target_link_libraries(RopView PRIVATE CUDA::cudart)
 
 #target_link_libraries(RopView CUDA::cudart)
 
@@ -91,6 +115,7 @@ include_directories(${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 add_custom_command(TARGET RopView POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/config.ini" "$<TARGET_FILE_DIR:RopView>"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/sample" "$<TARGET_FILE_DIR:RopView>/sample"    
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/QssTemplate" "$<TARGET_FILE_DIR:RopView>/QssTemplate"    
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/seting_lib.bat" "$<TARGET_FILE_DIR:RopView>"
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_BINARY_DIR} cmd /c seting_lib.bat
 )

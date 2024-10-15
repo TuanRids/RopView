@@ -18,6 +18,7 @@ protected:
     static nmainUI::statuslogs* sttlogs;
     static std::shared_ptr<AscanProcessor> processor;
     static std::unique_ptr<QSettings> settings;
+    std::unique_ptr<QApplication> app;
 };
 // Define static variables outside the class declaration
 

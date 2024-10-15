@@ -7,12 +7,12 @@
 #include "..\Source\MainUI\ObserverMgr.h"
 #include "..\Source\MainUI\mainwindow.h"
 
-// Ascan Frame
-class AscanFrame : public nFrame, public nObserver {
+// Aview Frame
+class AviewFrame : public nFrame, public nObserver {
 private:
     //************** Method
-    std::shared_ptr<QImage> CreateXZScan();
-    void CreateAScan();
+    std::shared_ptr<QImage> CreateXZview();
+    void CreateAview();
 
     //************** Properties
     nmainUI::UIFrame* uiframe;
@@ -30,8 +30,6 @@ public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;
     void update() override;
-
-
 };
 
 #endif

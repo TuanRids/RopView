@@ -1,4 +1,3 @@
-#pragma one
 
 #include "IUIWindow.h"
 #include <QSettings>
@@ -20,14 +19,15 @@ namespace nmainUI {
         QWidget* createLogSettings(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject);
         QWidget* createSetting2(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject);
         QWidget* createAscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
-        QWidget* createBscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
+        QWidget* createSscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
         QWidget* createCscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
+        QWidget* createBscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
         QWidget* create3DFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
 
         QWidget* addFrameName(const QString& name, QWidget* frame);
         QPixmap loadLogoFromResource();
 
-        void UISETTING(QApplication* app);
+        void UISETTING();
         void saveWidgetState(QWidget* widget);
         void restoreWidgetState(QWidget* widget);
     protected:
@@ -40,7 +40,9 @@ namespace nmainUI {
 		void onPaste() {};
         void onFullScreen() {};
         void openSettingsDialog();
-
+    private:
+        VulkanWindow* vulkanWindow;
+        void refreshWidgets(const QList<QWidget*>& widgets);
     };
 }
 

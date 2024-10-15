@@ -17,16 +17,12 @@ namespace nmainUI {
     public:
         static UIFrame& getInstance() { static UIFrame instance; return instance; }
         int mainloop(int argc, char* argv[]);
-
         void logical();
-        void refreshxyz() ;
-
+        void refreshxyz(nFrame* crframe) ;
     private:
         UIFrame();
         ~UIFrame() = default;
-        // Other object
-
-        
+        // Other object        
     };
 
 }

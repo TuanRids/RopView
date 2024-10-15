@@ -11,9 +11,8 @@
 #include <rapidjson/schema.h>
 #include <rapidjson/document.h>
 #include "../Source/PAUTFileReader/AscanDattype.hpp"
-#include "../Source/OmConnect/readconfig.h"
 #include "..\Source\MainUI\statuslogs.h"
-
+#include "..\Data3DProcessing\DataProcess.h"
 namespace rj = rapidjson;
 namespace fs = std::filesystem;
 
@@ -36,7 +35,6 @@ private:
     rj::Document jsonDoc;
     fs::path NDEfilePath;
     fs::path ExportedFile;
-    fs::path schemaPathFilename;
     nmainUI::statuslogs* sttlogs;
 
 };

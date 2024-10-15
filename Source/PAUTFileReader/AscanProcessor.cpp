@@ -10,9 +10,10 @@
 
 AscanProcessor::AscanProcessor() {
     if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
-    NDEfilePath = fs::current_path() / ("sample\\" + readcf::readconfig("NDEfilePath2"));
+    NDEfilePath = fs::current_path() / ("sample\\DataFile_2024_08_23_11h53m57s.nde");
+    //NDEfilePath = fs::current_path() / ("sample\\H402F_N3A_2024_08_16_11h46m32s.nde");
+    //NDEfilePath = fs::current_path() / ("sample\\DLC.nde");
     ExportedFile = fs::current_path() / ("result");
-    schemaPathFilename = fs::current_path() / ("sample\\" + readcf::readconfig("validationFile"));
 }
 
 
@@ -20,7 +21,6 @@ bool AscanProcessor::analyze(nFrame* frame) {
     try {
         fileId = H5Fopen(NDEfilePath.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
         std::string jsonSetup = ReadJsonSetup(fileId);
-        auto file = std::ifstream(schemaPathFilename);
         auto decodingresult_ = DecodeJs(jsonSetup);
         if (decodingresult_ == rj::kParseErrorNone) {
             jsonDoc.Parse(jsonSetup.c_str());
@@ -28,7 +28,10 @@ bool AscanProcessor::analyze(nFrame* frame) {
             for (const auto& group : jsonDoc["groups"].GetArray()) {
                 if (group["dataset"].HasMember("ascan")) {
                     auto& ascanDataset = group["dataset"]["ascan"];
-                    frame->setScandat(ReadAscanData(fileId, ascanDataset));
+                    auto result = ReadAscanData(fileId, ascanDataset);
+                    frame->setScandat(result);
+                    std::unique_ptr<IDataProcecss> object = std::make_unique<DataProcess>();
+                    object->getAscanData(result);
                 }
             }
         }

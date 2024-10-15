@@ -5,14 +5,16 @@
 
 #include "FactoryMgr.h"
 #include "Frames/nLogFrame.h"
-#include "Frames/CscanFrame.h"
-#include "Frames/BscanFrame.h"
-#include "Frames/AscanFrame.h"
+#include "Frames/CviewFrame.h"
+#include "Frames/SviewFrame.h"
+#include "Frames/BviewFrame.h"
+#include "Frames/AviewFrame.h"
 
-
+#include "..\Data3DProcessing\DataProcess.h"
 namespace nmainUI {
     UIManager::UIManager() {
         settings = std::make_unique<QSettings>("RoqView COM", "FrameStatus");
+        if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
     }
     QWidget* UIManager::createMenuBarFrame(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject)
     {
@@ -48,33 +50,56 @@ namespace nmainUI {
 
         return menuBarWidget;
     }
-    void UIManager::UISETTING(QApplication* app) {
-        app->setStyle(QStyleFactory::create("Fusion"));
-
-        QPalette darkPalette;
-        darkPalette.setColor(QPalette::Window, QColor(53, 53, 53));
-        darkPalette.setColor(QPalette::WindowText, Qt::white);
-        darkPalette.setColor(QPalette::Base, QColor(42, 42, 42));
-        darkPalette.setColor(QPalette::AlternateBase, QColor(66, 66, 66));
-        darkPalette.setColor(QPalette::ToolTipBase, Qt::white);
-        darkPalette.setColor(QPalette::ToolTipText, Qt::white);
-        darkPalette.setColor(QPalette::Text, Qt::white);
-        darkPalette.setColor(QPalette::Button, QColor(53, 53, 53));
-        darkPalette.setColor(QPalette::ButtonText, Qt::white);
-        darkPalette.setColor(QPalette::BrightText, Qt::red);
-        darkPalette.setColor(QPalette::Link, QColor(42, 130, 218));
-        darkPalette.setColor(QPalette::Highlight, QColor(42, 130, 218));
-        darkPalette.setColor(QPalette::HighlightedText, Qt::black);
-
-        app->setPalette(darkPalette);
-
-        app->setStyleSheet("QToolTip { color: #ffffff; background-color: #2a82da; border: 1px solid white; }"
-            "QPushButton { background-color: #353535; color: white; border: 1px solid #2a82da; padding: 5px; }"
-            "QPushButton:hover { background-color: #2a82da; }"
-            "QLineEdit { background-color: #353535; color: white; border: 1px solid #2a82da; }"
-            "QComboBox { background-color: #353535; color: white; border: 1px solid #2a82da; }"
-            "QComboBox QAbstractItemView { background-color: #353535; }");
+    void UIManager::refreshWidgets(const QList<QWidget*>& widgets) {
+        for (QWidget* widget : widgets) {
+            widget->setStyleSheet(qApp->styleSheet());
+            widget->update();
+        }
     }
+
+    void UIManager::UISETTING() {
+        auto gtheme = SettingsManager::getInstance()->getSettings().qsTheme;
+        auto sheetName = fs::current_path() / ("QssTemplate\\"+ gtheme);
+        QString styleSheet;
+
+        // Load QSS file if exists
+        QFile file(sheetName);
+        if (file.open(QFile::ReadOnly)) {
+            styleSheet = QLatin1String(file.readAll());
+        }
+
+        //// Dark palette setup (this will be overridden by QSS if conflicting)
+        //QPalette darkPalette;
+        //darkPalette.setColor(QPalette::Window, QColor(53, 53, 53));
+        //darkPalette.setColor(QPalette::WindowText, Qt::white);
+        //darkPalette.setColor(QPalette::Base, QColor(42, 42, 42));
+        //darkPalette.setColor(QPalette::AlternateBase, QColor(66, 66, 66));
+        //darkPalette.setColor(QPalette::ToolTipBase, Qt::white);
+        //darkPalette.setColor(QPalette::ToolTipText, Qt::white);
+        //darkPalette.setColor(QPalette::Text, Qt::white);
+        //darkPalette.setColor(QPalette::Button, QColor(53, 53, 53));
+        //darkPalette.setColor(QPalette::ButtonText, Qt::white);
+        //darkPalette.setColor(QPalette::BrightText, Qt::red);
+        //darkPalette.setColor(QPalette::Link, QColor(42, 130, 218));
+        //darkPalette.setColor(QPalette::Highlight, QColor(42, 130, 218));
+        //darkPalette.setColor(QPalette::HighlightedText, Qt::black);
+
+        //app->setPalette(darkPalette);
+
+        //// Additional styles (append these to the existing stylesheet)
+        //styleSheet += "QToolTip { color: #ffffff; background-color: #2a82da; border: 1px solid white; }"
+        //    "QPushButton { background-color: #353535; color: white; border: 1px solid #2a82da; padding: 5px; }"
+        //    "QPushButton:hover { background-color: #2a82da; }"
+        //    "QLineEdit { background-color: #353535; color: white; border: 1px solid #2a82da; }"
+        //    "QComboBox { background-color: #353535; color: white; border: 1px solid #2a82da; }"
+        //    "QComboBox QAbstractItemView { background-color: #353535; }";
+
+        // Apply the combined stylesheet once
+        qApp->setStyleSheet(styleSheet);
+        refreshWidgets(qApp->allWidgets());
+
+    }
+
     QPixmap UIManager::loadLogoFromResource() {
         HRSRC hRes = FindResource(NULL, MAKEINTRESOURCE(107), RT_RCDATA);
         if (hRes) {
@@ -110,39 +135,118 @@ namespace nmainUI {
     }
     void UIManager::openSettingsDialog()
     {
-        
         SettingsManager* tsettings = SettingsManager::getInstance();
+        SettingParams currentSettings = tsettings->getSettings();
+
         QDialog settingsDialog;
         settingsDialog.setWindowTitle("Settings");
-        settingsDialog.setFixedSize(800, 600);
 
-        // Main layout for the dialog
-        QVBoxLayout* mainLayout = new QVBoxLayout(&settingsDialog);
+        QHBoxLayout* mainLayout = new QHBoxLayout(&settingsDialog);
 
-        // Create widgets to adjust settings
-        QCheckBox* triggerCheckBox = new QCheckBox("Bscan Drag High Res", &settingsDialog);
-        triggerCheckBox->setChecked(tsettings->getResolutionBscan());
-        mainLayout->addWidget(triggerCheckBox);
-
-        // Horizontal layout for the Apply button
         QHBoxLayout* buttonLayout = new QHBoxLayout();
         QPushButton* applyButton = new QPushButton("Apply", &settingsDialog);
-        applyButton->setFixedSize(100, 30);  // Set fixed size for the button
-        //buttonLayout->addStretch();  // Push the button to the right
+        applyButton->setFixedSize(100, 30);
         buttonLayout->addWidget(applyButton);
 
-        // Add the button layout to the main layout
-        mainLayout->addLayout(buttonLayout);
+        // Group Box to hold all settings with fixed size
+        {
+            QGroupBox* settingsGroup = new QGroupBox("Omniscan Settings", &settingsDialog);
+            settingsGroup->setFixedSize(200, 200);
+            QFormLayout* formLayout = new QFormLayout(settingsGroup);
 
-        QObject::connect(applyButton, &QPushButton::clicked, [&]() {
-            // Apply changes to settings manager
-            tsettings->setResolutionBscan(triggerCheckBox->isChecked());
-            tsettings->saveToRegistry();
-            settingsDialog.accept();
-            });
+            // Create widgets to adjust settings
+            QCheckBox* triggerCheckBox = new QCheckBox("Bscan H_Res", settingsGroup);
+            triggerCheckBox->setToolTip("High Resolution Bscan");
+            triggerCheckBox->setChecked(currentSettings.bhighResBscan);
+            formLayout->addRow(triggerCheckBox);
+
+            QLineEdit* ipAddressField = new QLineEdit(QString::fromStdString(currentSettings.ipAddress), settingsGroup);
+            ipAddressField->setToolTip("Enter the IP Address");
+            formLayout->addRow(new QLabel("IP Address:"), ipAddressField);
+
+            QSpinBox* portSpinBox = new QSpinBox(settingsGroup);
+            portSpinBox->setRange(1, 65535);
+            portSpinBox->setValue(currentSettings.port);
+            portSpinBox->setToolTip("Set the Port number");
+            formLayout->addRow(new QLabel("Port:"), portSpinBox);
+
+            QSpinBox* timeoutSpinBox = new QSpinBox(settingsGroup);
+            timeoutSpinBox->setRange(1000, 60000);
+            timeoutSpinBox->setValue(currentSettings.timeout);
+            timeoutSpinBox->setToolTip("Set the timeout in milliseconds");
+            formLayout->addRow(new QLabel("Timeout (ms):"), timeoutSpinBox);
+
+            QLineEdit* deviceNameField = new QLineEdit(QString::fromStdString(currentSettings.device_name), settingsGroup);
+            deviceNameField->setToolTip("Enter the device name");
+            formLayout->addRow(new QLabel("Device Name:"), deviceNameField);
+
+            // Add the group box to the main layout
+            mainLayout->addWidget(settingsGroup);
+
+            QObject::connect(applyButton, &QPushButton::clicked, [&]() {
+                currentSettings.bhighResBscan = triggerCheckBox->isChecked();
+                currentSettings.ipAddress = ipAddressField->text().toStdString();
+                currentSettings.port = portSpinBox->value();
+                currentSettings.timeout = timeoutSpinBox->value();
+                currentSettings.device_name = deviceNameField->text().toStdString();
+
+                tsettings->updateSettings(currentSettings);
+                tsettings->saveToRegistry();
+                settingsDialog.accept();
+                });
+        }
+        // Group Box Other settings
+        {
+            QGroupBox* settingsGroup = new QGroupBox("Others", &settingsDialog);
+            settingsGroup->setFixedSize(200, 200);
+            QFormLayout* formLayout = new QFormLayout(settingsGroup);
+
+            // Dropdown list (ComboBox) for themes
+            QComboBox* themeComboBox = new QComboBox(settingsGroup);
+            themeComboBox->setToolTip("Select UI Theme");
+
+            // Load all QSS files from QssTemplate folder
+            fs::path qssFolder = fs::current_path() / "QssTemplate";
+            if (fs::exists(qssFolder) && fs::is_directory(qssFolder)) {
+                for (const auto& entry : fs::directory_iterator(qssFolder)) {
+                    if (entry.path().extension() == ".qss") {
+                        themeComboBox->addItem(QString::fromStdString(entry.path().filename().string()));
+                    }
+                }
+            }
+            
+
+            // Set current theme selection
+            themeComboBox->setCurrentText(QString::fromStdString(currentSettings.qsTheme));
+
+            formLayout->addRow(new QLabel("Theme:"), themeComboBox);
+            
+            QPushButton* reloadTheme = new QPushButton("Hotload");
+            formLayout->addWidget(reloadTheme);
+            QObject::connect(reloadTheme, &QPushButton::clicked, [&]() {
+                currentSettings.qsTheme = themeComboBox->currentText().toStdString();
+                tsettings->updateSettings(currentSettings);
+                UISETTING();
+                sttlogs->logInfo("Reload to use theme: " + currentSettings.qsTheme);
+                });
+
+            mainLayout->addWidget(settingsGroup);
+
+            QObject::connect(applyButton, &QPushButton::clicked, [&]() {
+                tsettings->saveToRegistry();
+                UISETTING();
+                sttlogs->logInfo("Settings applied.");
+                });
+            
+        }
+
+
+        mainLayout->addLayout(buttonLayout);
 
         settingsDialog.exec();
     }
+
+
     QWidget* UIManager::addFrameName(const QString& name, QWidget* frame) {
         if (!frame->layout()) {
             QVBoxLayout* layout = new QVBoxLayout(frame);
@@ -185,7 +289,7 @@ namespace nmainUI {
 
         QObject::connect(resInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) mutable {
             resolution = resInput->value();
-            nsubject->notify();
+            nsubject->notify(nullptr);
             });
 
         // Add a button
@@ -195,13 +299,23 @@ namespace nmainUI {
             app->logical();
             });
 
+        // add 3D button
+		QPushButton* btn3D = new QPushButton("3D");
+		layout->addWidget(btn3D);
+        QObject::connect(btn3D, &QPushButton::clicked, [=]() mutable {
+            std::unique_ptr<IDataProcecss> object = std::make_unique<DataProcess>();
+            auto result = object->processData();
+            vulkanWindow->PautINIT(result);
+            });
+         
+        
         // Add a checkbox
         QCheckBox* checkBox = new QCheckBox("Cscan Layer");
         checkBox->setCheckState(Qt::Unchecked);
         layout->addWidget(checkBox);
         QObject::connect(checkBox, &QCheckBox::stateChanged, [=](int state) {
             isCscanLayer = (state == Qt::Checked);
-            nsubject->notify();
+            nsubject->notify(nullptr);
             });
 
         return settingsWidget;
@@ -221,25 +335,25 @@ namespace nmainUI {
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto aScanFrm = nFactoryFrame::crAscanFrm(app);
+        auto aScanFrm = nFactoryFrame::crAviewFrm(app);
         nsubject->addObserver(aScanFrm);
         layout->addWidget(aScanFrm->createFrame());
         
 
         return addFrameName("Ascan", ascanWidget);
     }
-    QWidget* UIManager::createBscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
+    QWidget* UIManager::createSscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
     {
-        QWidget* bscanWidget = new QWidget();
-        QHBoxLayout* layout = new QHBoxLayout(bscanWidget);
+        QWidget* SscanWidget = new QWidget();
+        QHBoxLayout* layout = new QHBoxLayout(SscanWidget);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto bScanFrm = nFactoryFrame::crBscanFrm(app);
-        nsubject->addObserver(bScanFrm);
-        layout->addWidget(bScanFrm->createFrame());
+        auto SviewFrame = nFactoryFrame::crSViewFrm(app);
+        nsubject->addObserver(SviewFrame);
+        layout->addWidget(SviewFrame->createFrame());
 
-        return addFrameName("Bscan", bscanWidget);
+        return addFrameName("Sscan", SscanWidget);
     }
     QWidget* UIManager::createCscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
     {
@@ -248,11 +362,24 @@ namespace nmainUI {
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto cScanFrm = nFactoryFrame::crCscanFrm(app);
+        auto cScanFrm = nFactoryFrame::crCviewFrm(app);
         nsubject->addObserver(cScanFrm);
         layout->addWidget(cScanFrm->createFrame());
 
         return addFrameName("Cscan", cscanWidget);
+    }
+    QWidget* UIManager::createBscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
+    {
+        QWidget* Bview = new QWidget();
+        QHBoxLayout* layout = new QHBoxLayout(Bview);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+
+        auto BFrame = nFactoryFrame::crBviewFrm(app);
+        nsubject->addObserver(BFrame);
+        layout->addWidget(BFrame->createFrame());
+
+        return addFrameName("Bscan", Bview);
     }
     QWidget* UIManager::create3DFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject) {
         QWidget* VWidget = new QWidget();
@@ -265,9 +392,9 @@ namespace nmainUI {
         }
 
         // Create Vulkan window and set the Vulkan instance
-        VulkanWindow* vulkanWindow = new VulkanWindow;
+        vulkanWindow = new VulkanWindow;
         vulkanWindow->setVulkanInstance(inst);
-
+        vulkanWindow->GetDeviceInfo();
         // Set the layout to display the window
         QVBoxLayout* layout = new QVBoxLayout(VWidget);
         layout->addWidget(QWidget::createWindowContainer(vulkanWindow));

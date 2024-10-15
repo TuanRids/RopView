@@ -1,6 +1,6 @@
-#include "AscanFrame.h"
+#include "AviewFrame.h"
 #include "..\pch.h"
-QWidget* AscanFrame::createFrame() {
+QWidget* AviewFrame::createFrame() {
     scene = std::make_shared<QGraphicsScene>();
     graphicsView = std::make_shared<QGraphicsView>();
     graphicsView->setScene(&*scene);
@@ -18,7 +18,7 @@ QWidget* AscanFrame::createFrame() {
     return frame;
 }
 
-void AscanFrame::update() {
+void AviewFrame::update() {
 
     /*if (!curpt.CheckIdx(-1, y_level_, -1) && !curpt.CheckIdx(x_level_, -1, -1)) {
         return;
@@ -27,7 +27,7 @@ void AscanFrame::update() {
         if (sttlogs) { sttlogs->logWarning("No amplitude data available"); }
         return;
     }
-    CreateAScan();
+    CreateAview();
     /*if (nimg && !nimg->isNull()) {
         QPixmap pixmap = QPixmap::fromImage(*nimg);
         scene->clear();
@@ -37,7 +37,7 @@ void AscanFrame::update() {
 
 }
 
-std::shared_ptr<QImage> AscanFrame::CreateXZScan() {
+std::shared_ptr<QImage> AviewFrame::CreateXZview() {
     if (scandat.Amplitudes.empty()) {
         return nullptr;
     }
@@ -96,7 +96,7 @@ std::shared_ptr<QImage> AscanFrame::CreateXZScan() {
 }
 
 
-void AscanFrame::CreateAScan()
+void AviewFrame::CreateAview()
 {
     // ********** SETTINGS **********
     static QValueAxis* axisX = new QValueAxis();

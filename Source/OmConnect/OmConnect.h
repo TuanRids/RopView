@@ -1,6 +1,6 @@
 #pragma once
 #include "..\pch.h"
-#include "readconfig.h"
+#include "MainUI/SettingPara.h"
 using namespace Instrumentation;
 // vulkan & QT
 /*
@@ -123,7 +123,7 @@ namespace omcn
     private:
         // properties
         shared_ptr<IDevice> device;
-        string ipAddress = "172.17.0.1";
+        string ipAddress = "192.168.0.1";
 
         // private methods
         shared_ptr<IDevice> DiscoverDevice();

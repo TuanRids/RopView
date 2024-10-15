@@ -8,15 +8,18 @@
 #include "MainUI/statuslogs.h"
 #include <opencv2/opencv.hpp>
 #include "MainUI/mainwindow.h"
+#include "..\Source\event\ZoomableGraphicsView.h"
+
 /// <summary>
 ///  Virtual Basic Frame 
 /// </summary>
 
 // forward declaration for fixing Circular reference
 class nLogFrame;
-class CscanFrame;
-class BscanFrame;
-class AscanFrame;
+class CviewFrame; // Oxy
+class SviewFrame; // Oyz
+class AviewFrame; // Oz
+class BviewFrame; // Oxz
 
 struct curpt3d 
 { 
@@ -37,6 +40,8 @@ public:
     void setScandat(const AscanData& dataa) { scandat = dataa; }
     void clearScandat() { scandat = AscanData(); }
     void setSttlogs() { if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); } }
+    void UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<cv::Mat> Img, std::shared_ptr<QGraphicsScene> scene, 
+        std::shared_ptr<ZoomableGraphicsView> graphicsView, int res, Qt::GlobalColor xcolor, Qt::GlobalColor ycolor);
 
 protected:
     static bool isPanning ;
@@ -97,7 +102,7 @@ protected:
             // Calculate the shifted index based on gain.
             int shiftedIndex = static_cast<int>(i * gainFactor);
             if (shiftedIndex >= numColors) {
-                shiftedIndex = numColors - 1; // Cap at the last color
+                shiftedIndex = static_cast<int>(numColors - 1); // Cap at the last color
             }
             gainAdjustedColors[i] = everyColors[shiftedIndex];
         }
@@ -111,9 +116,10 @@ protected:
 class nFactoryFrame {
 public:
 	static std::shared_ptr<nLogFrame> crLogFrm();
-	static std::shared_ptr<CscanFrame> crCscanFrm(nmainUI::UIFrame* uifmr);
-    static std::shared_ptr<BscanFrame> crBscanFrm(nmainUI::UIFrame* uifmr);
-    static std::shared_ptr<AscanFrame> crAscanFrm(nmainUI::UIFrame* uifmr);
+	static std::shared_ptr<CviewFrame> crCviewFrm(nmainUI::UIFrame* uifmr);
+    static std::shared_ptr<SviewFrame> crSViewFrm(nmainUI::UIFrame* uifmr);
+    static std::shared_ptr<AviewFrame> crAviewFrm(nmainUI::UIFrame* uifmr);
+    static std::shared_ptr<BviewFrame> crBviewFrm(nmainUI::UIFrame* uifmr);
 };
 
 #endif // FACTORYMGR_H

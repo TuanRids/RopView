@@ -34,19 +34,74 @@ void setupDebugMessenger(QVulkanInstance& vulkanInstance) {
 }
 
 
+void ResourceBuilder::createResources(Mesh& gmesh)
+{
+    
+    m_deviFunc = m_VulWindow->vulkanInstance()->deviceFunctions(m_VulWindow->device());
+    m_device = m_VulWindow->device();
+
+    try
+    {
+        createBuffer(gmesh);
+        allocateMemory(gmesh);
+        createDescriptor(gmesh);
+        createPipeLine(gmesh);
+    }
+    catch (std::exception& e) {
+        qFatal("%s", e.what());
+    }
+}
+
+void ResourceBuilder::releaseResources(Mesh& mesh)
+{
+    if (mesh.buffer) {
+        m_deviFunc->vkDestroyBuffer(m_device, mesh.buffer, nullptr);
+        mesh.buffer = VK_NULL_HANDLE;
+    }
+    if (mesh.memory) {
+        m_deviFunc->vkFreeMemory(m_device, mesh.memory, nullptr);
+        mesh.memory = VK_NULL_HANDLE;
+    }
+    if (mesh.pipeline) {
+        m_deviFunc->vkDestroyPipeline(m_device, mesh.pipeline, nullptr);
+        mesh.pipeline = VK_NULL_HANDLE;
+    }
+
+    if (mesh.pipelineLayout) {
+        m_deviFunc->vkDestroyPipelineLayout(m_device, mesh.pipelineLayout, nullptr);
+        mesh.pipelineLayout = VK_NULL_HANDLE;
+    }
+
+    if (mesh.pipelineCache) {
+        m_deviFunc->vkDestroyPipelineCache(m_device, mesh.pipelineCache, nullptr);
+        mesh.pipelineCache = VK_NULL_HANDLE;
+    }
+
+    if (mesh.descSetLayout) {
+        m_deviFunc->vkDestroyDescriptorSetLayout(m_device, mesh.descSetLayout, nullptr);
+        mesh.descSetLayout = VK_NULL_HANDLE;
+    }
+
+    if (mesh.descPool) {
+        m_deviFunc->vkDestroyDescriptorPool(m_device, mesh.descPool, nullptr);
+        mesh.descPool = VK_NULL_HANDLE;
+    }
+
+}
+
 inline VkDeviceSize ResourceBuilder::aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
     return (v + byteAlign - 1) & ~(byteAlign - 1);
 }
 
-ResourceBuilder& ResourceBuilder::createBuffer(QVulkanWindow* m_VulWindow, Mesh& gmesh)
+void ResourceBuilder::createBuffer( Mesh& gmesh)
 {
     concurrentFrameCount = m_VulWindow->concurrentFrameCount();
     VkBufferCreateInfo bufInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 
     const VkDeviceSize uniAlign = m_VulWindow->physicalDeviceProperties()->limits.minUniformBufferOffsetAlignment;
     gmesh.vertexAllocSize = aligned(gmesh.vertices.size() * sizeof(Vertex), uniAlign);
-    gmesh.indexAllocSize = aligned(gmesh.indices.size() * sizeof(uint16_t), uniAlign);
+    gmesh.indexAllocSize = aligned(gmesh.indices.size() * sizeof(uint32_t), uniAlign);
     gmesh.uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
 
     bufInfo.size = gmesh.vertexAllocSize + gmesh.indexAllocSize + concurrentFrameCount * gmesh.uniformAllocSize;
@@ -56,12 +111,9 @@ ResourceBuilder& ResourceBuilder::createBuffer(QVulkanWindow* m_VulWindow, Mesh&
     if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to create buffer.");
     }
-
-    return *this;
-
 }
 
-ResourceBuilder& ResourceBuilder::allocateMemory(QVulkanWindow* m_VulWindow, Mesh& gmesh)
+void ResourceBuilder::allocateMemory( Mesh& gmesh)
 {
 
     // Allocate bind vertex buffer memory
@@ -92,12 +144,15 @@ ResourceBuilder& ResourceBuilder::allocateMemory(QVulkanWindow* m_VulWindow, Mes
     if (result != VK_SUCCESS) { throw std::runtime_error("Failed to map vertex memory."); }
     memcpy(p, gmesh.vertices.data(), gmesh.vertices.size() * sizeof(Vertex));
     m_deviFunc->vkUnmapMemory(m_device, gmesh.memory);
+    if (gmesh.indices.size() > 0) 
+    {
+        // Map and copy index data (right after vertex data)
+        result = m_deviFunc->vkMapMemory(m_device, gmesh.memory, gmesh.vertexAllocSize, gmesh.indexAllocSize, 0, reinterpret_cast<void**>(&p));
+        if (result != VK_SUCCESS) { throw std::runtime_error("Failed to map index memory."); }
+        memcpy(p, gmesh.indices.data(), gmesh.indices.size() * sizeof(uint32_t));
+        m_deviFunc->vkUnmapMemory(m_device, gmesh.memory);
+    }
 
-    // Map and copy index data (right after vertex data)
-    result = m_deviFunc->vkMapMemory(m_device, gmesh.memory, gmesh.vertexAllocSize, gmesh.indexAllocSize, 0, reinterpret_cast<void**>(&p));
-    if (result != VK_SUCCESS) { throw std::runtime_error("Failed to map index memory."); }
-    memcpy(p, gmesh.indices.data(), gmesh.indices.size()*sizeof(uint16_t));
-    m_deviFunc->vkUnmapMemory(m_device, gmesh.memory);
 
     // Map and copy uniform buffer data for each frame
 
@@ -118,10 +173,9 @@ ResourceBuilder& ResourceBuilder::allocateMemory(QVulkanWindow* m_VulWindow, Mes
     }
     m_deviFunc->vkUnmapMemory(m_device, gmesh.memory);
 
-    return *this;
 }
 
-ResourceBuilder& ResourceBuilder::createDescriptor(Mesh& gmesh)
+void ResourceBuilder::createDescriptor(Mesh& gmesh)
 {
 
     // Set up and create descriptor pool
@@ -157,7 +211,7 @@ ResourceBuilder& ResourceBuilder::createDescriptor(Mesh& gmesh)
     }
 }
 
-ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow, Mesh& gmesh)
+void ResourceBuilder::createPipeLine( Mesh& gmesh)
 {
     VkPipelineCacheCreateInfo pipelineCacheInfo;
     memset(&pipelineCacheInfo, 0, sizeof(pipelineCacheInfo));
@@ -204,13 +258,24 @@ ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow, Mes
     vertexInputInfo.vertexAttributeDescriptionCount = 2;
     vertexInputInfo.pVertexAttributeDescriptions = vertexAttrDesc;
 
-
     pipelineInfo.pVertexInputState = &vertexInputInfo;
 
     VkPipelineInputAssemblyStateCreateInfo ia;
     memset(&ia, 0, sizeof(ia));
     ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    if (gmesh.name.find("axisGizmo") != std::string::npos) {
+        ia.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+    }
+    else if (gmesh.name.find("Paut Object") != std::string::npos)
+    {
+        ia.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST; // VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    }
+    else 
+    {
+        ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    }
+
+
     ia.primitiveRestartEnable = VK_FALSE;  // Disable primitive restart for now
     pipelineInfo.pInputAssemblyState = &ia;
 
@@ -227,7 +292,7 @@ ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow, Mes
     rs.polygonMode = VK_POLYGON_MODE_FILL;
     rs.cullMode = VK_CULL_MODE_NONE; // we want the back face as well
     rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rs.lineWidth = 1.0f;
+    rs.lineWidth = 2.0f;
     pipelineInfo.pRasterizationState = &rs;
 
     VkPipelineMultisampleStateCreateInfo ms;
@@ -239,9 +304,13 @@ ResourceBuilder& ResourceBuilder::createPipeLine(QVulkanWindow* m_VulWindow, Mes
 
     VkPipelineDepthStencilStateCreateInfo ds;
     memset(&ds, 0, sizeof(ds));
-    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;    
     ds.depthTestEnable = VK_TRUE;
     ds.depthWriteEnable = VK_TRUE;
+    if (gmesh.name.find("axisGizmo") != std::string::npos) {
+        ds.depthTestEnable = VK_FALSE;
+		ds.depthWriteEnable = VK_FALSE;
+    }
     ds.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     pipelineInfo.pDepthStencilState = &ds;
 

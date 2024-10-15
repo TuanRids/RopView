@@ -18,10 +18,14 @@ public:
 	{
 		observers.push_back(a_object);
 	}
-
-	void notify() {
+	// Notify all: nullptr
+	void notify(nFrame* currentFrame) {
 		for (const auto& object : observers) {
-			if (object) {
+			// check if object is the same with nFrame
+			if (currentFrame == nullptr) 
+			{ object->update();}
+			nFrame* frameObserver = dynamic_cast<nFrame*>(object.get());
+			if (frameObserver && frameObserver != currentFrame) {
 				object->update();
 			}
 		}

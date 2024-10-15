@@ -1,5 +1,5 @@
-#ifndef NGRAPHICFRAME_H
-#define NGRAPHICFRAME_H
+#ifndef CVIEWFRAME_H
+#define CVIEWFRAME_H
 
 #include "..\pch.h"
 #include "..\Source\PAUTFileReader\AscanProcessor.h"
@@ -10,22 +10,22 @@
 
 
 // Graphics Frame
-class CscanFrame : public nFrame, public nObserver {
+class CviewFrame : public nFrame, public nObserver {
 private:
-    void CreateXYScan();
+    void CreateXYview();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
-    
-    void render_graphic();
+    void addPoints(bool Cviewlink, int x, int y);
+
     std::shared_ptr<QGraphicsScene> scene;
     std::shared_ptr<ZoomableGraphicsView> graphicsView;
     nmainUI::UIFrame* uiframe;
     uint64_t ysize, xsize, zsize;
     std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
 
-    std::unique_ptr<cv::Mat> orgimage;
-    std::unique_ptr<cv::Mat> scaledImage;
+    std::shared_ptr<XYOverlayGrid> overlay;
+    std::shared_ptr<cv::Mat> orgimage;
+    std::shared_ptr<cv::Mat> scaledImage;
     QGraphicsView* navigatorView;
-    bool isLocalPanning = false;
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;
