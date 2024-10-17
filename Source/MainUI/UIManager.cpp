@@ -10,6 +10,7 @@
 #include "Frames/BviewFrame.h"
 #include "Frames/AviewFrame.h"
 
+#include "..\OmConnect\OmConnect.h"
 #include "..\Data3DProcessing\DataProcess.h"
 namespace nmainUI {
     UIManager::UIManager() {
@@ -293,12 +294,18 @@ namespace nmainUI {
             });
 
         // Add a button
-        QPushButton* btn = new QPushButton("Load");
-        layout->addWidget(btn);
-        QObject::connect(btn, &QPushButton::clicked, [=]() mutable {
+        QPushButton* btnLoad = new QPushButton("Load");
+        layout->addWidget(btnLoad);
+        QObject::connect(btnLoad, &QPushButton::clicked, [=]() mutable {
             app->logical();
             });
 
+        // Add a button
+        QPushButton* btnConnect = new QPushButton("Connect");
+        layout->addWidget(btnConnect);
+        QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
+            omc->omConnectDevice();
+            });
         // add 3D button
 		QPushButton* btn3D = new QPushButton("3D");
 		layout->addWidget(btn3D);
@@ -373,7 +380,7 @@ namespace nmainUI {
         QWidget* Bview = new QWidget();
         QHBoxLayout* layout = new QHBoxLayout(Bview);
         layout->setContentsMargins(0, 0, 0, 0);
-        layout->setSpacing(0);
+        //layout->setSpacing(0);
 
         auto BFrame = nFactoryFrame::crBviewFrm(app);
         nsubject->addObserver(BFrame);

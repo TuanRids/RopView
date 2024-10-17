@@ -13,6 +13,8 @@ QWidget* AviewFrame::createFrame() {
     QVBoxLayout* layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->addWidget(graphicsView.get());
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0); 
     frame->setLayout(layout);
 
     return frame;

@@ -1,6 +1,8 @@
 #pragma once
 #include "..\pch.h"
-#include "MainUI/SettingPara.h"
+#include "IOmConnect.h"
+#include "..\MainUI\statuslogs.h"
+
 using namespace Instrumentation;
 // vulkan & QT
 /*
@@ -116,23 +118,25 @@ To make vulkan use them you have to manually add the vcpkg path "<vcpkg_installe
 C:\Users\ngdtu>*/
 
 using namespace std;
-namespace omcn
+
+class OmConnect: public IOmConnect
 {
-    class OmConnect
-    {
-    private:
-        // properties
-        shared_ptr<IDevice> device;
-        string ipAddress = "192.168.0.1";
+public:
+    OmConnect():sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr){};
+    ~OmConnect() { acquisitionStop(); };
+    bool omConnectDevice() override;
+private:
+    // private methods
+    shared_ptr<IDevice> DiscoverDevice() override;
+    void StartDevice() override;
+    void ConfigureDevice() override;
+    void acquisitionStart();
+    void acquisitionStop();
 
-        // private methods
-        shared_ptr<IDevice> DiscoverDevice();
-        void StartDevice();
-        void ConfigureDevice();
-    public:
-        OmConnect(): device(nullptr) {};
-        ~OmConnect() {};
-        bool omConnectDevice();
-    };
+    int test();
+    nmainUI::statuslogs* sttlogs;
+    std::shared_ptr<IBeamSet> beamSet;
+    std::shared_ptr<IAcquisition> acquisition;
+};
 
-}
+

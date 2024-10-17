@@ -13,7 +13,9 @@ QWidget* CviewFrame::createFrame(){
     MouseGetPosXY(graphicsView);
 
     // Create layout and frame
-    QVBoxLayout* layout = new QVBoxLayout();
+    QVBoxLayout* layout = new QVBoxLayout();    
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
     layout->addWidget(graphicsView.get());
 
     navigatorView = new QGraphicsView();

@@ -28,7 +28,7 @@ void VulkanWindow::GetDeviceInfo()
         info += QString::number(count) + " ";
     info += "\n\t   *********";
 
-    nmainUI::statuslogs::getinstance().logInfo(info.toStdString());
+    nmainUI::statuslogs::getinstance().logNotify(info.toStdString());
 }
 
 void VulkanWindow::mousePressEvent(QMouseEvent* event)

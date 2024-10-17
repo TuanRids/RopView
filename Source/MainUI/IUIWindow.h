@@ -4,7 +4,7 @@
 #include "..\pch.h"
 #include "statuslogs.h"
 #include "..\Source\PAUTFileReader\AscanProcessor.h"
-
+#include "..\OmConnect\OmConnect.h"
 class UIWindow {
 public:
     virtual ~UIWindow() = default;
@@ -13,6 +13,7 @@ public:
     bool check_isCscanLayer() const { return isCscanLayer; }
 
 protected:
+    static std::shared_ptr<IOmConnect> omc;
     static unsigned int resolution;
     static bool isCscanLayer;
     static nmainUI::statuslogs* sttlogs;

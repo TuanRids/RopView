@@ -16,6 +16,24 @@ namespace nmainUI {
                 plogOutputWidget->setReadOnly(true);
             }
         }
+        void addLogMessage(const QString& prefix, const QString& message, const QColor& color) {
+            QMutexLocker locker(&mtx);
+            if (plogOutputWidget) {
+                plogOutputWidget->setTextColor(Qt::white);
+                plogOutputWidget->insertPlainText(prefix);  
+                plogOutputWidget->setTextColor(color);
+                plogOutputWidget->insertPlainText(message);  
+                plogOutputWidget->insertPlainText("\n");
+                plogOutputWidget->moveCursor(QTextCursor::End);
+                plogOutputWidget->setTextColor(Qt::white);  
+            }
+
+            if (filelog.isOpen()) {
+                QTextStream out(&filelog);
+                out << prefix << message << "\n";
+            }
+
+        }
         void addLogMessage(const QString& message, const QColor& color) {
             QMutexLocker locker(&mtx);
             if (plogOutputWidget) {
@@ -29,19 +47,23 @@ namespace nmainUI {
         }
         void logDebug(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
-            addLogMessage( crtime() + ": [DEBUG] " + qmessage, Qt::gray);
+            addLogMessage( crtime() + ": [debug] " , qmessage, Qt::green);
         }
         void logInfo(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
-            addLogMessage( crtime() + ": [INFO] " + qmessage, Qt::cyan);
+            addLogMessage( crtime() + ": [info] " , qmessage, QColor(0.73 * 255, 0.68 * 255, 0.8 * 255));
         }
         void logWarning(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
-            addLogMessage(crtime() + ": [WARNING] " + qmessage, Qt::yellow);
+            addLogMessage(crtime() + ": [warning] " , qmessage, Qt::yellow);
+        }
+        void logNotify(const std::string& message) {
+            QString qmessage = QString::fromStdString(message);
+            addLogMessage(crtime() + ": [notify] " , qmessage, QColor(1.0 * 255, 0.7 * 255, 0.0 * 255));
         }
         void logCritical(const std::string& message) {
             QString qmessage = QString::fromStdString(message);
-            addLogMessage( crtime() + ": [CRITICAL] " + qmessage, Qt::red);
+            addLogMessage( crtime() + ": [critical] " , qmessage, Qt::red);
         }
         void clearLogs() {
             QMutexLocker locker(&mtx);

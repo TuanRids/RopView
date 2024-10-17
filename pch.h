@@ -82,4 +82,9 @@
 
 // ======== OpenCV CUDA ============
 #include <opencv2/opencv.hpp>
+
+// ======== Olympus ============
+#include <Storage/Storage.h>
+
+
 #endif // PCH_H
