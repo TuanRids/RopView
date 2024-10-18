@@ -87,13 +87,18 @@ namespace nmainUI {
                 filelog.close();
             }
         }
+        std::shared_ptr<spdlog::logger> spdLoggers() { return file_logger; }
     private:
         QString crtime(){return QTime::currentTime().toString("hh:mm:ss");}
-        statuslogs() = default;
+        statuslogs() : file_logger(nullptr) {
+            std::shared_ptr<spdlog::logger> file_logger = spdlog::basic_logger_mt("file_logger", "log.txt");
+        };
         ~statuslogs() = default;
 
         statuslogs(const statuslogs&) = delete;
         statuslogs& operator=(const statuslogs&) = delete;
+
+        std::shared_ptr<spdlog::logger> file_logger;
 
         QTextEdit* plogOutputWidget = nullptr;
         QFile filelog;

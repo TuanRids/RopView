@@ -1,5 +1,4 @@
 #include "OmConnect.h"
-
 #include "LoadLibraries.h"
 
 using namespace Instrumentation;
@@ -32,21 +31,23 @@ int OmConnect::test() {
     return EXIT_SUCCESS;
 }
 
+
 bool OmConnect::omConnectDevice()
 {
+    if (!sdk_logger)
+    {
+        sdk_logger = spdlog::basic_logger_mt("RopView Logger", "RopView.log", false);
+        sdk_logger->set_level(spdlog::level::debug);
+
+        sdk_logger->flush_on(spdlog::level::debug);
+        sdk_logger->info("\n\t=================\n\tStarting OmConnect\n\t=================");
+    }
     if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance(); 
     ipAddress = SettingsManager::getInstance()->getSettings().ipAddress;
     try
     {
-        if (!device)
-        {
-            test();
-            sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
-            device = DiscoverDevice();
-            StartDevice();
-            ConfigureDevice();
-        }
-        acquisitionStart();
+        // new thread
+        newThread();
         return true;
     }
     catch (const std::exception& e)
@@ -102,9 +103,9 @@ void OmConnect::ConfigureDevice()
 
     std::shared_ptr<IBeamSetFactory> beamSetFactory = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::Conventional)->GetBeamSetFactory();
     beamSet = beamSetFactory->CreateBeamSetConventional(L"BeamSet-UT");
-    sttlogs->logNotify("Create conventional beam set: <" + wstostring(beamSet->GetName()) + "> using conventional / PhasedArray technology");
     std::shared_ptr<IAmplitudeSettings> amplitudeSettings = beamSet->GetDigitizingSettings()->GetAmplitudeSettings();
     amplitudeSettings->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
+        sttlogs->logNotify("Create conventional beam set: <" + wstostring(beamSet->GetName()) + "> using conventional / PhasedArray technology");
 
     // Set filter from capabilities list. 
     std::shared_ptr<IFilterSettings> filterSettings = beamSet->GetDigitizingSettings()->GetFilterSettings();
@@ -124,49 +125,82 @@ void OmConnect::ConfigureDevice()
 
 }
 
-void OmConnect::acquisitionStart()
-{
-    // Acquire ultrasound data
+// Shared buffer between threads
+CircularBuffer<std::vector<int>> sharedBuffer(100);
+
+void OmConnect::dataAcquisitionThread() {
+    int ResIndex = 0;
+    if (acquisition){ acquisition ->Stop();}
     acquisition->Start();
-    auto starttime = std::chrono::system_clock::now();
+    int cycleIndexLimit = 1;
+    while (true) {  
+        auto starttime = std::chrono::steady_clock::now();        
+        acquisition->Stop();
+        acquisition->Start();
+        for (size_t cycleIndex = 0; cycleIndex < 20; ++cycleIndex) {
+            auto waitForDataResult = acquisition->WaitForDataEx();
+            if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable) {
+                std::cerr << "Error during data acquisition" ;
+            }
 
-    std::string z = "";
-    for (size_t cycleIndex = 0; cycleIndex < 2; ++cycleIndex)
-    {
-        z = "";
-        auto waitForDataResult = acquisition->WaitForDataEx();
-        if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
-            throw std::exception("Error during data acquisition");
+            auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
+            std::vector<int> ascanVector(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
 
-        auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
-        std::span<const int> ascanData(ascan->GetData(), ascan->GetSampleQuantity());
+            // std::lock_guard<std::mutex> lock(bufferMutex);
+            sharedBuffer.push(ascanVector);
 
-        for (int i = 0 ; i < ascanData.size(); i++)
-        {
-            z += "-" + std::to_string(ascanData[i]);
-            if (i%11 == 0) z += "\n";
+            /*auto beam = beamSet->GetBeam(0);
+            beam->SetGainEx(beam->GetGain() + cycleIndex * 2);
+            acquisition->ApplyConfiguration();*/
         }
-        /*auto beam = beamSet->GetBeam(0);
-        beam->SetGainEx(beam->GetGain() + cycleIndex);
-        acquisition->ApplyConfiguration();*/
-    }
-    // duration ms 
-
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - starttime);
-    sttlogs->logNotify(z);
-	sttlogs->logNotify("Duration: " + std::to_string(duration.count()));
-    //acquisition->Stop();
-
+        // duration milisec
+		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - starttime).count();
+        sdk_logger->debug("CycleIndexLimit: {}, duration: {}, Throughput: {}", ++cycleIndexLimit, duration, acquisition->GetThroughput());
+        sdk_logger->flush();
+        writeData();
+    }    
 }
 
-void OmConnect::acquisitionStop()
+void OmConnect::writeData()
 {
-    try
+    static int index = 0;
+    while (sharedBuffer.size()>0)
     {
-        acquisition->Stop();
+        for (int i = 0; i < sharedBuffer.size(); ++i) {
+            if (sharedBuffer.size() == 0) break;
+
+            std::lock_guard<std::mutex> lock(bufferMutex);
+            auto data = sharedBuffer.pop();
+
+
+            std::ostringstream oss;
+            int j;
+            for (j=0; j < data.size(); ++j) {
+                if (data[j] == 0) { break; }
+                oss << data[j] << " ";
+                if (j % 11 == 10) {
+                    oss << "";
+                }
+            }
+            std::string dataStr = oss.str();
+            sdk_logger->debug("id = {}; datasize {}/5000 ; data: {}", ++index, j, dataStr);
+        }
     }
-	catch (const std::exception& e)
-    { void(0); }
+}
+
+void OmConnect::newThread()
+{
+    if (!device)
+    {
+        test();
+        sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
+        device = DiscoverDevice();
+        StartDevice();
+        ConfigureDevice();
+    }
+    //dataAcquisitionThread();
+    std::thread acquisitionThread(&OmConnect::dataAcquisitionThread, this);
+    acquisitionThread.detach();
 }
 
     

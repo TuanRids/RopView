@@ -194,7 +194,7 @@ void AscanProcessor::printJsonLabels(const rj::Value& jsonValue, const std::stri
     if (jsonValue.IsObject()) {
         for (auto it = jsonValue.MemberBegin(); it != jsonValue.MemberEnd(); ++it) {
             std::string label = it->name.GetString();
-            std::cout << indent << "- Label: " << label << std::endl;
+            std::cerr << indent << "- Label: " << label << std::endl;
 
             printJsonLabels(it->value, indent + "  ");
         }
@@ -208,7 +208,7 @@ void AscanProcessor::printJsonLabels(const rj::Value& jsonValue, const std::stri
 bool AscanProcessor::showingData(unsigned int x_level_ = 0, unsigned int y_level_ = 0, unsigned int z_level_ = 0)
 {
     //if (jsonDoc.IsObject()) { printJsonLabels(jsonDoc); }
-    //else { std::cout << "Invalid JSON document." << std::endl; }
+    //else { std::cerr << "Invalid JSON document." << std::endl; }
     
     for (const auto& group : jsonDoc["groups"].GetArray()) {
         if (group["dataset"].HasMember("ascan")) {

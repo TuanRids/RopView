@@ -2,6 +2,9 @@
 #include "..\pch.h"
 #include "IOmConnect.h"
 #include "..\MainUI\statuslogs.h"
+#include "CircularBuffer.h"
+#include <mutex>
+
 
 using namespace Instrumentation;
 // vulkan & QT
@@ -123,20 +126,22 @@ class OmConnect: public IOmConnect
 {
 public:
     OmConnect():sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr){};
-    ~OmConnect() { acquisitionStop(); };
+    ~OmConnect() { };
     bool omConnectDevice() override;
 private:
     // private methods
     shared_ptr<IDevice> DiscoverDevice() override;
     void StartDevice() override;
     void ConfigureDevice() override;
-    void acquisitionStart();
-    void acquisitionStop();
-
+    void newThread();
+    void writeData();
+    void dataAcquisitionThread();
     int test();
     nmainUI::statuslogs* sttlogs;
     std::shared_ptr<IBeamSet> beamSet;
     std::shared_ptr<IAcquisition> acquisition;
+    std::mutex bufferMutex;
+    std::shared_ptr<spdlog::logger> sdk_logger;
 };
 
 
