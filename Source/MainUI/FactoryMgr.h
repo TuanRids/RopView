@@ -3,10 +3,9 @@
 #include "pch.h"
 
 
-#include "IUIWindow.h"
+///  Virtual Basic Frame 
+/// </summary>
 
-class nmainUI::UIFrame;
-class nmainUI::statuslogs;
 class nLogFrame;
 class CviewFrame;
 class SviewFrame;

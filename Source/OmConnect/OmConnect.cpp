@@ -3,7 +3,7 @@
 
 using namespace Instrumentation;
 std::string wstostring(const std::wstring& wstr) {
-	return std::string(wstr.begin(), wstr.end());
+    return std::string(wstr.begin(), wstr.end());
 }
 int OmConnect::test() {
     try
@@ -53,7 +53,7 @@ bool OmConnect::omConnectDevice()
         sdk_logger->flush_on(spdlog::level::info);
         sdk_logger->info("\n\t=================\n\tStarting OmConnect\n\t=================");
     }
-    if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance(); 
+    if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance();
     ipAddress = SettingsManager::getInstance()->getSettings().ipAddress;
     try
     {
@@ -63,7 +63,7 @@ bool OmConnect::omConnectDevice()
     }
     catch (const std::exception& e)
     {
-        sttlogs->logCritical(e.what() );
+        sttlogs->logCritical(e.what());
         return false;
     }
 }
@@ -75,7 +75,7 @@ shared_ptr<IDevice> OmConnect::DiscoverDevice()
     DiscoverResult result = discovery->DiscoverFor(timeout);
 
     if (result.status != DiscoverResult::DeviceFound)
-        throw std::runtime_error("# Error IP: No device were found." );
+        throw std::runtime_error("# Error IP: No device were found.");
     sttlogs->logNotify("Found Device w Serial: " + result.device->GetInfo()->GetSerialNumber());
     return result.device;
 }
@@ -123,7 +123,7 @@ void OmConnect::ConfigureDevice()
     {
         auto beamFormations = GenerateBeamFormations(digitizer->GetBeamSetFactory());
         beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetPhasedArray(L"BeamSet-PhasedArray", beamFormations);
-       
+
     }
     else
     {
@@ -140,19 +140,7 @@ void OmConnect::ConfigureDevice()
 
     auto amplitudeSettings = beamSet->GetDigitizingSettings()->GetAmplitudeSettings();
     amplitudeSettings->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
-
-    for (size_t i = 0; i < beamSet->GetBeamCount(); ++i)
-    {
-        auto beam = beamSet->GetBeam(i);
-        beam->SetAscanStart(0);
-        beam->SetAscanLength(20000);
-
-        auto gate = beam->GetGateCollection()->GetGate(0);
-        gate->SetStart(1500);
-        gate->SetLength(300);
-        gate->SetThreshold(15);
-        gate->InCycleData(true);  
-    }
+        sttlogs->logNotify("Create conventional beam set: <" + wstostring(beamSet->GetName()) + "> using conventional / PhasedArray technology");
 
     auto filterSettings = beamSet->GetDigitizingSettings()->GetFilterSettings();
     auto digitalBandPassFilters = digitizer->GetDigitalBandPassFilterCollection();
@@ -172,17 +160,17 @@ CircularBuffer<std::vector<int>> sharedBuffer(100);
 
 void OmConnect::dataAcquisitionThread() {
     int ResIndex = 0;
-    if (acquisition){ acquisition ->Stop();}
+    if (acquisition) { acquisition->Stop(); }
     acquisition->Start();
     int cycleIndexLimit = 1;
-    while (true) {  
-        auto starttime = std::chrono::steady_clock::now();        
+    while (true) {
+        auto starttime = std::chrono::steady_clock::now();
         acquisition->Stop();
         acquisition->Start();
         for (size_t cycleIndex = 0; cycleIndex < 20; ++cycleIndex) {
             auto waitForDataResult = acquisition->WaitForDataEx();
             if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable) {
-                std::cerr << "Error during data acquisition" ;
+                std::cerr << "Error during data acquisition";
             }
 
             auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
@@ -196,17 +184,17 @@ void OmConnect::dataAcquisitionThread() {
             acquisition->ApplyConfiguration();*/
         }
         // duration milisec
-		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - starttime).count();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - starttime).count();
         sdk_logger->debug("CycleIndexLimit: {}, duration: {}, Throughput: {}", ++cycleIndexLimit, duration, acquisition->GetThroughput());
         sdk_logger->flush();
         writeData();
-    }    
+    }
 }
 
 void OmConnect::writeData()
 {
     static int index = 0;
-    while (sharedBuffer.size()>0)
+    while (sharedBuffer.size() > 0)
     {
         for (int i = 0; i < sharedBuffer.size(); ++i) {
             if (sharedBuffer.size() == 0) break;
@@ -217,7 +205,7 @@ void OmConnect::writeData()
 
             std::ostringstream oss;
             int j;
-            for (j=0; j < data.size(); ++j) {
+            for (j = 0; j < data.size(); ++j) {
                 if (data[j] == 0) { break; }
                 oss << data[j] << " ";
                 if (j % 11 == 10) {

@@ -120,10 +120,10 @@ C:\Users\ngdtu>*/
 
 using namespace std;
 
-class OmConnect: public IOmConnect
+class OmConnect : public IOmConnect
 {
 public:
-    OmConnect():sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr), datProcess(nullptr){};
+    OmConnect() :sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr), datProcess(nullptr) {};
     ~OmConnect() { };
     bool omConnectDevice() override;
 private:

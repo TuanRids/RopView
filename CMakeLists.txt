@@ -117,6 +117,7 @@ include_directories(${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 add_custom_command(TARGET RopView POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/config.ini" "$<TARGET_FILE_DIR:RopView>"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/sample" "$<TARGET_FILE_DIR:RopView>/sample"    
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/Firmware Packages" "$<TARGET_FILE_DIR:RopView>/Firmware Packages"    
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/QssTemplate" "$<TARGET_FILE_DIR:RopView>/QssTemplate"    
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/seting_lib.bat" "$<TARGET_FILE_DIR:RopView>"
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_BINARY_DIR} cmd /c seting_lib.bat
