@@ -1,4 +1,4 @@
-#include "..\pch.h"
+#include "pch.h"
 #include "CviewFrame.h"
 
 QWidget* CviewFrame::createFrame(){
@@ -57,6 +57,11 @@ void CviewFrame::update() {
         CreateXYview();
     }
     addPoints(true,-1,-1);
+}
+
+void CviewFrame::setter_Curpt(int x, int y, int z)
+{
+    curpt.x = x; curpt.y = y; curpt.z = z; 
 }
 
 void CviewFrame::CreateXYview() {

@@ -1,5 +1,6 @@
 #ifndef SETTINGPARA_H
 #define SETTINGPARA_H
+#include "pch.h"
 
 struct SettingParams {
 	bool bhighResBscan = true;

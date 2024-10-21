@@ -39,6 +39,7 @@
 #include <QTabWidget>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QProcess>
 
 // ======== Additional QT UI Components ============
 #include <QComboBox>

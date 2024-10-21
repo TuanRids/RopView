@@ -36,10 +36,21 @@ bool OmConnect::omConnectDevice()
 {
     if (!sdk_logger)
     {
-        sdk_logger = spdlog::basic_logger_mt("RopView Logger", "RopView.log", false);
+
+        /* Write & print logs
+        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs\\RopView.log", true);
+        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+
+        sdk_logger = std::make_shared<spdlog::logger>("RopView Logger", spdlog::sinks_init_list{ file_sink, console_sink });
+        sdk_logger->set_level(spdlog::level::debug);  // Set log level
+        spdlog::register_logger(spd_logger);
+
+        sdk_logger->set_level(spdlog::level::debug);
+        */
+        sdk_logger = spdlog::basic_logger_mt("RopView Logger", "logs\\RopView.log", true);
         sdk_logger->set_level(spdlog::level::debug);
 
-        sdk_logger->flush_on(spdlog::level::debug);
+        sdk_logger->flush_on(spdlog::level::info);
         sdk_logger->info("\n\t=================\n\tStarting OmConnect\n\t=================");
     }
     if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance(); 
@@ -92,37 +103,68 @@ void OmConnect::StartDevice()
 
     device->Start(package);
 }
+shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
 
 void OmConnect::ConfigureDevice()
 {
     if (!device)
-    {throw std::exception("Device not connected.");}
+    {
+        throw std::exception("Device not connected.");
+    }
+    std::shared_ptr<IBeamSet> beamSet;
 
-    // Create ultrasound configuration using one conventional beam set on P1/R1 connector
-    std::shared_ptr<IUltrasoundConfiguration> ultrasoundConfiguration = device->GetConfiguration()->GetUltrasoundConfiguration();
+    // configure for phased array ultrasound
+    auto ultrasoundConfiguration = device->GetConfiguration()->GetUltrasoundConfiguration();
 
-    std::shared_ptr<IBeamSetFactory> beamSetFactory = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::Conventional)->GetBeamSetFactory();
-    beamSet = beamSetFactory->CreateBeamSetConventional(L"BeamSet-UT");
-    std::shared_ptr<IAmplitudeSettings> amplitudeSettings = beamSet->GetDigitizingSettings()->GetAmplitudeSettings();
+    // detect the type of ultrasound is phased array or conventional
+    auto digitizer = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
+
+    if (digitizer)
+    {
+        auto beamFormations = GenerateBeamFormations(digitizer->GetBeamSetFactory());
+        beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetPhasedArray(L"BeamSet-PhasedArray", beamFormations);
+       
+    }
+    else
+    {
+        digitizer = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::Conventional);
+        beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetConventional(L"BeamSet-Conventional");
+
+    }
+
+    if (!digitizer)
+    {
+        throw std::exception("No valid ultrasound digitizer available.");
+    }
+
+
+    auto amplitudeSettings = beamSet->GetDigitizingSettings()->GetAmplitudeSettings();
     amplitudeSettings->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
-        sttlogs->logNotify("Create conventional beam set: <" + wstostring(beamSet->GetName()) + "> using conventional / PhasedArray technology");
 
-    // Set filter from capabilities list. 
-    std::shared_ptr<IFilterSettings> filterSettings = beamSet->GetDigitizingSettings()->GetFilterSettings();
-    std::shared_ptr<IDigitalBandPassFilterCollection> digitalBandPassFilters = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::Conventional)->GetDigitalBandPassFilterCollection();
-    std::shared_ptr<IDigitalBandPassFilter> digitalBandPassFilter = digitalBandPassFilters->GetDigitalBandPassFilter(5);
-    beamSet->GetDigitizingSettings()->GetFilterSettings()->SetDigitalBandPassFilter(digitalBandPassFilter);
+    for (size_t i = 0; i < beamSet->GetBeamCount(); ++i)
+    {
+        auto beam = beamSet->GetBeam(i);
+        beam->SetAscanStart(0);
+        beam->SetAscanLength(20000);
 
-    // Bind beam set with a compatible connector.
-    std::shared_ptr<IConnector> connector = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::Conventional)->GetConnectorCollection()->GetPulseAndReceiveConnector();
+        auto gate = beam->GetGateCollection()->GetGate(0);
+        gate->SetStart(1500);
+        gate->SetLength(300);
+        gate->SetThreshold(15);
+        gate->InCycleData(true);  
+    }
+
+    auto filterSettings = beamSet->GetDigitizingSettings()->GetFilterSettings();
+    auto digitalBandPassFilters = digitizer->GetDigitalBandPassFilterCollection();
+    auto digitalBandPassFilter = digitalBandPassFilters->GetDigitalBandPassFilter(5);
+    filterSettings->SetDigitalBandPassFilter(digitalBandPassFilter);
+
+    auto connector = digitizer->GetConnectorCollection()->GetPulseAndReceiveConnector();
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
 
-    // Apply the configuration changes
     acquisition = IAcquisition::CreateEx(device);
+    acquisition->SetRate(config.Rate); // Hz
     acquisition->ApplyConfiguration();
-    
-    
-
 }
 
 // Shared buffer between threads
@@ -199,8 +241,39 @@ void OmConnect::newThread()
         ConfigureDevice();
     }
     //dataAcquisitionThread();
-    std::thread acquisitionThread(&OmConnect::dataAcquisitionThread, this);
-    acquisitionThread.detach();
+    /*std::thread acquisitionThread(&OmConnect::dataAcquisitionThread, this);
+    acquisitionThread.detach();*/
+    if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
+    datProcess->Start();
 }
 
-    
+shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory)
+{
+    constexpr const size_t elementAperture = 16;
+    constexpr const double DELAY_RESOLUTION = 2.5; //nanoseconds
+
+    auto beamFormations = factory->CreateBeamFormationCollection();
+
+    for (size_t beam(0); beam < 64; ++beam)
+    {
+        auto beamFormation = factory->CreateBeamFormation(elementAperture, elementAperture);
+        auto pulserDelays = beamFormation->GetPulserDelayCollection();
+        auto receiverDelays = beamFormation->GetReceiverDelayCollection();
+
+        for (size_t pulser(0); pulser < elementAperture; ++pulser)
+        {
+            pulserDelays->GetElementDelay(pulser)->SetElementId(pulser + 1);
+            pulserDelays->GetElementDelay(pulser)->SetDelay(((beam + pulser) * DELAY_RESOLUTION) + 500);
+        }
+
+        for (size_t receiver(0); receiver < elementAperture; ++receiver)
+        {
+            receiverDelays->GetElementDelay(receiver)->SetElementId(receiver + 1);
+            receiverDelays->GetElementDelay(receiver)->SetDelay(((beam + receiver) * DELAY_RESOLUTION) + 1000);
+        }
+
+        beamFormations->Add(beamFormation);
+    }
+
+    return beamFormations;
+}

@@ -1,5 +1,8 @@
 #include "IUIWindow.h"
-
+#include "..\OmConnect\IOmConnect.h"
+#include "..\OmConnect\OmConnect.h"
+#include "statuslogs.h"
+#include "..\PAUTFileReader\AscanProcessor.h"
 // Define the static variables outside of any class or function
 unsigned int UIWindow::resolution = 12;
 bool UIWindow::isCscanLayer = false;

@@ -1,12 +1,11 @@
 #ifndef BSCANFRAME_H
 #define BSCANFRAME_H
 
-#include "..\pch.h"
-#include "..\Source\PAUTFileReader\AscanProcessor.h"
-#include "..\Source\MainUI\FactoryMgr.h"
-#include "..\Source\MainUI\ObserverMgr.h"
-#include "..\Source\MainUI\mainwindow.h"
-#include "..\Source\event\ZoomableGraphicsView.h"
+#include "pch.h"
+#include "PAUTFileReader\AscanProcessor.h"
+#include "MainUI\ObserverMgr.h"
+#include "MainUI\mainwindow.h"
+#include "event\ZoomableGraphicsView.h"
 // Graphics Frame
 class SviewFrame : public nFrame, public nObserver {
 private:
@@ -25,7 +24,7 @@ private:
     QGraphicsView* navigatorView;
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
-    QWidget* createFrame() override;
+    QWidget* createFrame();
     void update() override;
 };
 

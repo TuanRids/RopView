@@ -1,18 +1,10 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "..\pch.h"
-
-
-#include "..\Source\OmConnect\OmConnect.h"
-#include "..\event\ZoomableGraphicsView.h"
-
+#include "pch.h"
 #include "IUIWindow.h"
-
+class nFrame;
 namespace nmainUI {
-    /// <summary>
-    /// MainUI with singleton for avoiding multiple instance.
-    /// </summary>
     class UIFrame : public UIWindow {
     public:
         static UIFrame& getInstance() { static UIFrame instance; return instance; }
@@ -21,8 +13,7 @@ namespace nmainUI {
         void refreshxyz(nFrame* crframe) ;
     private:
         UIFrame();
-        ~UIFrame() = default;
-        // Other object        
+        ~UIFrame() = default;   
     };
 
 }

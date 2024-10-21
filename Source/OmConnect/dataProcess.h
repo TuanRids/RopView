@@ -10,27 +10,27 @@
 #include <atomic>
 #include <vector>
 #include <sstream>
-
+#include "CircularBuffer.h"
 using namespace std;
 using namespace Instrumentation;
 
-class DataProcess
+class nDataProcess
 {
     mutex m_mtx;
     shared_ptr<IAcquisition> m_acquisition;
-    atomic<bool> m_running{ false }, m_waitForAllData{ false };
-    future<void> m_future;
+    atomic<bool> m_running{ false };
+    future<void> m_future, m_future2;
     std::shared_ptr<spdlog::logger> sdk_logger;
     CircularBuffer<std::vector<int>> sharedBuffer;
 
 public:
-    DataProcess(shared_ptr<IAcquisition> acquisition)
+    nDataProcess(shared_ptr<IAcquisition> acquisition)
         : m_acquisition(acquisition), sharedBuffer(1000) 
     {
-        sdk_logger = spdlog::basic_logger_mt("RopView Logger", "RopView.log", false);
+        sdk_logger = spdlog::get("RopView Logger");
     }
 
-    ~DataProcess()
+    ~nDataProcess()
     {
         Stop(); 
     }
@@ -38,80 +38,89 @@ public:
     void Start()
     {
         m_running = true;
-        sdk_logger->info("Starting data acquisition...");
+        sdk_logger->info("New Thread Starting data acquisition...");
+        m_future = std::async(std::launch::async, &nDataProcess::Run, this);
+        m_future2 = std::async(std::launch::async, &nDataProcess::WriteData, this);
 
-        m_future = std::async(std::launch::async, &DataProcess::Run, this);
     }
 
     void Stop()
     {
         m_running = false;
-
         if (m_future.valid())
         {
             m_future.wait();  
         }
+        if (m_future2.valid())
+		{
+			m_future2.wait();
+		}
     }
 
 private:
+    
     void Run()
     {
-        int ResIndex = 0;
-
-        while (m_running)
+        int ResIndex = 0; size_t cycleId(0);
+        bool exceptionFound(false);
+        int beamNumber = 64;
+        IAcquisition::WaitForDataResultEx dataResult;
+        m_acquisition->Start();
+        try
         {
-            m_acquisition->Start();
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-
-            auto starttime = std::chrono::steady_clock::now();
-
-            auto waitForDataResult = m_acquisition->WaitForDataEx();
-            if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
+            do
             {
-                sdk_logger->error("Error during data acquisition.");
-                continue;
-            }
-
-            auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
-            std::vector<int> ascanVector(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
-
-            {
-                std::lock_guard<std::mutex> lock(m_mtx);
-                sharedBuffer.push(ascanVector);
-            }
-
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - starttime).count();
-            sdk_logger->debug("CycleIndex: {}, Duration: {} ms, Throughput: {}", ++ResIndex, duration, m_acquisition->GetThroughput());
-
-            WriteData();
-            m_acquisition->Stop();
+                auto waitForDataResult = m_acquisition->WaitForDataEx();
+                if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
+                {
+                    sdk_logger->error("Error during data acquisition."); m_acquisition->Stop(); m_running = false;
+                    return;
+                }
+                {
+                    if (waitForDataResult.cycleData->GetAscanCollection()->GetCount() > 0)
+                    {
+                        auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
+                        //std::span<const int> ascanSpan(ascan->GetData(), ascan->GetSampleQuantity());
+                        auto xxx = std::vector<int>(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
+                        std::lock_guard<std::mutex> lock(m_mtx);
+                        sharedBuffer.push(xxx);
+                    }
+                    if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
+                    {
+                        auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
+                        double crossingTime = !cscan->GetCrossingTime();
+                    }
+                }
+                // sdk_logger->debug("CycleIndex: {}, Throughput: {}", ++ResIndex, m_acquisition->GetThroughput());
+            } while ((m_running ));
+        }
+        catch (const exception&)
+        {
+            exceptionFound = true;
         }
 
-        sdk_logger->info("Stopping data acquisition...");
+        m_acquisition->Stop();
+        m_running = false;
     }
     void WriteData()
     {
         static int index = 0;
-
-        while (!sharedBuffer.empty())
+        while (m_running)
         {
+            if (sharedBuffer.size() == 0) continue;
             std::lock_guard<std::mutex> lock(m_mtx);
             auto data = sharedBuffer.pop();
             std::ostringstream oss;
-
             for (int j = 0; j < data.size(); ++j)
             {
-                if (data[j] == 0) break;
+                // if (data[j] == 0) continue;
                 oss << data[j] << " ";
-                if (j % 11 == 10)
-                {
-                    oss << "\n";
-                }
             }
-
+            std::cout << oss.str() << std::endl;
             std::string dataStr = oss.str();
-            sdk_logger->debug("ID: {}, DataSize: {}/5000, Data: {}", ++index, data.size(), dataStr);
+            sdk_logger->debug("ID: {}, DataSize: {}, Data: {}", ++index, data.size(), dataStr);
         }
+        
     }
 };
 

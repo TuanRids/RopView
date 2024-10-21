@@ -1,34 +1,18 @@
 #ifndef NLOGFRAME_H
 #define NLOGFRAME_H
-#include "..\pch.h"
 
-#include "MainUI/statuslogs.h"
-#include "MainUI/FactoryMgr.h"
+#include "pch.h"
 #include "MainUI/ObserverMgr.h"
+#include "MainUI/mainwindow.h"
+#include "MainUI/statuslogs.h"
 
-// Log Frame
+
 class nLogFrame : public nFrame, public nObserver {
 private:
-	static nmainUI::statuslogs* sttlogs;
+	nmainUI::statuslogs* sttlogs;
 public:
-	QWidget* createFrame() override
-	{
-		QTextEdit* logWidget = new QTextEdit();
-		logWidget->setLineWrapMode(QTextEdit::NoWrap);
-		logWidget->setReadOnly(true);
-		if (!sttlogs) {  
-			sttlogs = &nmainUI::statuslogs::getinstance();
-		}
-
-		sttlogs->initialize(logWidget);
-		return logWidget;
-	}
-	// Observer pattern
-	void update() override {		 
-		if (sttlogs) {
-			sttlogs->startLoggingToFile();
-		}
-	}
+	QWidget* createFrame();
+	void update()  override;
 };
 #endif
 
