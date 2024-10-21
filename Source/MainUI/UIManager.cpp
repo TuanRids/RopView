@@ -304,7 +304,9 @@ namespace nmainUI {
         QPushButton* btnConnect = new QPushButton("Connect");
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
-            omc->omConnectDevice();
+            omc->omConnectDevice();            
+            nsubject->startRealtimeUpdate(10);
+            sttlogs->logCritical("Start RealTime!");
             });
         // add 3D button
 		QPushButton* btn3D = new QPushButton("3D");

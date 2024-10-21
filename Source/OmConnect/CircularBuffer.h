@@ -1,3 +1,6 @@
+#ifndef CIRCULARBUFFER_H
+#define CIRCULARBUFFER_H
+
 #include <thread>
 #include <mutex>
 #include <vector>
@@ -68,3 +71,5 @@ private:
     mutable std::mutex mutex_;      // Mutex for thread safety
     std::condition_variable condVar_; // Condition variable for waiting on data availability
 };
+
+#endif

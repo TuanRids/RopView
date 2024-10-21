@@ -29,6 +29,7 @@ public:
 			sttlogs->startLoggingToFile();
 		}
 	}
+	void updateRealTime() override {};
 };
 #endif
 
