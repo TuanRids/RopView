@@ -1,38 +1,35 @@
 #ifndef ASCANFRAME_H
 #define ASCANFRAME_H
 
-#include "pch.h"
-#include "..\..\Source\PAUTFileReader\AscanProcessor.h"
-#include "..\..\Source\MainUI\ObserverMgr.h"
-#include "..\..\Source\MainUI\mainwindow.h"
-#include "IFrames/IAFrame.h"
+#include "..\pch.h"
+#include "..\Source\PAUTFileReader\AscanProcessor.h"
+#include "..\Source\MainUI\FactoryMgr.h"
+#include "..\Source\MainUI\ObserverMgr.h"
+#include "..\Source\MainUI\mainwindow.h"
+
 // Aview Frame
-class AviewFrame : public IAFrame, public nObserver {
+class AviewFrame : public nFrame, public nObserver {
 private:
     //************** Method
-    void CreateAview() override;
+    std::shared_ptr<QImage> CreateXZview();
+    void CreateAview();
 
     //************** Properties
+    nmainUI::UIFrame* uiframe;
     unsigned int y_level_ = 0;
     unsigned int x_level_ = 0;
     
+    std::shared_ptr<QGraphicsScene> scene;
+    std::shared_ptr<QGraphicsView> graphicsView;
 
+    QChart* chart;
+    QLineSeries* lineSeries;
+    QChartView* chartView;
 public:
+
+    void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
+    QWidget* createFrame() override;
     void update() override;
-};
-
-class AvRealFrame : public IAFrame, public nObserver {
-private:
-    void CreateAview() override {
-        if (!scene || !graphicsView) return;
-        scene->clear();
-        QGraphicsTextItem* text = scene->addText("Real-time Mode");
-        text->setDefaultTextColor(Qt::green);
-    }
-public:
-    void update() override {
-        CreateAview(); 
-    }
 };
 
 #endif

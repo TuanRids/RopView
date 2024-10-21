@@ -28,9 +28,9 @@ private:
     QGraphicsView* navigatorView;
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
-    QWidget* createFrame();
+    QWidget* createFrame() override;
     void update() override;
-    void setter_Curpt(int x, int y, int z);
+    void setter_Curpt(int x, int y, int z) {curpt.x = x; curpt.y = y; curpt.z = z;}
 };
 
 #endif

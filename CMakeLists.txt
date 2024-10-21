@@ -43,9 +43,8 @@ find_package(VTK REQUIRED COMPONENTS
 pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_ARCHITECTURES 75) # adjust based on our architecture
-
-
-file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu" )
+# Add source to this project's executable.
+file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu" "Source/*.qrc" )
 
 # Add the header files that contain Q_OBJECT
 set(HEADER_FILES 
@@ -63,7 +62,7 @@ qt_add_resources(RopView_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shader/shade
 
 
 # Combine all sources and moc-generated sources
-add_executable (RopView RopView.cpp "Source/pch.h" ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc )
+add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc )
 
 
 # Depending on the compiler (MSVC or GCC), add specific flags or settings
@@ -78,7 +77,7 @@ endif()
 
 
 # Add precompiled header
-target_precompile_headers(RopView PRIVATE "Source/pch.h")
+target_precompile_headers(RopView PRIVATE "pch.h")
 
 # Add include directories for headers
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/Include")
@@ -117,12 +116,10 @@ include_directories(${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 add_custom_command(TARGET RopView POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/config.ini" "$<TARGET_FILE_DIR:RopView>"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/sample" "$<TARGET_FILE_DIR:RopView>/sample"    
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/Firmware Packages" "$<TARGET_FILE_DIR:RopView>/Firmware Packages"    
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/QssTemplate" "$<TARGET_FILE_DIR:RopView>/QssTemplate"    
     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/seting_lib.bat" "$<TARGET_FILE_DIR:RopView>"
     COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_BINARY_DIR} cmd /c seting_lib.bat
 )
-
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Lib/x64-release DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Lib/x64-debug DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/out/build)

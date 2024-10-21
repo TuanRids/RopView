@@ -140,7 +140,19 @@ void OmConnect::ConfigureDevice()
 
     auto amplitudeSettings = beamSet->GetDigitizingSettings()->GetAmplitudeSettings();
     amplitudeSettings->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
-        sttlogs->logNotify("Create conventional beam set: <" + wstostring(beamSet->GetName()) + "> using conventional / PhasedArray technology");
+
+    for (size_t i = 0; i < beamSet->GetBeamCount(); ++i)
+    {
+        auto beam = beamSet->GetBeam(i);
+        beam->SetAscanStart(0);
+        beam->SetAscanLength(20000);
+
+        auto gate = beam->GetGateCollection()->GetGate(0);
+        gate->SetStart(1500);
+        gate->SetLength(300);
+        gate->SetThreshold(15);
+        gate->InCycleData(true);
+    }
 
     auto filterSettings = beamSet->GetDigitizingSettings()->GetFilterSettings();
     auto digitalBandPassFilters = digitizer->GetDigitalBandPassFilterCollection();

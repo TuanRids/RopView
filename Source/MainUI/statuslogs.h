@@ -1,7 +1,7 @@
 #ifndef STATUSLOGS_H
 #define STATUSLOGS_H
 
-#include "pch.h"
+#include "..\pch.h"
 namespace nmainUI {
 
     class statuslogs : public QObject {

@@ -10,11 +10,6 @@
 #include "Frames/BviewFrame.h"
 #include "Frames/AviewFrame.h"
 
-#include "ObserverMgr.h"
-#include "..\Source\PAUTFileReader\AscanProcessor.h"
-
-#include "..\Model3D\MainViewport.h"
-
 #include "..\OmConnect\OmConnect.h"
 #include "..\Data3DProcessing\DataProcess.h"
 namespace nmainUI {
@@ -273,7 +268,7 @@ namespace nmainUI {
         layout->setContentsMargins(0, 0, 0, 0);
 
         auto logFrame = nFactoryFrame::crLogFrm();
-        nsubject->addOfflineObserver(logFrame);
+        nsubject->addObserver(logFrame);
         layout->addWidget(logFrame->createFrame());
 
         return logWidget;
@@ -310,9 +305,6 @@ namespace nmainUI {
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
             omc->omConnectDevice();
-            // C:/Users/ngdtu/source/repos/RopView/logs.ps1
-            nsubject->startRealtimeUpdate(10);
-
             });
         // add 3D button
 		QPushButton* btn3D = new QPushButton("3D");
@@ -344,18 +336,16 @@ namespace nmainUI {
     }            
     QWidget* UIManager::createAscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
     {
+        // Create Ascan Frame layout
         QWidget* ascanWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(ascanWidget);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto offlineFrame = nFactoryFrame::crAviewFrm(app);   // Frame offline
-        auto realTimeFrame = nFactoryFrame::crAvRealFrm(app); // Frame real-time
-
-        nsubject->addOfflineObserver(offlineFrame);
-        nsubject->addRealtimeObserver(realTimeFrame);
-
-        layout->addWidget(offlineFrame->createFrame());
+        auto aScanFrm = nFactoryFrame::crAviewFrm(app);
+        nsubject->addObserver(aScanFrm);
+        layout->addWidget(aScanFrm->createFrame());
+        
 
         return addFrameName("Ascan", ascanWidget);
     }
@@ -367,7 +357,7 @@ namespace nmainUI {
         layout->setSpacing(0);
 
         auto SviewFrame = nFactoryFrame::crSViewFrm(app);
-        nsubject->addOfflineObserver(SviewFrame);
+        nsubject->addObserver(SviewFrame);
         layout->addWidget(SviewFrame->createFrame());
 
         return addFrameName("Sscan", SscanWidget);
@@ -380,7 +370,7 @@ namespace nmainUI {
         layout->setSpacing(0);
 
         auto cScanFrm = nFactoryFrame::crCviewFrm(app);
-        nsubject->addOfflineObserver(cScanFrm);
+        nsubject->addObserver(cScanFrm);
         layout->addWidget(cScanFrm->createFrame());
 
         return addFrameName("Cscan", cscanWidget);
@@ -393,13 +383,12 @@ namespace nmainUI {
         //layout->setSpacing(0);
 
         auto BFrame = nFactoryFrame::crBviewFrm(app);
-        nsubject->addOfflineObserver(BFrame);
+        nsubject->addObserver(BFrame);
         layout->addWidget(BFrame->createFrame());
 
         return addFrameName("Bscan", Bview);
     }
     QWidget* UIManager::create3DFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject) {
-
         QWidget* VWidget = new QWidget();
 
         // Initialize Vulkan instance

@@ -1,8 +1,9 @@
 #ifndef BVIEWFRAME_H
 #define BVIEWFRAME_H
 
-#include "pch.h"
+#include "..\pch.h"
 #include "..\Source\PAUTFileReader\AscanProcessor.h"
+#include "..\Source\MainUI\FactoryMgr.h"
 #include "..\Source\MainUI\ObserverMgr.h"
 #include "..\Source\MainUI\mainwindow.h"
 #include "..\Source\event\ZoomableGraphicsView.h"
@@ -27,7 +28,7 @@ private:
     QGraphicsView* navigatorView;
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
-    QWidget* createFrame();
+    QWidget* createFrame() override;
     void update() override;
     //void setter_Curpt(int x, int y, int z) { curpt.x = x; curpt.y = y; curpt.z = z; }
 };

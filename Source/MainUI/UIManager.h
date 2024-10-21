@@ -3,7 +3,10 @@
 #include <QSettings>
 #include <QSplitter>
 #include "SettingPara.h"
-#include "Model3D/MainViewport.h"
+#include "ObserverMgr.h"
+#include "..\Source\PAUTFileReader\AscanProcessor.h"
+
+#include "..\Model3D\MainViewport.h"
 
 namespace nmainUI {
     class UIManager : public UIWindow {
