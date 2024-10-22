@@ -18,7 +18,7 @@ namespace nmainUI {
         static UIFrame& getInstance() { static UIFrame instance; return instance; }
         int mainloop(int argc, char* argv[]);
         void logical();
-        void refreshxyz(nFrame* crframe) ;
+        void refreshxyz(nObserver* crframe) ;
     private:
         UIFrame();
         ~UIFrame() = default;

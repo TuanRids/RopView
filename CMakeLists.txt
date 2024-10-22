@@ -62,7 +62,7 @@ qt_add_resources(RopView_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shader/shade
 
 
 # Combine all sources and moc-generated sources
-add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc )
+add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc  "Source/MainUI/ObserverMgr.cpp")
 
 
 # Depending on the compiler (MSVC or GCC), add specific flags or settings

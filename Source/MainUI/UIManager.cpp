@@ -290,6 +290,7 @@ namespace nmainUI {
 
         QObject::connect(resInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) mutable {
             resolution = resInput->value();
+            nsubject->stopRealtimeUpdate();
             nsubject->notify(nullptr);
             });
 
@@ -297,6 +298,8 @@ namespace nmainUI {
         QPushButton* btnLoad = new QPushButton("Load");
         layout->addWidget(btnLoad);
         QObject::connect(btnLoad, &QPushButton::clicked, [=]() mutable {
+            nsubject->stopRealtimeUpdate();
+            omc->omDisconnectDevice();
             app->logical();
             });
 
@@ -304,8 +307,8 @@ namespace nmainUI {
         QPushButton* btnConnect = new QPushButton("Connect");
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
+            nsubject->startRealtimeUpdate(1); //NOTE: refresh rate for realtime rendering
             omc->omConnectDevice();            
-            nsubject->startRealtimeUpdate(10);
             sttlogs->logCritical("Start RealTime!");
             });
         // add 3D button

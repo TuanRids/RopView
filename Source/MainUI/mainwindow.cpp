@@ -111,7 +111,7 @@ void nmainUI::UIFrame::logical() {
     }    
 }
 
-void nmainUI::UIFrame::refreshxyz(nFrame* crframe) 
+void nmainUI::UIFrame::refreshxyz(nObserver* crframe)
 {
     nsubject->notify(crframe);
 }

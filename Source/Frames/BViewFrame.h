@@ -10,7 +10,7 @@
 
 
 // Graphics Frame
-class BviewFrame : public nFrame, public nObserver {
+class BviewFrame : public nObserver {
 private:
     void CreateCoordinate();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);

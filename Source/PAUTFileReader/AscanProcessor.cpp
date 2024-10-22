@@ -1,6 +1,6 @@
 
 #include "AscanProcessor.h"
-#include <MainUI/FactoryMgr.h>
+#include <MainUI/ObserverMgr.h>
 #include <fstream>
 #include <hdf5.h>
 #include <rapidjson/document.h>
@@ -17,7 +17,7 @@ AscanProcessor::AscanProcessor() {
 }
 
 
-bool AscanProcessor::analyze(nFrame* frame) {
+bool AscanProcessor::analyze(nObserver* frame) {
     try {
         fileId = H5Fopen(NDEfilePath.string().c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
         std::string jsonSetup = ReadJsonSetup(fileId);

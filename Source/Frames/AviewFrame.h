@@ -8,11 +8,12 @@
 #include "..\Source\MainUI\mainwindow.h"
 
 // Aview Frame
-class AviewFrame : public nFrame, public nObserver {
+class AviewFrame : public nObserver {
 private:
     //************** Method
-    std::shared_ptr<QImage> CreateXZview();
-    void CreateAview();
+    void OfflineProcess(); // ofline
+    void RealTimeProcess(); // ofline
+    void RenderFrame();
 
     //************** Properties
     nmainUI::UIFrame* uiframe;
@@ -22,15 +23,19 @@ private:
     std::shared_ptr<QGraphicsScene> scene;
     std::shared_ptr<QGraphicsView> graphicsView;
 
+    QValueAxis* axisX;
+    QValueAxis* axisY;
+
     QChart* chart;
     QLineSeries* lineSeries;
     QChartView* chartView;
+    spdlog::logger* sdk_logger;
 public:
 
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;
     void update() override;
-    void updateRealTime() override {};
+    void updateRealTime() override ;
 };
 
 #endif

@@ -7,7 +7,7 @@
 #include "MainUI/ObserverMgr.h"
 
 // Log Frame
-class nLogFrame : public nFrame, public nObserver {
+class nLogFrame : public nObserver {
 private:
 	static nmainUI::statuslogs* sttlogs;
 public:

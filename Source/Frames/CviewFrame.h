@@ -10,7 +10,7 @@
 
 
 // Graphics Frame
-class CviewFrame : public nFrame, public nObserver {
+class CviewFrame : public nObserver {
 private:
     void CreateXYview();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);

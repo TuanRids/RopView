@@ -8,7 +8,7 @@
 #include "..\Source\MainUI\mainwindow.h"
 #include "..\Source\event\ZoomableGraphicsView.h"
 // Graphics Frame
-class SviewFrame : public nFrame, public nObserver {
+class SviewFrame : public nObserver {
 private:
     void CreateYZview();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);

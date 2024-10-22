@@ -1,18 +1,40 @@
 #ifndef NOBSERVER_H
 #define NOBSERVER_H
-
-#include "vector"
-#include "FactoryMgr.h"
+#include "../pch.h"
+#include "PAUTFileReader/AscanDattype.hpp"
+#include "MainUI/statuslogs.h"
+#include "MainUI/mainwindow.h"
+#include "event/ZoomableGraphicsView.h"
+#include "OmConnect/CircularBuffer.h"
+struct curpt3d
+{
+	int x{ -1 }, y{ -1 }, z{ -1 };
+	bool CheckIdx(int nx, int ny, int nz);
+};
 class nObserver {
 public:
+	virtual QWidget* createFrame() = 0;
 	virtual void update() = 0;
 	virtual void updateRealTime() = 0;
 	virtual ~nObserver() = default;
+	void setScandat(const AscanData& dataa) { scandat = dataa; }
+	void clearScandat() { scandat = AscanData(); }
+	void setSttlogs() { if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); } }
+protected:
+	static bool isPanning;
+	static curpt3d curpt;
+	static AscanData scandat;
+	static nmainUI::statuslogs* sttlogs;
+	static CircularBuffer<std::vector<int>> sharedBuffer;
+
+	// TODO: Optimize this function later
+	void UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<cv::Mat> Img, std::shared_ptr<QGraphicsScene> scene, std::shared_ptr<ZoomableGraphicsView> graphicsView, int res, Qt::GlobalColor xcolor, Qt::GlobalColor ycolor);
+	std::vector<Color> CreateColorPalette();
 };
 
 class nSubject {
 private:
-	std::vector<std::shared_ptr<nObserver>> observers; // Static observers
+	std::vector<std::shared_ptr<nObserver>> observers;
 	bool isRealTime = false;
 	QTimer* realTimeTimer;
 public:
@@ -29,12 +51,11 @@ public:
 		observers.erase(std::remove(observers.begin(), observers.end(), a_object), observers.end());
 	}
 	// Notify all: nullptr
-	void notify(nFrame* currentFrame) {
+	void notify(nObserver* currentFrame) {
 		for (const auto& object : observers) {
 			if (isRealTime) return;
 			if (currentFrame == nullptr) { object->update(); }
-			nFrame* frameObserver = dynamic_cast<nFrame*>(object.get()); // TODO add log/try catch if dynamic cast fails
-			if (frameObserver && frameObserver != currentFrame) {
+			if (object.get() && object.get() != currentFrame) {
 				object->update();
 			}
 		}
@@ -49,10 +70,21 @@ public:
 	}
 	void notifyRealtime() {
 		if (!isRealTime) return;
+
 		for (const auto& object : observers) {
 			object->updateRealTime();
 		}
 	}
 };
+class upFrame : public nObserver {
+	QWidget* createFrame() override {return nullptr;}
 
+	void update() override {}
+
+	void updateRealTime() override {}
+public:
+	void upBuffer(std::vector<int> data) {		
+		sharedBuffer.push(data);
+	}
+};
 #endif // NOBSERVER_H

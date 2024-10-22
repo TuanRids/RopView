@@ -5,54 +5,27 @@ using namespace Instrumentation;
 std::string wstostring(const std::wstring& wstr) {
     return std::string(wstr.begin(), wstr.end());
 }
-int OmConnect::test() {
-    try
-    {
-        {
-            HINSTANCE handle = OpenView::Libraries::LoadInstrumentation();
-            auto version = Instrumentation::GetLibraryVersionEx();
-            sttlogs->logNotify("Instrumentation Version: " + wstostring(version));
-            OpenView::Libraries::UnLoad(handle);
-        }
 
-        {
-            HINSTANCE handle = OpenView::Libraries::LoadStorage();
-            std::wstring version = Olympus::FileManagement::Storage::GetLibraryVersion();
-            sttlogs->logNotify("Storage Version: " + wstostring(version));
-            OpenView::Libraries::UnLoad(handle);
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        sttlogs->logCritical(ex.what());
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
-}
 
 
 bool OmConnect::omConnectDevice()
 {
     if (!sdk_logger)
     {
-
-        /* Write & print logs
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs\\RopView.log", true);
         auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 
         sdk_logger = std::make_shared<spdlog::logger>("RopView Logger", spdlog::sinks_init_list{ file_sink, console_sink });
-        sdk_logger->set_level(spdlog::level::debug);  // Set log level
-        spdlog::register_logger(spd_logger);
 
         sdk_logger->set_level(spdlog::level::debug);
-        */
-        sdk_logger = spdlog::basic_logger_mt("RopView Logger", "logs\\RopView.log", true);
-        sdk_logger->set_level(spdlog::level::debug);
+
+        spdlog::register_logger(sdk_logger);
 
         sdk_logger->flush_on(spdlog::level::info);
+
         sdk_logger->info("\n\t=================\n\tStarting OmConnect\n\t=================");
     }
+
     if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance();
     ipAddress = SettingsManager::getInstance()->getSettings().ipAddress;
     try
@@ -68,8 +41,14 @@ bool OmConnect::omConnectDevice()
     }
 }
 
+void OmConnect::omDisconnectDevice()
+{
+    if (datProcess) datProcess->Stop();
+}
+
 shared_ptr<IDevice> OmConnect::DiscoverDevice()
 {
+    
     Duration timeout = SettingsManager::getInstance()->getSettings().timeout;
     auto discovery = IDeviceDiscovery::Create(ipAddress.c_str());
     DiscoverResult result = discovery->DiscoverFor(timeout);
@@ -102,8 +81,20 @@ void OmConnect::StartDevice()
         device->Download(package);
 
     device->Start(package);
+    {
+        HINSTANCE handle = OpenView::Libraries::LoadInstrumentation();
+        auto version = Instrumentation::GetLibraryVersionEx();
+        sttlogs->logNotify("Instrumentation Version: " + wstostring(version));
+        OpenView::Libraries::UnLoad(handle);
+    }
+
+    {
+        HINSTANCE handle = OpenView::Libraries::LoadStorage();
+        std::wstring version = Olympus::FileManagement::Storage::GetLibraryVersion();
+        sttlogs->logNotify("Storage Version: " + wstostring(version));
+        OpenView::Libraries::UnLoad(handle);
+    }
 }
-shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
 
 void OmConnect::ConfigureDevice()
 {
@@ -111,25 +102,23 @@ void OmConnect::ConfigureDevice()
     {
         throw std::exception("Device not connected.");
     }
+
     std::shared_ptr<IBeamSet> beamSet;
 
-    // configure for phased array ultrasound
+    // Configure for phased array ultrasound
     auto ultrasoundConfiguration = device->GetConfiguration()->GetUltrasoundConfiguration();
 
-    // detect the type of ultrasound is phased array or conventional
+    // Detect the type of ultrasound (phased array or conventional)
     auto digitizer = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
 
     if (digitizer)
     {
-        auto beamFormations = GenerateBeamFormations(digitizer->GetBeamSetFactory());
-        beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetPhasedArray(L"BeamSet-PhasedArray", beamFormations);
-
+        beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetPhasedArray(L"BeamSet-PhasedArray", GenerateBeamFormations(digitizer->GetBeamSetFactory()));
     }
     else
     {
         digitizer = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::Conventional);
         beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetConventional(L"BeamSet-Conventional");
-
     }
 
     if (!digitizer)
@@ -137,20 +126,19 @@ void OmConnect::ConfigureDevice()
         throw std::exception("No valid ultrasound digitizer available.");
     }
 
-
     auto amplitudeSettings = beamSet->GetDigitizingSettings()->GetAmplitudeSettings();
     amplitudeSettings->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
 
     for (size_t i = 0; i < beamSet->GetBeamCount(); ++i)
     {
         auto beam = beamSet->GetBeam(i);
-        beam->SetAscanStart(0);
-        beam->SetAscanLength(20000);
+        beam->SetAscanStart(config.ascanStart);
+        beam->SetAscanLength(config.ascanLength);
 
         auto gate = beam->GetGateCollection()->GetGate(0);
-        gate->SetStart(1500);
-        gate->SetLength(300);
-        gate->SetThreshold(15);
+        gate->SetStart(config.gateStart);
+        gate->SetLength(config.gateLength);
+        gate->SetThreshold(config.gateThreshold);
         gate->InCycleData(true);
     }
 
@@ -163,113 +151,46 @@ void OmConnect::ConfigureDevice()
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
 
     acquisition = IAcquisition::CreateEx(device);
-    acquisition->SetRate(config.Rate); // Hz
+    acquisition->SetRate(config.Rate); // Use Rate from config
     acquisition->ApplyConfiguration();
 }
 
-// Shared buffer between threads
-CircularBuffer<std::vector<int>> sharedBuffer(100);
-
-void OmConnect::dataAcquisitionThread() {
-    int ResIndex = 0;
-    if (acquisition) { acquisition->Stop(); }
-    acquisition->Start();
-    int cycleIndexLimit = 1;
-    while (true) {
-        auto starttime = std::chrono::steady_clock::now();
-        acquisition->Stop();
-        acquisition->Start();
-        for (size_t cycleIndex = 0; cycleIndex < 20; ++cycleIndex) {
-            auto waitForDataResult = acquisition->WaitForDataEx();
-            if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable) {
-                std::cerr << "Error during data acquisition";
-            }
-
-            auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
-            std::vector<int> ascanVector(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
-
-            // std::lock_guard<std::mutex> lock(bufferMutex);
-            sharedBuffer.push(ascanVector);
-
-            /*auto beam = beamSet->GetBeam(0);
-            beam->SetGainEx(beam->GetGain() + cycleIndex * 2);
-            acquisition->ApplyConfiguration();*/
-        }
-        // duration milisec
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - starttime).count();
-        sdk_logger->debug("CycleIndexLimit: {}, duration: {}, Throughput: {}", ++cycleIndexLimit, duration, acquisition->GetThroughput());
-        sdk_logger->flush();
-        writeData();
-    }
-}
-
-void OmConnect::writeData()
-{
-    static int index = 0;
-    while (sharedBuffer.size() > 0)
-    {
-        for (int i = 0; i < sharedBuffer.size(); ++i) {
-            if (sharedBuffer.size() == 0) break;
-
-            std::lock_guard<std::mutex> lock(bufferMutex);
-            auto data = sharedBuffer.pop();
 
 
-            std::ostringstream oss;
-            int j;
-            for (j = 0; j < data.size(); ++j) {
-                if (data[j] == 0) { break; }
-                oss << data[j] << " ";
-                if (j % 11 == 10) {
-                    oss << "";
-                }
-            }
-            std::string dataStr = oss.str();
-            sdk_logger->debug("id = {}; datasize {}/5000 ; data: {}", ++index, j, dataStr);
-        }
-    }
-}
 
 void OmConnect::newThread()
 {
     if (!device)
     {
-        test();
         sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
         device = DiscoverDevice();
         StartDevice();
         ConfigureDevice();
     }
-    //dataAcquisitionThread();
-    /*std::thread acquisitionThread(&OmConnect::dataAcquisitionThread, this);
-    acquisitionThread.detach();*/
     if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
     datProcess->Start();
 }
 
-shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory)
+shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory)
 {
-    constexpr const size_t elementAperture = 16;
-    constexpr const double DELAY_RESOLUTION = 2.5; //nanoseconds
-
     auto beamFormations = factory->CreateBeamFormationCollection();
 
-    for (size_t beam(0); beam < 64; ++beam)
+    for (size_t beam = 0; beam < config.beamLimit; ++beam)
     {
-        auto beamFormation = factory->CreateBeamFormation(elementAperture, elementAperture);
+        auto beamFormation = factory->CreateBeamFormation(config.elementAperture, config.elementAperture);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
 
-        for (size_t pulser(0); pulser < elementAperture; ++pulser)
+        for (size_t pulser = 0; pulser < config.elementAperture; ++pulser)
         {
             pulserDelays->GetElementDelay(pulser)->SetElementId(pulser + 1);
-            pulserDelays->GetElementDelay(pulser)->SetDelay(((beam + pulser) * DELAY_RESOLUTION) + 500);
+            pulserDelays->GetElementDelay(pulser)->SetDelay(((beam + pulser) * config.delayResolution) + config.pulserBaseDelay);
         }
 
-        for (size_t receiver(0); receiver < elementAperture; ++receiver)
+        for (size_t receiver = 0; receiver < config.elementAperture; ++receiver)
         {
             receiverDelays->GetElementDelay(receiver)->SetElementId(receiver + 1);
-            receiverDelays->GetElementDelay(receiver)->SetDelay(((beam + receiver) * DELAY_RESOLUTION) + 1000);
+            receiverDelays->GetElementDelay(receiver)->SetDelay(((beam + receiver) * config.delayResolution) + config.receiverBaseDelay);
         }
 
         beamFormations->Add(beamFormation);
@@ -277,3 +198,4 @@ shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetF
 
     return beamFormations;
 }
+
