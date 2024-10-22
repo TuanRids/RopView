@@ -27,6 +27,47 @@ void SviewFrame::update() {
     addPoints(true,-1,-1);
 }
 
+void SviewFrame::updateRealTime()
+{
+    try {
+        auto Bdata = sharedBuffer->getBeamData();
+        int xsize = Bdata.beamDataMap.size();
+        int ysize = 0;
+
+        if (!Bdata.beamDataMap.empty()) {
+            ysize = Bdata.beamDataMap.begin()->second.size();  
+        }
+
+        orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
+
+        scaledImage = std::make_unique<cv::Mat>();
+        auto everyColors = CreateColorPalette();
+        for (const auto& [beamID, ascanData] : Bdata.beamDataMap) {
+            for (size_t y = 0; y < ascanData.size(); ++y) {
+                int samplingAmplitude = std::abs(ascanData[y]);
+                double percentAmplitude = samplingAmplitude / (32768 / 100.0);
+                Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
+                orgimage->at<cv::Vec3b>(y, beamID) = cv::Vec3b(color.B, color.G, color.R);
+            }
+        } // TODO Increase speed
+        scaledImage = std::make_unique<cv::Mat>();
+        cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width(), graphicsView->height()), 0, 0, cv::INTER_NEAREST);
+
+        auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+        //auto qImage = std::make_shared<QImage>(orgimage->data, orgimage->cols, orgimage->rows, orgimage->step, QImage::Format_RGB888);
+        *qImage = qImage->rgbSwapped();  
+        QPixmap pixmap = QPixmap::fromImage(*qImage);
+        scene->clear();
+        scene->addPixmap(pixmap);
+
+        graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+        graphicsView->update();
+
+    }
+	catch (exception& e)
+	{ std::cout << e.what() << std::endl; return; } 
+}
+
 
 void SviewFrame::CreateYZview() {
     if (scandat.Amplitudes.empty()) return;

@@ -6,4 +6,7 @@ bool UIWindow::isCscanLayer = false;
 nmainUI::statuslogs* UIWindow::sttlogs = nullptr;
 std::shared_ptr<AscanProcessor> UIWindow::processor = nullptr;
 std::unique_ptr<QSettings> UIWindow::settings = nullptr;
-std::shared_ptr<IOmConnect> UIWindow::omc = std::make_shared<OmConnect>();
+
+std::shared_ptr<IOmConnect> UIWindow::omc = nullptr;
+ConfigLocator* UIWindow::configL = &ConfigLocator::getInstance();
+	

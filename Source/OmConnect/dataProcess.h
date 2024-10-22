@@ -3,7 +3,7 @@
 #include "..\pch.h"
 #include <instrumentation/Instrumentation.h>
 #include "CircularBuffer.h"
-
+#include "SystemConfig/ConfigLocator.h"
 
 using namespace std;
 using namespace Instrumentation;
@@ -15,8 +15,8 @@ class nDataProcess
     std::atomic<bool> m_running{ false };
     std::future<void> m_future;
     std::shared_ptr<spdlog::logger> sdk_logger;
-    CircularBuffer<std::vector<int>> sharedBuffer;
-    unsigned int rate = 60;
+
+    ConfigLocator* configL;
 public:
     nDataProcess(std::shared_ptr<IAcquisition> acquisition);
     ~nDataProcess();

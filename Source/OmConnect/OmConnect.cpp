@@ -1,12 +1,17 @@
 #include "OmConnect.h"
 #include "LoadLibraries.h"
-
+#include "SystemConfig/ConfigLocator.h"
 using namespace Instrumentation;
 std::string wstostring(const std::wstring& wstr) {
     return std::string(wstr.begin(), wstr.end());
 }
 
 
+
+OmConnect::OmConnect() : sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr), datProcess(nullptr)
+{
+    if (!configL) configL = &ConfigLocator::getInstance();
+}
 
 bool OmConnect::omConnectDevice()
 {
@@ -27,7 +32,7 @@ bool OmConnect::omConnectDevice()
     }
 
     if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance();
-    ipAddress = SettingsManager::getInstance()->getSettings().ipAddress;
+    ipAddress = ConfigLocator::getInstance().settingconf.ipAddress;
     try
     {
         // new thread
@@ -49,7 +54,7 @@ void OmConnect::omDisconnectDevice()
 shared_ptr<IDevice> OmConnect::DiscoverDevice()
 {
     
-    Duration timeout = SettingsManager::getInstance()->getSettings().timeout;
+    Duration timeout = ConfigLocator::getInstance().settingconf.timeout;
     auto discovery = IDeviceDiscovery::Create(ipAddress.c_str());
     DiscoverResult result = discovery->DiscoverFor(timeout);
 
@@ -132,13 +137,13 @@ void OmConnect::ConfigureDevice()
     for (size_t i = 0; i < beamSet->GetBeamCount(); ++i)
     {
         auto beam = beamSet->GetBeam(i);
-        beam->SetAscanStart(config.ascanStart);
-        beam->SetAscanLength(config.ascanLength);
+        beam->SetAscanStart(configL->omconf.ascanStart);
+        beam->SetAscanLength(configL->omconf.ascanLength);
 
         auto gate = beam->GetGateCollection()->GetGate(0);
-        gate->SetStart(config.gateStart);
-        gate->SetLength(config.gateLength);
-        gate->SetThreshold(config.gateThreshold);
+        gate->SetStart(configL->omconf.gateStart);
+        gate->SetLength(configL->omconf.gateLength);
+        gate->SetThreshold(configL->omconf.gateThreshold);
         gate->InCycleData(true);
     }
 
@@ -151,7 +156,7 @@ void OmConnect::ConfigureDevice()
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
 
     acquisition = IAcquisition::CreateEx(device);
-    acquisition->SetRate(config.Rate); // Use Rate from config
+    acquisition->SetRate(configL->omconf.Rate); // Use Rate from configL->omconf
     acquisition->ApplyConfiguration();
 }
 
@@ -174,23 +179,22 @@ void OmConnect::newThread()
 shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory)
 {
     auto beamFormations = factory->CreateBeamFormationCollection();
-
-    for (size_t beam = 0; beam < config.beamLimit; ++beam)
+    for (size_t beam = 0; beam < configL->omconf.beamLimit; ++beam)
     {
-        auto beamFormation = factory->CreateBeamFormation(config.elementAperture, config.elementAperture);
+        auto beamFormation = factory->CreateBeamFormation(configL->omconf.elementAperture, configL->omconf.elementAperture);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
 
-        for (size_t pulser = 0; pulser < config.elementAperture; ++pulser)
+        for (size_t pulser = 0; pulser < configL->omconf.elementAperture; ++pulser)
         {
             pulserDelays->GetElementDelay(pulser)->SetElementId(pulser + 1);
-            pulserDelays->GetElementDelay(pulser)->SetDelay(((beam + pulser) * config.delayResolution) + config.pulserBaseDelay);
+            pulserDelays->GetElementDelay(pulser)->SetDelay(((beam + pulser) * configL->omconf.delayResolution) + configL->omconf.pulserBaseDelay);
         }
 
-        for (size_t receiver = 0; receiver < config.elementAperture; ++receiver)
+        for (size_t receiver = 0; receiver < configL->omconf.elementAperture; ++receiver)
         {
             receiverDelays->GetElementDelay(receiver)->SetElementId(receiver + 1);
-            receiverDelays->GetElementDelay(receiver)->SetDelay(((beam + receiver) * config.delayResolution) + config.receiverBaseDelay);
+            receiverDelays->GetElementDelay(receiver)->SetDelay(((beam + receiver) * configL->omconf.delayResolution) + configL->omconf.receiverBaseDelay);
         }
 
         beamFormations->Add(beamFormation);

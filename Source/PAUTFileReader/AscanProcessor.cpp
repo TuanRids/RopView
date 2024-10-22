@@ -30,7 +30,7 @@ bool AscanProcessor::analyze(nObserver* frame) {
                     auto& ascanDataset = group["dataset"]["ascan"];
                     auto result = ReadAscanData(fileId, ascanDataset);
                     frame->setScandat(result);
-                    std::unique_ptr<IDataProcecss> object = std::make_unique<DataProcess>();
+                    std::unique_ptr<IData3DProcecss> object = std::make_unique<Data3DProcess>();
                     object->getAscanData(result);
                 }
             }

@@ -1,11 +1,11 @@
 #include "..\pch.h"
 #include "ObserverMgr.h"
-
+#include "SystemConfig/ConfigLocator.h"
 AscanData nObserver::scandat;
 nmainUI::statuslogs* nObserver::sttlogs = nullptr;
 curpt3d nObserver::curpt{ 0,0,0 };
 bool nObserver::isPanning = false;
-CircularBuffer<std::vector<int>> nObserver::sharedBuffer = CircularBuffer<std::vector<int>>(1000);
+std::unique_ptr<BeamSet> nObserver::sharedBuffer = std::make_unique<BeamSet>();
 
 
 void nObserver::UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<cv::Mat> Img, std::shared_ptr<QGraphicsScene> scene,
@@ -18,7 +18,7 @@ void nObserver::UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<c
     auto newWidth = (frameRatio > imageRatio) ? static_cast<int>(OrgImg->rows * frameRatio) : OrgImg->cols;
     auto newHeight = (frameRatio > imageRatio) ? OrgImg->rows : static_cast<int>(OrgImg->cols / frameRatio);
 
-    auto scaleFactor = (!isPanning || SettingsManager::getInstance()->getSettings().bhighResBscan) ? res : 1.0;
+    auto scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf.bhighResBscan) ? res : 1.0;
     cv::resize(*OrgImg, *Img, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*Img, *Img, cv::Size(1, 1), 0);

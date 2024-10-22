@@ -1,18 +1,16 @@
 #pragma once
-#include "..\pch.h"
+#include "../pch.h"
 #include "IOmConnect.h"
-#include "..\MainUI\statuslogs.h"
-
+#include "../MainUI/statuslogs.h"
+#include "SystemConfig/ConfigLocator.h"
 #include "dataProcess.h"
 using namespace Instrumentation;
-// vulkan & QT
-
 using namespace std;
 
 class OmConnect : public IOmConnect
 {
 public:
-    OmConnect() :sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr), datProcess(nullptr) {};
+    OmConnect();
     ~OmConnect() { };
     bool omConnectDevice() override;
     void omDisconnectDevice() override;
@@ -24,7 +22,7 @@ private:
     void newThread();
     shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
 
-
+    ConfigLocator* configL;
     nmainUI::statuslogs* sttlogs;
     std::shared_ptr<IBeamSet> beamSet;
     std::shared_ptr<IAcquisition> acquisition;

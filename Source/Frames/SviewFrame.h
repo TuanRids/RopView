@@ -27,7 +27,7 @@ public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;
     void update() override;
-    void updateRealTime() override {};
+    void updateRealTime() override ;
 };
 
 #endif

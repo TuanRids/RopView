@@ -3,9 +3,10 @@
 
 std::shared_ptr<upFrame> obser = std::make_shared<upFrame>();
 nDataProcess::nDataProcess(std::shared_ptr<IAcquisition> acquisition)
-    : m_acquisition(acquisition), sharedBuffer(1000)
+    : m_acquisition(acquisition)
 {
     sdk_logger = spdlog::get("RopView Logger");
+    if (!configL) configL = &ConfigLocator::getInstance();
 }
 
 nDataProcess::~nDataProcess()
@@ -31,11 +32,9 @@ void nDataProcess::Stop()
 
 void nDataProcess::Run()
 {
-    int ResIndex = 0; size_t cycleId(0);
     bool exceptionFound(false);
-    int beamNumber = 64;
-    IAcquisition::WaitForDataResultEx dataResult;
     m_acquisition->Start();
+    static size_t setIndex = 0;
     try
     {
         do
@@ -48,16 +47,15 @@ void nDataProcess::Run()
                 m_running = false;
                 return;
             }
-
             {
                 if (waitForDataResult.cycleData->GetAscanCollection()->GetCount() > 0)
                 {
-                    for (int i(0); i < 64;++i)
+                    for (int i(0); i < configL->omconf.beamLimit;++i)
                     {
                         auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(i);
                         auto xxx = std::vector<int>(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
                         std::lock_guard<std::mutex> lock(m_mtx);
-                        obser->upBuffer(xxx);
+                        obser->upBuffer(setIndex,i,xxx);
                     }
                     //sharedBuffer.push(xxx);
                 }
@@ -67,7 +65,8 @@ void nDataProcess::Run()
                     double crossingTime = !cscan->GetCrossingTime();
                 }
             }
-            sdk_logger->debug("Throughput: {}", m_acquisition->GetThroughput());
+            sdk_logger->debug("Throughput: {}", m_acquisition->GetThroughput()); 
+            ++setIndex;
         } while ((m_running));
     }
     catch (const exception&)

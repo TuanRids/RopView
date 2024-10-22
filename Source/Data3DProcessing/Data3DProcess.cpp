@@ -1,4 +1,4 @@
-#include "DataProcess.h"
+#include "Data3DProcess.h"
 
 #include <vtkSmartPointer.h>
 #include <vtkPoints.h>
@@ -17,7 +17,7 @@
 #include <vtkVolumeProperty.h>
 #include <vtkPiecewiseFunction.h>
 #include <vtkColorTransferFunction.h>
-AscanData IDataProcecss::m_dataset{};
+AscanData IData3DProcecss::m_dataset{};
 std::vector<Color> CreateColorPalette() {
     int gainFactor = 2;
     // Define a set of key colors that will be used as reference points for the gradient.
@@ -80,7 +80,7 @@ std::vector<Color> CreateColorPalette() {
     return gainAdjustedColors;
 
 }
-void DataProcess::processData_volume()
+void Data3DProcess::processData_volume()
 {
     if (m_dataset.Amplitudes.empty()) {
         return;
@@ -144,7 +144,7 @@ void DataProcess::processData_volume()
     renWinInteractor->Start();
     return;
 }
-Mesh DataProcess::processData()
+Mesh Data3DProcess::processData()
 {
     // processData_volume();
     if (m_dataset.Amplitudes.empty()) {

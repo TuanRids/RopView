@@ -3,7 +3,6 @@
 #include "OmConnect/CircularBuffer.h"
 
 #include <random>
-
 int getRandomNumber(int min, int max) {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -18,11 +17,21 @@ QWidget* AviewFrame::createFrame() {
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    // y_level_/ x_level_
+
 
     QVBoxLayout* layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->addWidget(graphicsView.get());
+    /*BeamPos temporarity*/
+    QSpinBox* beamPosSpinBox = new QSpinBox();
+    beamPosSpinBox->setRange(0, 64); 
+    beamPosSpinBox->setValue(0);   
+    QObject::connect(beamPosSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), [=](int newBeamPos) mutable {
+        this->beamPos = newBeamPos;
+        });
+
+    layout->addWidget(beamPosSpinBox);
+
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0); 
     frame->setLayout(layout);
@@ -44,29 +53,26 @@ void AviewFrame::update()
 void AviewFrame::updateRealTime()
 {
     static int idex = 0;
-    if (sharedBuffer.size() == 0) {
-        if (sttlogs) {
-            sttlogs->logWarning("No data in shared buffer for real-time processing");
+    try {
+        auto Bdata = sharedBuffer->getBeamData();
+        std::vector<int> data = Bdata.getAscanData(beamPos);
+        if (!lineSeries) RenderFrame();
+        lineSeries->clear();
+        QVector<QPointF> points;
+        points.reserve(data.size());
+        for (size_t i = 0; i < data.size(); ++i) {
+            points.append(QPointF(data[i], static_cast<double>(i)));
         }
-        return;
+
+        lineSeries->replace(points);
+        axisX->setRange(*std::min_element(data.begin(), data.end()), *std::max_element(data.begin(), data.end()));
+        axisY->setRange(0, data.size());
+        axisY->setReverse(true);
+        RenderFrame();
+        std::cout << sharedBuffer->getBeamSetSize() << std::endl;
     }
-
-    auto data = sharedBuffer.pop();
-
-    if (!lineSeries) RenderFrame(); 
-    lineSeries->clear(); 
-    QVector<QPointF> points;
-    points.reserve(data.size());
-    for (size_t i = 0; i < data.size(); ++i) {
-        points.append(QPointF(data[i], static_cast<double>(i)));
-    }
-
-    lineSeries->replace(points);  
-    axisX->setRange(*std::min_element(data.begin(), data.end()), *std::max_element(data.begin(), data.end()));
-    axisY->setRange(0, data.size());  
-    axisY->setReverse(true);  
-    RenderFrame();
-    std::cout << ("Real-time processing done: " + std::to_string(++idex));
+    catch (exception& e)
+    { std::cout << e.what() << std::endl; return; }
 }
 
 

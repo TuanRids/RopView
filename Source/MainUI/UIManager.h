@@ -2,7 +2,6 @@
 #include "IUIWindow.h"
 #include <QSettings>
 #include <QSplitter>
-#include "SettingPara.h"
 #include "ObserverMgr.h"
 #include "..\Source\PAUTFileReader\AscanProcessor.h"
 

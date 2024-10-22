@@ -1,7 +1,11 @@
 #ifndef STATUSLOGS_H
 #define STATUSLOGS_H
 
-#include "..\pch.h"
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include <mutex>
+
 namespace nmainUI {
 
     class statuslogs : public QObject {
@@ -10,100 +14,82 @@ namespace nmainUI {
             static statuslogs instance;
             return instance;
         }
+
         void initialize(QTextEdit* plogOutputWidget) {
             if (!this->plogOutputWidget) {
                 this->plogOutputWidget = plogOutputWidget;
                 plogOutputWidget->setReadOnly(true);
             }
         }
-        void addLogMessage(const QString& prefix, const QString& message, const QColor& color) {
-            QMutexLocker locker(&mtx);
-            if (plogOutputWidget) {
-                plogOutputWidget->setTextColor(Qt::white);
-                plogOutputWidget->insertPlainText(prefix);  
-                plogOutputWidget->setTextColor(color);
-                plogOutputWidget->insertPlainText(message);  
-                plogOutputWidget->insertPlainText("\n");
-                plogOutputWidget->moveCursor(QTextCursor::End);
-                plogOutputWidget->setTextColor(Qt::white);  
-            }
 
-            if (filelog.isOpen()) {
-                QTextStream out(&filelog);
-                out << prefix << message << "\n";
-            }
+        void setupLoggers() {
+            std::vector<spdlog::sink_ptr> sinks;
+            sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());  
+            sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs.txt", true)); 
 
+            logger = std::make_shared<spdlog::logger>("multi_sink", sinks.begin(), sinks.end());
+            logger->set_level(spdlog::level::debug);  
+            logger->set_pattern("[%H:%M:%S] [%l] %v"); 
+
+            spdlog::register_logger(logger);
         }
-        void addLogMessage(const QString& message, const QColor& color) {
-            QMutexLocker locker(&mtx);
-            if (plogOutputWidget) {
-                plogOutputWidget->setTextColor(color);  
-                plogOutputWidget->append(message);  
-            }
-            if (filelog.isOpen()) {
-                QTextStream out(&filelog);
-                out << message << "\n";
-            }
-        }
+
         void logDebug(const std::string& message) {
-            QString qmessage = QString::fromStdString(message);
-            addLogMessage( crtime() + ": [debug] " , qmessage, Qt::green);
+            logger->debug(message);
+            addLogMessage("debug", QString::fromStdString(message), Qt::green);
         }
+
         void logInfo(const std::string& message) {
-            QString qmessage = QString::fromStdString(message);
-            addLogMessage( crtime() + ": [info] " , qmessage, QColor(0.73 * 255, 0.68 * 255, 0.8 * 255));
+            logger->info(message);
+            addLogMessage("info", QString::fromStdString(message), QColor(0.73 * 255, 0.68 * 255, 0.8 * 255));
         }
+
         void logWarning(const std::string& message) {
-            QString qmessage = QString::fromStdString(message);
-            addLogMessage(crtime() + ": [warning] " , qmessage, Qt::yellow);
+            logger->warn(message);
+            addLogMessage("warning", QString::fromStdString(message), Qt::yellow);
         }
+
         void logNotify(const std::string& message) {
-            QString qmessage = QString::fromStdString(message);
-            addLogMessage(crtime() + ": [notify] " , qmessage, QColor(1.0 * 255, 0.7 * 255, 0.0 * 255));
+            logger->info(message);
+            addLogMessage("notify", QString::fromStdString(message), QColor(1.0 * 255, 0.7 * 255, 0.0 * 255));
         }
+
         void logCritical(const std::string& message) {
-            QString qmessage = QString::fromStdString(message);
-            addLogMessage( crtime() + ": [critical] " , qmessage, Qt::red);
+            logger->critical(message);
+            addLogMessage("critical", QString::fromStdString(message), Qt::red);
         }
+
         void clearLogs() {
             QMutexLocker locker(&mtx);
             if (plogOutputWidget) {
                 plogOutputWidget->clear();
             }
         }
-        void startLoggingToFile() {
-            if (!upFilePath) { upFilePath = std::make_unique<QString>("application.log"); }
-            QMutexLocker locker(&mtx);
-            if (!filelog.isOpen()) {
-                filelog.setFileName(*upFilePath);
-                if (!filelog.open(QIODevice::Append | QIODevice::Text)) {
-                    logCritical("Unable to open log file for writing.");
-                }
-            }
-        }
-        void stopLoggingToFile() {
-            QMutexLocker locker(&mtx);
-            if (filelog.isOpen()) {
-                filelog.close();
-            }
-        }
-        std::shared_ptr<spdlog::logger> spdLoggers() { return file_logger; }
+
     private:
-        QString crtime(){return QTime::currentTime().toString("hh:mm:ss");}
-        statuslogs() : file_logger(nullptr) {
-            std::shared_ptr<spdlog::logger> file_logger = spdlog::basic_logger_mt("file_logger", "log.txt");
-        };
+        statuslogs() {
+            setupLoggers();
+        }
         ~statuslogs() = default;
 
         statuslogs(const statuslogs&) = delete;
         statuslogs& operator=(const statuslogs&) = delete;
 
-        std::shared_ptr<spdlog::logger> file_logger;
+        void addLogMessage(const QString& prefix, const QString& message, const QColor& color) {
+            // QMutexLocker locker(&mtx);
+            if (plogOutputWidget) {
+                plogOutputWidget->setTextColor(Qt::white);
+                plogOutputWidget->insertPlainText(prefix + ": ");
+                plogOutputWidget->setTextColor(color);
+                plogOutputWidget->insertPlainText(message + "\n");
+                plogOutputWidget->moveCursor(QTextCursor::End);
+                plogOutputWidget->setTextColor(Qt::white);
+            }
+        }
 
+        std::shared_ptr<spdlog::logger> logger;
         QTextEdit* plogOutputWidget = nullptr;
-        QFile filelog;
         QMutex mtx;
-        std::unique_ptr<QString> upFilePath;
     };
 
 }

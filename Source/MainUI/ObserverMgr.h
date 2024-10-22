@@ -5,12 +5,14 @@
 #include "MainUI/statuslogs.h"
 #include "MainUI/mainwindow.h"
 #include "event/ZoomableGraphicsView.h"
-#include "OmConnect/CircularBuffer.h"
+#include "OmConnect/BeamSet.h"
 struct curpt3d
 {
 	int x{ -1 }, y{ -1 }, z{ -1 };
 	bool CheckIdx(int nx, int ny, int nz);
 };
+
+
 class nObserver {
 public:
 	virtual QWidget* createFrame() = 0;
@@ -20,12 +22,13 @@ public:
 	void setScandat(const AscanData& dataa) { scandat = dataa; }
 	void clearScandat() { scandat = AscanData(); }
 	void setSttlogs() { if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); } }
+	void popSharedBuffer() { sharedBuffer->popBeamData(); }
 protected:
 	static bool isPanning;
 	static curpt3d curpt;
 	static AscanData scandat;
 	static nmainUI::statuslogs* sttlogs;
-	static CircularBuffer<std::vector<int>> sharedBuffer;
+	static std::unique_ptr<BeamSet> sharedBuffer;
 
 	// TODO: Optimize this function later
 	void UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<cv::Mat> Img, std::shared_ptr<QGraphicsScene> scene, std::shared_ptr<ZoomableGraphicsView> graphicsView, int res, Qt::GlobalColor xcolor, Qt::GlobalColor ycolor);
@@ -43,9 +46,7 @@ public:
 			this->notifyRealtime();
 			});
 	}
-	~nSubject() {
-		delete realTimeTimer;
-	}
+	~nSubject() { delete realTimeTimer;	}
 	void addObserver(const std::shared_ptr<nObserver>& a_object) { observers.push_back(a_object); }
 	void removeObserver(const std::shared_ptr<nObserver>& a_object) {
 		observers.erase(std::remove(observers.begin(), observers.end(), a_object), observers.end());
@@ -74,17 +75,18 @@ public:
 		for (const auto& object : observers) {
 			object->updateRealTime();
 		}
+		observers[0]->popSharedBuffer();
 	}
 };
+
 class upFrame : public nObserver {
 	QWidget* createFrame() override {return nullptr;}
-
 	void update() override {}
-
 	void updateRealTime() override {}
 public:
-	void upBuffer(std::vector<int> data) {		
-		sharedBuffer.push(data);
+	void upBuffer(int setId,int beamId, std::vector<int> data) { /* add data to buffer for Ascan & Sscan Realtime Render*/
+		sharedBuffer->addBeamData(setId, beamId, data);
 	}
 };
+
 #endif // NOBSERVER_H

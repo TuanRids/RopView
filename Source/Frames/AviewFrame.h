@@ -26,6 +26,9 @@ private:
     QValueAxis* axisX;
     QValueAxis* axisY;
 
+    size_t beamPos = 0; /*FIXME this should be a spinbox*/
+
+
     QChart* chart;
     QLineSeries* lineSeries;
     QChartView* chartView;

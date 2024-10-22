@@ -3,7 +3,7 @@
 #include "..\PAUTFileReader\AscanDattype.hpp"
 #include "..\Model3D\CMesh.h"
 #include "MainUI/statuslogs.h"
-class IDataProcecss {
+class IData3DProcecss {
 public:
 	virtual void getAscanData(const AscanData& ascanData) = 0;
 	virtual Mesh processData() = 0;
@@ -12,12 +12,12 @@ protected:
 
 };
 
-class DataProcess: public IDataProcecss
+class Data3DProcess: public IData3DProcecss
 {
 private:
 	void processData_volume();
 public:
-	DataProcess() {
+	Data3DProcess() {
 		if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); } 
 	};
 	void getAscanData(const AscanData& ascanData) {m_dataset = ascanData;}

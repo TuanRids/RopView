@@ -1,3 +1,4 @@
+#include "../pch.h"
 #include "mainwindow.h"
 #include "ObserverMgr.h"
 #include "FactoryMgr.h"
@@ -6,8 +7,18 @@
 #include "Frames/SviewFrame.h"
 #include "Frames/AviewFrame.h"
 #include "Frames/BviewFrame.h"
-nmainUI::UIFrame::UIFrame() {  }
+
+
 nmainUI::UIManager uiManager;
+nmainUI::UIFrame::UIFrame() 
+{ 
+    namespace di = boost::di;
+    auto injection = di::make_injector(
+        di::bind<OmniConfig>().to(std::make_shared<OmniConfig>()));
+    
+    omc = injection.create<std::shared_ptr<OmConnect>>();
+}
+
 
 
 std::shared_ptr<nSubject> nsubject;

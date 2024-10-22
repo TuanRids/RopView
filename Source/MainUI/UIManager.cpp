@@ -4,15 +4,15 @@
 #include <QVBoxLayout>
 
 #include "FactoryMgr.h"
-#include "Frames/nLogFrame.h"
 #include "Frames/CviewFrame.h"
 #include "Frames/SviewFrame.h"
 #include "Frames/BviewFrame.h"
 #include "Frames/AviewFrame.h"
-
-#include "..\OmConnect\OmConnect.h"
-#include "..\Data3DProcessing\DataProcess.h"
+#include "SystemConfig/ConfigLocator.h"
+#include "../OmConnect/OmConnect.h"
+#include "../Data3DProcessing/Data3DProcess.h"
 namespace nmainUI {
+    auto ConfigL = ConfigLocator::getInstance();
     UIManager::UIManager() {
         settings = std::make_unique<QSettings>("RoqView COM", "FrameStatus");
         if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
@@ -59,7 +59,7 @@ namespace nmainUI {
     }
 
     void UIManager::UISETTING() {
-        auto gtheme = SettingsManager::getInstance()->getSettings().qsTheme;
+        auto gtheme = ConfigLocator::getInstance().settingconf.qsTheme;
         auto sheetName = fs::current_path() / ("QssTemplate\\"+ gtheme);
         QString styleSheet;
 
@@ -136,8 +136,7 @@ namespace nmainUI {
     }
     void UIManager::openSettingsDialog()
     {
-        SettingsManager* tsettings = SettingsManager::getInstance();
-        SettingParams currentSettings = tsettings->getSettings();
+        auto currentSettings = ConfigLocator::getInstance().settingconf;
 
         QDialog settingsDialog;
         settingsDialog.setWindowTitle("Settings");
@@ -191,8 +190,8 @@ namespace nmainUI {
                 currentSettings.timeout = timeoutSpinBox->value();
                 currentSettings.device_name = deviceNameField->text().toStdString();
 
-                tsettings->updateSettings(currentSettings);
-                tsettings->saveToRegistry();
+                ConfigLocator::getInstance().settingconf = currentSettings;
+                ConfigLocator::getInstance().saveToRegistry();
                 settingsDialog.accept();
                 });
         }
@@ -226,7 +225,7 @@ namespace nmainUI {
             formLayout->addWidget(reloadTheme);
             QObject::connect(reloadTheme, &QPushButton::clicked, [&]() {
                 currentSettings.qsTheme = themeComboBox->currentText().toStdString();
-                tsettings->updateSettings(currentSettings);
+                ConfigLocator::getInstance().settingconf = currentSettings;
                 UISETTING();
                 sttlogs->logInfo("Reload to use theme: " + currentSettings.qsTheme);
                 });
@@ -234,7 +233,7 @@ namespace nmainUI {
             mainLayout->addWidget(settingsGroup);
 
             QObject::connect(applyButton, &QPushButton::clicked, [&]() {
-                tsettings->saveToRegistry();
+                ConfigLocator::getInstance().saveToRegistry();
                 UISETTING();
                 sttlogs->logInfo("Settings applied.");
                 });
@@ -267,13 +266,17 @@ namespace nmainUI {
         QVBoxLayout* layout = new QVBoxLayout(logWidget);
         layout->setContentsMargins(0, 0, 0, 0);
 
-        auto logFrame = nFactoryFrame::crLogFrm();
-        nsubject->addObserver(logFrame);
-        layout->addWidget(logFrame->createFrame());
+        QTextEdit* logOutput = new QTextEdit();
+        logOutput->setLineWrapMode(QTextEdit::NoWrap);
+        logOutput->setReadOnly(true);
+
+        nmainUI::statuslogs::getinstance().initialize(logOutput);
+
+        layout->addWidget(logOutput);
 
         return logWidget;
-
     }
+
     QWidget* UIManager::createLogSettings(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject) {
         QWidget* settingsWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(settingsWidget);
@@ -307,7 +310,7 @@ namespace nmainUI {
         QPushButton* btnConnect = new QPushButton("Connect");
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
-            nsubject->startRealtimeUpdate(1); //NOTE: refresh rate for realtime rendering
+            nsubject->startRealtimeUpdate( 1000.0f / (configL->omconf.Rate + 10) ); //NOTE: refresh rate for realtime rendering
             omc->omConnectDevice();            
             sttlogs->logCritical("Start RealTime!");
             });
@@ -315,7 +318,7 @@ namespace nmainUI {
 		QPushButton* btn3D = new QPushButton("3D");
 		layout->addWidget(btn3D);
         QObject::connect(btn3D, &QPushButton::clicked, [=]() mutable {
-            std::unique_ptr<IDataProcecss> object = std::make_unique<DataProcess>();
+            std::unique_ptr<IData3DProcecss> object = std::make_unique<Data3DProcess>();
             auto result = object->processData();
             vulkanWindow->PautINIT(result);
             });

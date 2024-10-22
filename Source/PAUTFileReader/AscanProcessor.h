@@ -12,7 +12,7 @@
 #include <rapidjson/document.h>
 #include "../Source/PAUTFileReader/AscanDattype.hpp"
 #include "../Source/MainUI/statuslogs.h"
-#include "../Data3DProcessing/DataProcess.h"
+#include "../Data3DProcessing/Data3DProcess.h"
 
 namespace rj = rapidjson;
 namespace fs = std::filesystem;

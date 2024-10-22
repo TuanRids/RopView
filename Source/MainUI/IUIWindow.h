@@ -1,10 +1,11 @@
 #ifndef UIWINDOW_H
 #define UIWINDOW_H
 
-#include "..\pch.h"
+#include "../pch.h"
 #include "statuslogs.h"
-#include "..\Source\PAUTFileReader\AscanProcessor.h"
-#include "..\OmConnect\OmConnect.h"
+#include "../Source/PAUTFileReader/AscanProcessor.h"
+#include "../OmConnect/OmConnect.h"
+#include "SystemConfig/ConfigLocator.h"
 class UIWindow {
 public:
     virtual ~UIWindow() = default;
@@ -13,6 +14,8 @@ public:
     bool check_isCscanLayer() const { return isCscanLayer; }
 
 protected:
+    static ConfigLocator* configL;
+
     static std::shared_ptr<IOmConnect> omc;
     static unsigned int resolution;
     static bool isCscanLayer;

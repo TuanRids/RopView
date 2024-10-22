@@ -27,7 +27,6 @@ void VulkanWindow::GetDeviceInfo()
     for (int count : this->supportedSampleCounts())
         info += QString::number(count) + " ";
     info += "\n\t   *********";
-
     nmainUI::statuslogs::getinstance().logNotify(info.toStdString());
 }
 
