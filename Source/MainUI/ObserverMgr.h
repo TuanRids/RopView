@@ -6,6 +6,8 @@
 #include "MainUI/mainwindow.h"
 #include "event/ZoomableGraphicsView.h"
 #include "OmConnect/BeamSet.h"
+#include "Instrumentation/IAScanCollection.h"
+using namespace std;
 struct curpt3d
 {
 	int x{ -1 }, y{ -1 }, z{ -1 };
@@ -22,14 +24,14 @@ public:
 	void setScandat(const AscanData& dataa) { scandat = dataa; }
 	void clearScandat() { scandat = AscanData(); }
 	void setSttlogs() { if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); } }
-	void popSharedBuffer() { sharedBuffer->popBeamData(); }
+	void popFront() 
+	{ while (!nAscanCollection.empty()) { nAscanCollection.pop_front(); } } //TODO Optimize this function
 protected:
 	static bool isPanning;
 	static curpt3d curpt;
 	static AscanData scandat;
 	static nmainUI::statuslogs* sttlogs;
-	static std::unique_ptr<BeamSet> sharedBuffer;
-
+	static deque<shared_ptr<IAscanCollection>> nAscanCollection;
 	// TODO: Optimize this function later
 	void UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<cv::Mat> Img, std::shared_ptr<QGraphicsScene> scene, std::shared_ptr<ZoomableGraphicsView> graphicsView, int res, Qt::GlobalColor xcolor, Qt::GlobalColor ycolor);
 	std::vector<Color> CreateColorPalette();
@@ -75,7 +77,7 @@ public:
 		for (const auto& object : observers) {
 			object->updateRealTime();
 		}
-		observers[0]->popSharedBuffer();
+		observers[0]->popFront();
 	}
 };
 
@@ -84,8 +86,8 @@ class upFrame : public nObserver {
 	void update() override {}
 	void updateRealTime() override {}
 public:
-	void upBuffer(int setId,int beamId, std::vector<int> data) { /* add data to buffer for Ascan & Sscan Realtime Render*/
-		sharedBuffer->addBeamData(setId, beamId, data);
+	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {
+		nAscanCollection.push_back(_nAscanCollection);
 	}
 };
 

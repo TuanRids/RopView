@@ -5,7 +5,7 @@ AscanData nObserver::scandat;
 nmainUI::statuslogs* nObserver::sttlogs = nullptr;
 curpt3d nObserver::curpt{ 0,0,0 };
 bool nObserver::isPanning = false;
-std::unique_ptr<BeamSet> nObserver::sharedBuffer = std::make_unique<BeamSet>();
+deque<shared_ptr<IAscanCollection>> nObserver::nAscanCollection = deque<shared_ptr<IAscanCollection>>();
 
 
 void nObserver::UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<cv::Mat> Img, std::shared_ptr<QGraphicsScene> scene,

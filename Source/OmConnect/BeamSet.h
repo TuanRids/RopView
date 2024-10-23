@@ -5,7 +5,6 @@
 #include <utility>
 #include <iostream>
 #include "MainUI/statuslogs.h"
-#include "Instrumentation/IAScanCollection.h"
 
 struct BeamData {
     std::unordered_map<int, std::vector<int>> beamDataMap; 

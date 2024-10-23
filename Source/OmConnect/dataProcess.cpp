@@ -52,10 +52,11 @@ void nDataProcess::Run()
                 {
                     for (int i(0); i < configL->omconf.beamLimit;++i)
                     {
-                        auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(i);
-                        auto xxx = std::vector<int>(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
+                        //auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(i);
+                        //auto xxx = std::vector<int>(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
                         std::lock_guard<std::mutex> lock(m_mtx);
-                        obser->upBuffer(setIndex,i,xxx);
+                        obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+                        //obser->upBuffer(setIndex,i,xxx);
                     }
                     //sharedBuffer.push(xxx);
                 }

@@ -1,4 +1,5 @@
 #include "SviewFrame.h"
+#include <omp.h>
 
 QWidget* SviewFrame::createFrame() {
     if (!graphicsView) { graphicsView = std::make_shared<ZoomableGraphicsView>(); }
@@ -30,26 +31,34 @@ void SviewFrame::update() {
 void SviewFrame::updateRealTime()
 {
     try {
-        auto Bdata = sharedBuffer->getBeamData();
-        int xsize = Bdata.beamDataMap.size();
-        int ysize = 0;
+        //auto Bdata = sharedBuffer->getBeamData();
+        // int xsize = Bdata.beamDataMap.size();
+        std::shared_ptr<IAscanCollection> Bdata;
+        if (nAscanCollection.empty()) return;
 
-        if (!Bdata.beamDataMap.empty()) {
-            ysize = Bdata.beamDataMap.begin()->second.size();  
-        }
+        Bdata = nAscanCollection.front();
+        int xsize = Bdata->GetCount();  
+        auto ascan = Bdata->GetAscan(0);  
+        int ysize = ascan->GetSampleQuantity();  
+
 
         orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
-
         scaledImage = std::make_unique<cv::Mat>();
+#pragma omp parallel for
         auto everyColors = CreateColorPalette();
-        for (const auto& [beamID, ascanData] : Bdata.beamDataMap) {
-            for (size_t y = 0; y < ascanData.size(); ++y) {
+        for (int beamID = 0; beamID < xsize; ++beamID) {
+            auto ascan = Bdata->GetAscan(beamID);  
+            const int* ascanData = ascan->GetData();
+            for (int y = 0; y < ysize; ++y) {
                 int samplingAmplitude = std::abs(ascanData[y]);
                 double percentAmplitude = samplingAmplitude / (32768 / 100.0);
                 Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
+
                 orgimage->at<cv::Vec3b>(y, beamID) = cv::Vec3b(color.B, color.G, color.R);
             }
-        } // TODO Increase speed
+        }
+
+
         scaledImage = std::make_unique<cv::Mat>();
         cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width(), graphicsView->height()), 0, 0, cv::INTER_NEAREST);
 

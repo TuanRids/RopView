@@ -1,7 +1,7 @@
 #include "AviewFrame.h"
 #include "..\pch.h"
 #include "OmConnect/CircularBuffer.h"
-
+#include <omp.h>
 #include <random>
 int getRandomNumber(int min, int max) {
     std::random_device rd;
@@ -54,22 +54,29 @@ void AviewFrame::updateRealTime()
 {
     static int idex = 0;
     try {
-        auto Bdata = sharedBuffer->getBeamData();
-        std::vector<int> data = Bdata.getAscanData(beamPos);
+        std::shared_ptr<IAscan> Bdata;
+        if (nAscanCollection.empty()) return;
+        Bdata = nAscanCollection.front()->GetAscan(beamPos);
+
+        const int* data = Bdata->GetData();
+        size_t dataSize = Bdata->GetSampleQuantity();
+
         if (!lineSeries) RenderFrame();
         lineSeries->clear();
-        QVector<QPointF> points;
-        points.reserve(data.size());
-        for (size_t i = 0; i < data.size(); ++i) {
-            points.append(QPointF(data[i], static_cast<double>(i)));
+
+        QVector<QPointF> points(dataSize);  
+        QPointF* pointData = points.data();
+#pragma omp parallel for
+        points.reserve(dataSize);
+        for (size_t i = 0; i < dataSize; ++i) {
+            pointData[i] = QPointF(static_cast<double>(i), static_cast<double>(data[i]));  
         }
 
         lineSeries->replace(points);
-        axisX->setRange(*std::min_element(data.begin(), data.end()), *std::max_element(data.begin(), data.end()));
-        axisY->setRange(0, data.size());
+        axisX->setRange(0, dataSize);
+        axisY->setRange(*std::min_element(data, data + dataSize), *std::max_element(data, data + dataSize));
         axisY->setReverse(true);
         RenderFrame();
-        std::cout << sharedBuffer->getBeamSetSize() << std::endl;
     }
     catch (exception& e)
     { std::cout << e.what() << std::endl; return; }
