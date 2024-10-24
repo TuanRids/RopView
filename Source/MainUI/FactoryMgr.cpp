@@ -7,21 +7,21 @@
 
 
 std::shared_ptr<CviewFrame> nFactoryFrame::crCviewFrm() {
-    return std::make_unique<CviewFrame>();
+    return std::make_shared<CviewFrame>();
 }
 
 std::shared_ptr<SviewFrame> nFactoryFrame::crSViewFrm()
 {
-    return std::make_unique<SviewFrame>();
+    return std::make_shared<SviewFrame>();
 
 }
 
 std::shared_ptr<AviewFrame> nFactoryFrame::crAviewFrm()
 {
-    return std::make_unique<AviewFrame>();
+    return std::make_shared<AviewFrame>();
 }
 
 std::shared_ptr<BviewFrame> nFactoryFrame::crBviewFrm()
 {
-    return std::make_unique<BviewFrame>();
+    return std::make_shared<BviewFrame>();
 }

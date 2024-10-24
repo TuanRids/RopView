@@ -6,44 +6,53 @@ nmainUI::statuslogs* nObserver::sttlogs = nullptr;
 curpt3d nObserver::curpt{ 0,0,0 };
 bool nObserver::isPanning = false;
 deque<shared_ptr<IAscanCollection>> nObserver::nAscanCollection = deque<shared_ptr<IAscanCollection>>();
-
-
-void nObserver::UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<cv::Mat> Img, std::shared_ptr<QGraphicsScene> scene,
-    std::shared_ptr<ZoomableGraphicsView> graphicsView, int res, Qt::GlobalColor xcolor, Qt::GlobalColor ycolor)
+size_t nObserver::_buffSize = 0;
+nObserver::nObserver()
 {
+    if (!sttlogs)  sttlogs = &nmainUI::statuslogs::getinstance();
+    if (!ArtScan) ArtScan = &UIArtScan::getInstance();
+}
 
-    double frameRatio = static_cast<double>(graphicsView->size().width()) / static_cast<double>(graphicsView->size().height());
-    double imageRatio = static_cast<double>(OrgImg->cols) / static_cast<double>(OrgImg->rows);
+void nObserver::RealDatProcess()
+{
+    static auto everyColors = CreateColorPalette();
+    std::lock_guard<std::mutex> lock(collectionMutex);
 
-    auto newWidth = (frameRatio > imageRatio) ? static_cast<int>(OrgImg->rows * frameRatio) : OrgImg->cols;
-    auto newHeight = (frameRatio > imageRatio) ? OrgImg->rows : static_cast<int>(OrgImg->cols / frameRatio);
+    _buffSize = nAscanCollection.size();
+    if (_buffSize == 0) throw std::runtime_error("nAscanCollection is empty.");
 
-    auto scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? res : 1.0;
-    cv::resize(*OrgImg, *Img, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
+    auto RawAsanDat = std::move(nAscanCollection.back());
+    if (!RawAsanDat) throw std::runtime_error("nAscanCollection is empty.");
 
-    cv::GaussianBlur(*Img, *Img, cv::Size(1, 1), 0);
-    auto qImage = std::make_shared<QImage>(Img->data, Img->cols, Img->rows, Img->step, QImage::Format_RGB888);
-    *qImage = qImage->rgbSwapped();
+    while (nAscanCollection.size() > 10) nAscanCollection.pop_front();
 
-    QPixmap pixmap = QPixmap::fromImage(*qImage);
-    scene->clear();
-    QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
-    artworkItem->setData(0, "artwork");
+    int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
+    int ysize = static_cast<int>(RawAsanDat->GetCount());
+       
+    
+    ArtScan->resetall();
+    ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3);
+    ArtScan->AViewBuf->clear();
+    QVector<QPointF> points(zsize);
+#pragma omp parallel for
+    for (int beamID = 0; beamID < ysize; ++beamID) {
+        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
+        for (int z = 0; z < zsize; ++z) {
+            // Process Sscan Data
+            double percentAmplitude = std::abs(ascanData[z]) / (32768 / 100.0);
+            Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
+            ArtScan->SViewBuf->at<cv::Vec3b>(z, beamID) = cv::Vec3b(color.B, color.G, color.R);
 
-    int gridSpacing = 20;
-    QPen gridx(xcolor);
-    QPen gridy(ycolor);
-    gridx.setStyle(Qt::SolidLine); gridx.setWidth(0.003 * std::min(scene->height(), scene->width()));
-    gridy.setStyle(Qt::SolidLine); gridy.setWidth(0.003 * std::min(scene->height(), scene->width()));
+            // Process Ascan Data
+            if (ConfigLocator::getInstance().omconf->BeamPosition == beamID)
+            {
+                points[z] = QPointF(static_cast<double>(z), static_cast<double>(ascanData[z]));
+                
+            }
+        }
+    }
+    *ArtScan->AViewBuf = points;
 
-    QGraphicsLineItem* verticalLine = scene->addLine(-2, 0, -2, newHeight * scaleFactor + 4, gridx);
-
-
-    QGraphicsLineItem* horizontalLine = scene->addLine(-4, newHeight * scaleFactor + 2, newWidth * scaleFactor, newHeight * scaleFactor + 2, gridy);
-
-
-    graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
-    graphicsView->update();
 }
 
 std::vector<Color> nObserver::CreateColorPalette()
@@ -109,10 +118,4 @@ std::vector<Color> nObserver::CreateColorPalette()
     return gainAdjustedColors;
 
 }
-bool curpt3d::CheckIdx(int nx, int ny, int nz)
-{
-    if (nx != this->x && nx != -1) { this->x = nx;  return true; }
-    if (ny != this->y && ny != -1) { this->y = ny; return true; }
-    if (nz != this->z && nz != -1) { this->z = nz;  return true; }
-    return false;
-}
+

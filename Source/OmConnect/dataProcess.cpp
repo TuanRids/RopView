@@ -5,7 +5,6 @@ std::shared_ptr<upFrame> obser = std::make_shared<upFrame>();
 nDataProcess::nDataProcess(std::shared_ptr<IAcquisition> acquisition)
     : m_acquisition(acquisition)
 {
-    sdk_logger = spdlog::get("RopView Logger");
     if (!configL) configL = &ConfigLocator::getInstance();
 }
 
@@ -22,15 +21,12 @@ void nDataProcess::Start()
 {
     if (m_running) return;
     m_running = true;
-    sdk_logger->info("New Thread Starting data acquisition...");
     // m_future = std::async(std::launch::async, &nDataProcess::Run, this);
     m_future = std::async(std::launch::async, [this]() {
         SetThreadName("Data Acquisition Thread");
         this->Run();
         });
-
 }
-
 
 void nDataProcess::Stop()
 {
@@ -51,7 +47,6 @@ void nDataProcess::Run()
             auto waitForDataResult = m_acquisition->WaitForDataEx();
             if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
-                sdk_logger->error("Error during data acquisition.");
                 m_acquisition->Stop();
                 m_running = false;
                 return;
@@ -61,21 +56,29 @@ void nDataProcess::Run()
                 {
                     for (int i(0); i < configL->omconf->beamLimit;++i)
                     {
-                        //auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(i);
-                        //auto xxx = std::vector<int>(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
                         std::lock_guard<std::mutex> lock(m_mtx);
                         obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
-                        //obser->upBuffer(setIndex,i,xxx);
                     }
-                    //sharedBuffer.push(xxx);
                 }
+                /*
+                    if (sharedBuffer.size() == 0) continue;
+                    std::lock_guard<std::mutex> lock(m_mtx);
+                    auto data = sharedBuffer.pop();
+                    std::ostringstream oss;
+                    for (int j = 0; j < data.size(); ++j)
+                    {
+                        oss << data[j] << " ";
+                    }
+                    std::cout << oss.str() << std::endl;
+                    std::string dataStr = oss.str();
+                    sdk_logger->debug("ID: {}, DataSize: {}, Data: {}", ++index, data.size(), dataStr);
+                */
                 if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
                 {
                     auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                     double crossingTime = !cscan->GetCrossingTime();
                 }
             }
-            sdk_logger->debug("Throughput: {}", m_acquisition->GetThroughput()); 
             ++setIndex;
         } while ((m_running));
     }

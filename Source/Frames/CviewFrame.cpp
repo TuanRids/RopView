@@ -15,17 +15,6 @@ QWidget* CviewFrame::createFrame(){
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(graphicsView);
-
-    navigatorView = new QGraphicsView();
-    navigatorView->setScene(scene);
-    navigatorView->setFixedSize(graphicsView->size().width() / 10, graphicsView->size().height() / 10);
-    navigatorView->setBackgroundBrush(Qt::transparent);
-    navigatorView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    navigatorView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    navigatorView->setGeometry(20, 30, 200, 150); // Positioning navigator view
-    navigatorView->raise();
-
-    graphicsView->setNavigator(navigatorView);
         
     // Container
     QWidget* containerWidget = new QWidget();

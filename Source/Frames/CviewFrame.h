@@ -19,14 +19,12 @@ private:
 
     QGraphicsScene* scene;
     ZoomableGraphicsView* graphicsView;
-    nmainUI::UIFrame* uiframe;
     uint64_t ysize, xsize, zsize;
     std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
 
     std::shared_ptr<XYOverlayGrid> overlay = nullptr;
     std::shared_ptr<cv::Mat> orgimage;
     std::shared_ptr<cv::Mat> scaledImage;
-    QGraphicsView* navigatorView;
     bool isRealTime = false;
 
 public:
@@ -34,11 +32,7 @@ public:
     void update() override;
     void updateRealTime() override;
     void setter_Curpt(int x, int y, int z) {curpt.x = x; curpt.y = y; curpt.z = z;}
-    ~CviewFrame() {
-        if (graphicsView) {
-            graphicsView->setScene(nullptr);
-        }
-    }
+
 };
 
 #endif

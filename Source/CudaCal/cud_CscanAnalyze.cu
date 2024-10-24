@@ -2,9 +2,10 @@
 #include <iostream>
 
 __global__ void addKernel(int* c, const int* a, const int* b) {
-    int i = threadIdx.x;
+    size_t i = threadIdx.x;  
     c[i] = a[i] + b[i];
 }
+
 
 void addWithCuda(int* c, const int* a, const int* b, size_t size) {
     int* dev_a = 0;
@@ -18,7 +19,7 @@ void addWithCuda(int* c, const int* a, const int* b, size_t size) {
     cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
 
-    addKernel << <1, size >> > (dev_c, dev_a, dev_b);
+    addKernel << < 1, static_cast<unsigned int>(size) >> > (dev_c, dev_a, dev_b);
 
     cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
 

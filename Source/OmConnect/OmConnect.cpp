@@ -15,22 +15,7 @@ OmConnect::OmConnect() : sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr
 
 bool OmConnect::omConnectDevice()
 {
-    if (!sdk_logger)
-    {
-        auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs\\RopView.log", true);
-        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-
-        sdk_logger = std::make_shared<spdlog::logger>("RopView Logger", spdlog::sinks_init_list{ file_sink, console_sink });
-
-        sdk_logger->set_level(spdlog::level::debug);
-
-        spdlog::register_logger(sdk_logger);
-
-        sdk_logger->flush_on(spdlog::level::info);
-
-        sdk_logger->info("\n\t=================\n\tStarting OmConnect\n\t=================");
-    }
-
+    
     if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance();
     ipAddress = ConfigLocator::getInstance().settingconf->ipAddress;
     try
@@ -171,6 +156,7 @@ void OmConnect::newThread()
         StartDevice();
         ConfigureDevice();
     }
+    
     if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
     datProcess->Start();
 }

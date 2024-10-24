@@ -1,5 +1,6 @@
 #include "ConfigLocator.h"
 
+// ========== ConFigLocator ==========
 std::shared_ptr<OmniConfig> ConfigLocator::omconf = nullptr;
 std::shared_ptr<SettingConfig> ConfigLocator::settingconf = nullptr;
 std::shared_ptr<SystemParams> ConfigLocator::sysParams = nullptr;
@@ -24,3 +25,9 @@ void ConfigLocator::loadFromRegistry() {
     settingconf->device_name = regSettings.value("device_name", "RoqView").toString().toStdString();
     settingconf->qsTheme = regSettings.value("qsTheme", "RoqView").toString().toStdString();
 }
+
+// ========== UIArtScan ===========
+std::shared_ptr<cv::Mat> UIArtScan::SViewBuf = nullptr;
+std::shared_ptr<cv::Mat> UIArtScan::BViewBuf = nullptr;
+std::shared_ptr<cv::Mat> UIArtScan::CViewBuf = nullptr;
+std::shared_ptr<QVector<QPointF>> UIArtScan::AViewBuf = nullptr;

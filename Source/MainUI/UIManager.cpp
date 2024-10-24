@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QSplitter>
 #include <QVBoxLayout>
+#include <QTimer>
 
 #include "FactoryMgr.h"
 #include "Frames/CviewFrame.h"
@@ -10,6 +11,7 @@
 #include "Frames/AviewFrame.h"
 #include "SystemConfig/ConfigLocator.h"
 #include "../Data3DProcessing/Data3DProcess.h"
+
 namespace nmainUI {
     UIManager::UIManager(): sttlogs(nullptr), nsubject(nullptr){
         settings = std::make_unique<QSettings>("RoqView COM", "FrameStatus");
@@ -55,7 +57,6 @@ namespace nmainUI {
             widget->update();
         }
     }
-
     void UIManager::UISETTING() {
         auto gtheme = ConfigLocator::getInstance().settingconf->qsTheme;
         auto sheetName = fs::current_path() / ("QssTemplate\\"+ gtheme);
@@ -254,13 +255,11 @@ namespace nmainUI {
             auto factframe = nFactoryFrame::crCviewFrm();
             factframe->clearScandat();
             auto res = processor->analyze(&*factframe);
-            factframe->setSttlogs();
             if (res) { sttlogs->logInfo("Scanning Data is Loaded."); }
             factframe->setter_Curpt(1, 1, 1);
             nsubject->startNotifyTimer(52);
         }
     }
-
     QWidget* UIManager::addFrameName(const QString& name, QWidget* frame) {
         if (!frame->layout()) {
             QVBoxLayout* layout = new QVBoxLayout(frame);
@@ -275,6 +274,7 @@ namespace nmainUI {
         label->raise();
         return frame;
     }
+
     QWidget* UIManager::createLogFrame() {
         QWidget* logWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(logWidget);
@@ -290,7 +290,6 @@ namespace nmainUI {
 
         return logWidget;
     }
-
     QWidget* UIManager::createLogSettings() {
         QWidget* settingsWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(settingsWidget);
@@ -355,7 +354,31 @@ namespace nmainUI {
         QVBoxLayout* layout = new QVBoxLayout(logWidget);
         layout->setContentsMargins(0, 0, 0, 0);
         return logWidget;
-    }            
+    }
+
+    QWidget* UIManager::createLogDebug()
+    {
+        QWidget* logWidget = new QWidget();
+        QTimer* timer = new QTimer(logWidget);
+        QVBoxLayout* layout = new QVBoxLayout(logWidget);
+        layout->setContentsMargins(0, 0, 0, 0);
+
+        QTextEdit* logOutput = new QTextEdit();
+        logOutput->setLineWrapMode(QTextEdit::NoWrap);
+        logOutput->setReadOnly(true);
+
+        QObject::connect(timer, &QTimer::timeout, [logOutput]() {
+            size_t buffer = std::make_shared<upFrame>()->bufferSize();
+            logOutput->clear();
+            QString text = QString("Buffer Size: %1\n").arg(buffer);
+            logOutput->append(text);  
+            });
+
+        timer->start(50);  
+        layout->addWidget(logOutput);
+        return logWidget;
+    }
+
     QWidget* UIManager::createAscanFrame()
     {
         // Create Ascan Frame layout

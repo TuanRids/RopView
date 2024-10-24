@@ -1,7 +1,7 @@
 #include "../pch.h"
 struct OmniConfig {
     size_t BeamPosition = 0;          // Beam position
-    size_t Rate = 90;                // Hz. Cycle rate that collects data per second
+    size_t Rate = 50;                // Hz. Cycle rate that collects data per second
     size_t beamLimit = 32;            // Number of beams
     size_t elementAperture = 16;      // Element aperture size
     double delayResolution = 2.5;     // Delay resolution in nanoseconds
@@ -26,5 +26,5 @@ struct SettingConfig {
 struct SystemParams {
     unsigned int resolution = 12;
     bool isCscanLayer = false;
-
 };
+

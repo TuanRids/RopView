@@ -4,7 +4,6 @@
 #include <instrumentation/Instrumentation.h>
 #include "CircularBuffer.h"
 #include "SystemConfig/ConfigLocator.h"
-
 using namespace std;
 using namespace Instrumentation;
 
@@ -14,7 +13,6 @@ class nDataProcess
     std::shared_ptr<IAcquisition> m_acquisition;
     std::atomic<bool> m_running{ false };
     std::future<void> m_future;
-    std::shared_ptr<spdlog::logger> sdk_logger;
 
     ConfigLocator* configL;
 public:

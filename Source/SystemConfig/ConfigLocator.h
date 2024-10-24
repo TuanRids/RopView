@@ -2,7 +2,7 @@
 #define CONFIG_LOCATOR_H
 #include "../pch.h"
 #include "SystemConfig.h"
-
+// ============= ConFig =============
 class ConfigLocator {
 private:
     ConfigLocator() {
@@ -24,6 +24,35 @@ public:
 
     void saveToRegistry();
     void loadFromRegistry();
+};
+
+
+// ============ UIArtScan =============
+class UIArtScan {
+private:
+    UIArtScan() {
+        SViewBuf = std::make_shared<cv::Mat>();
+        BViewBuf = std::make_shared<cv::Mat>();
+        CViewBuf = std::make_shared<cv::Mat>();
+        AViewBuf = std::make_shared<QVector<QPointF>>();
+    }
+
+public:
+    static UIArtScan& getInstance() {
+        static UIArtScan instance;
+        return instance;
+    }
+    void resetall() {
+        SViewBuf.reset(); BViewBuf.reset(); CViewBuf.reset(); AViewBuf.reset();
+        SViewBuf = std::make_shared<cv::Mat>();
+        BViewBuf = std::make_shared<cv::Mat>();
+        CViewBuf = std::make_shared<cv::Mat>();
+        AViewBuf = std::make_shared<QVector<QPointF>>();
+    }
+    static std::shared_ptr<cv::Mat> SViewBuf;
+    static std::shared_ptr<cv::Mat> BViewBuf;
+    static std::shared_ptr<cv::Mat> CViewBuf;
+    static std::shared_ptr<QVector<QPointF>> AViewBuf;
 };
 
 

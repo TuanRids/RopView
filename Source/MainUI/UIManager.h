@@ -3,6 +3,7 @@
 #include <QSettings>
 #include <QSplitter>
 #include "ObserverMgr.h"
+#include "nSubject.h"
 #include "..\Source\PAUTFileReader\AscanProcessor.h"
 
 #include "..\Model3D\MainViewport.h"
@@ -17,6 +18,7 @@ namespace nmainUI {
         QWidget* createLogFrame();
         QWidget* createLogSettings();
         QWidget* createSetting2();
+        QWidget* createLogDebug();
         QWidget* createAscanFrame();
         QWidget* createSscanFrame();
         QWidget* createCscanFrame();

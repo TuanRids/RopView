@@ -31,6 +31,7 @@ find_package(Vulkan REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(unofficial-qwt CONFIG REQUIRED)
 find_package(VTK REQUIRED COMPONENTS 
   RenderingVolumeOpenGL2 
   RenderingVolume 
@@ -93,6 +94,7 @@ target_link_libraries(RopView PRIVATE PkgConfig::libusb)
 target_link_libraries(RopView PRIVATE ${VTK_LIBRARIES})
 target_link_libraries(RopView PRIVATE CUDA::cudart)
 target_link_libraries(RopView PRIVATE spdlog::spdlog)
+target_link_libraries(RopView PRIVATE unofficial::qwt::qwt)
 #target_link_libraries(RopView CUDA::cudart)
 
 set(QT_PLUGIN_PATH "C:/vcpkg/vcpkg/installed/x64-windows/Qt6/plugins/platforms")

@@ -20,19 +20,21 @@ namespace nmainUI {
                 this->plogOutputWidget = plogOutputWidget;
                 plogOutputWidget->setReadOnly(true);
             }
-        }
+        }        
 
         void setupLoggers() {
-            std::vector<spdlog::sink_ptr> sinks;
-            sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());  
-            sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs.txt", true)); 
+            auto t = std::time(nullptr);
+            std::ostringstream oss; tm tm; localtime_s(&tm, &t);
+            oss << "logs//Robview_" << std::put_time(&tm, "%Y-%m-%d_%H_%M_%S") << ".txt";
 
-            logger = std::make_shared<spdlog::logger>("multi_sink", sinks.begin(), sinks.end());
-            logger->set_level(spdlog::level::debug);  
-            logger->set_pattern("[%H:%M:%S] [%l] %v"); 
+            auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(oss.str(), true);
+            logger = std::make_shared<spdlog::logger>("Robview Record", spdlog::sinks_init_list{ file_sink });
+            logger->set_level(spdlog::level::info);
+            logger->set_pattern("[%H:%M:%S] [%l] %v");
 
             spdlog::register_logger(logger);
         }
+
 
         void logDebug(const std::string& message) {
             logger->debug(message);
@@ -86,7 +88,6 @@ namespace nmainUI {
                 plogOutputWidget->setTextColor(Qt::white);
             }
         }
-
         std::shared_ptr<spdlog::logger> logger;
         QTextEdit* plogOutputWidget = nullptr;
         QMutex mtx;

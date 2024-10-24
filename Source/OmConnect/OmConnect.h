@@ -4,6 +4,7 @@
 #include "../MainUI/statuslogs.h"
 #include "SystemConfig/ConfigLocator.h"
 #include "dataProcess.h"
+
 using namespace Instrumentation;
 using namespace std;
 
@@ -27,7 +28,6 @@ private:
     std::shared_ptr<IBeamSet> beamSet;
     std::shared_ptr<IAcquisition> acquisition;
     std::mutex bufferMutex;
-    std::shared_ptr<spdlog::logger> sdk_logger;
     std::shared_ptr<nDataProcess> datProcess;
 };
 

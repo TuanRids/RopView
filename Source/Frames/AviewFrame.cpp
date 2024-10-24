@@ -48,9 +48,8 @@ void AviewFrame::updateRealTime()
 {
     static int idex = 0;
     try {
-        std::shared_ptr<IAscan> Bdata;
         if (nAscanCollection.empty()) return;
-        std::cout << ConfigLocator::getInstance().omconf->BeamPosition << std::endl;
+        /*std::shared_ptr<IAscan> Bdata;
         Bdata = nAscanCollection.front()->GetAscan(ConfigLocator::getInstance().omconf->BeamPosition);
 
         const int* data = Bdata->GetData();
@@ -61,20 +60,38 @@ void AviewFrame::updateRealTime()
 
         QVector<QPointF> points(dataSize);  
         QPointF* pointData = points.data();
-#pragma omp parallel for
         points.reserve(dataSize);
+#pragma omp parallel for
         for (size_t i = 0; i < dataSize; ++i) {
             pointData[i] = QPointF(static_cast<double>(i), static_cast<double>(data[i]));  
+        }*/
+        if (!lineSeries) RenderFrame();
+        lineSeries->clear();
+
+        auto& points = *ArtScan->AViewBuf;
+        size_t dataSize = points.size();
+
+        if (!lineSeries) RenderFrame(); 
+        lineSeries->clear();  
+        lineSeries->replace(points); 
+        axisX->setRange(0, static_cast<int>(dataSize));
+        axisY->setRange(
+            std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.y() < b.y(); })->y(),
+            std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.y() < b.y(); })->y()
+        );
+        axisY->setReverse(true);
+        static size_t lastpos = curpt.y;
+        if (ConfigLocator::getInstance().omconf->BeamPosition != lastpos)
+        {
+            lastpos = ConfigLocator::getInstance().omconf->BeamPosition;
+            if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
+            sttlogs->logInfo("Beam Position: " + std::to_string(lastpos));
         }
 
-        lineSeries->replace(points);
-        axisX->setRange(0, dataSize);
-        axisY->setRange(*std::min_element(data, data + dataSize), *std::max_element(data, data + dataSize));
-        axisY->setReverse(true);
-        RenderFrame();
+        RenderFrame();  
     }
     catch (exception& e)
-    { std::cout << e.what() << std::endl; return; }
+    { std::cout << "ESCAN ERROR: " << e.what() << std::endl; return; }
 }
 
 
@@ -127,7 +144,7 @@ void AviewFrame::OfflineProcess()
     // Logging coordinates
     if (!isPanning)
     {
-        static float lastpos[3] = { curpt.x, curpt.y, curpt.z };
+        static int lastpos[3] = { curpt.x, curpt.y, curpt.z };
         if (curpt.x != lastpos[0] || curpt.y != lastpos[1] || curpt.z != lastpos[2])
         {
 			lastpos[0] = curpt.x; lastpos[1] = curpt.y; lastpos[2] = curpt.z;
@@ -192,6 +209,8 @@ void AviewFrame::RenderFrame()
         chartView->setRenderHint(QPainter::Antialiasing, true);
 
         scene->addWidget(chartView);
+        QShortcut* shortcut = new QShortcut(QKeySequence(Qt::Key_R), chartView);
+        QObject::connect(shortcut, &QShortcut::activated, chart, &QChart::zoomReset);
     }
 
     // Adjust aspect ratio based on the graphicsView's size
