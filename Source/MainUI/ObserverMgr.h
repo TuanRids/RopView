@@ -7,6 +7,7 @@
 #include "event/ZoomableGraphicsView.h"
 #include "OmConnect/BeamSet.h"
 #include "Instrumentation/IAScanCollection.h"
+#include "SystemConfig/ConfigLocator.h"
 using namespace std;
 struct curpt3d
 {
@@ -27,6 +28,7 @@ public:
 	void popFront() 
 	{ while (!nAscanCollection.empty()) { nAscanCollection.pop_front(); } } //TODO Optimize this function
 protected:
+	ConfigLocator ConfigL = ConfigLocator::getInstance();
 	static bool isPanning;
 	static curpt3d curpt;
 	static AscanData scandat;
@@ -41,26 +43,28 @@ class nSubject {
 private:
 	std::vector<std::shared_ptr<nObserver>> observers;
 	bool isRealTime = false;
-	QTimer* realTimeTimer;
+	QTimer* realTimeTimer; 
+	QTimer* offlineTimer;
 public:
-	nSubject() : realTimeTimer(new QTimer()) {
+	nSubject() : realTimeTimer(new QTimer()), offlineTimer(new QTimer()) {
 		QObject::connect(realTimeTimer, &QTimer::timeout, [this]() {
 			this->notifyRealtime();
 			});
+		QObject::connect(offlineTimer, &QTimer::timeout, [this]() {
+			this->notify();
+			});
 	}
-	~nSubject() { delete realTimeTimer;	}
+		~nSubject() { delete realTimeTimer; delete offlineTimer; 	}
 	void addObserver(const std::shared_ptr<nObserver>& a_object) { observers.push_back(a_object); }
 	void removeObserver(const std::shared_ptr<nObserver>& a_object) {
 		observers.erase(std::remove(observers.begin(), observers.end(), a_object), observers.end());
 	}
 	// Notify all: nullptr
-	void notify(nObserver* currentFrame) {
-		for (const auto& object : observers) {
+	void notify() {
+		for (const auto& object : observers)
+		{
 			if (isRealTime) return;
-			if (currentFrame == nullptr) { object->update(); }
-			if (object.get() && object.get() != currentFrame) {
 				object->update();
-			}
 		}
 	}
 	void startRealtimeUpdate(int intervalMs) {		
@@ -70,6 +74,12 @@ public:
 	void stopRealtimeUpdate() {
 		isRealTime = false;
 		realTimeTimer->stop();
+	}
+	void startNotifyTimer(int intervalMs) {
+		offlineTimer->start(intervalMs);
+	}
+	void stopNotifyTimer() {
+		offlineTimer->stop();
 	}
 	void notifyRealtime() {
 		if (!isRealTime) return;

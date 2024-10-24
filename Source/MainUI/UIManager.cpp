@@ -9,15 +9,13 @@
 #include "Frames/BviewFrame.h"
 #include "Frames/AviewFrame.h"
 #include "SystemConfig/ConfigLocator.h"
-#include "../OmConnect/OmConnect.h"
 #include "../Data3DProcessing/Data3DProcess.h"
 namespace nmainUI {
-    auto ConfigL = ConfigLocator::getInstance();
-    UIManager::UIManager() {
+    UIManager::UIManager(): sttlogs(nullptr), nsubject(nullptr){
         settings = std::make_unique<QSettings>("RoqView COM", "FrameStatus");
         if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
     }
-    QWidget* UIManager::createMenuBarFrame(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject)
+    QWidget* UIManager::createMenuBarFrame()
     {
         // Create a main widget for the menu bar
         QWidget* menuBarWidget = new QWidget();
@@ -59,7 +57,7 @@ namespace nmainUI {
     }
 
     void UIManager::UISETTING() {
-        auto gtheme = ConfigLocator::getInstance().settingconf.qsTheme;
+        auto gtheme = ConfigLocator::getInstance().settingconf->qsTheme;
         auto sheetName = fs::current_path() / ("QssTemplate\\"+ gtheme);
         QString styleSheet;
 
@@ -157,26 +155,26 @@ namespace nmainUI {
             // Create widgets to adjust settings
             QCheckBox* triggerCheckBox = new QCheckBox("Bscan H_Res", settingsGroup);
             triggerCheckBox->setToolTip("High Resolution Bscan");
-            triggerCheckBox->setChecked(currentSettings.bhighResBscan);
+            triggerCheckBox->setChecked(currentSettings->bhighResBscan);
             formLayout->addRow(triggerCheckBox);
 
-            QLineEdit* ipAddressField = new QLineEdit(QString::fromStdString(currentSettings.ipAddress), settingsGroup);
+            QLineEdit* ipAddressField = new QLineEdit(QString::fromStdString(currentSettings->ipAddress), settingsGroup);
             ipAddressField->setToolTip("Enter the IP Address");
             formLayout->addRow(new QLabel("IP Address:"), ipAddressField);
 
             QSpinBox* portSpinBox = new QSpinBox(settingsGroup);
             portSpinBox->setRange(1, 65535);
-            portSpinBox->setValue(currentSettings.port);
+            portSpinBox->setValue(currentSettings->port);
             portSpinBox->setToolTip("Set the Port number");
             formLayout->addRow(new QLabel("Port:"), portSpinBox);
 
             QSpinBox* timeoutSpinBox = new QSpinBox(settingsGroup);
             timeoutSpinBox->setRange(1000, 60000);
-            timeoutSpinBox->setValue(currentSettings.timeout);
+            timeoutSpinBox->setValue(currentSettings->timeout);
             timeoutSpinBox->setToolTip("Set the timeout in milliseconds");
             formLayout->addRow(new QLabel("Timeout (ms):"), timeoutSpinBox);
 
-            QLineEdit* deviceNameField = new QLineEdit(QString::fromStdString(currentSettings.device_name), settingsGroup);
+            QLineEdit* deviceNameField = new QLineEdit(QString::fromStdString(currentSettings->device_name), settingsGroup);
             deviceNameField->setToolTip("Enter the device name");
             formLayout->addRow(new QLabel("Device Name:"), deviceNameField);
 
@@ -184,11 +182,11 @@ namespace nmainUI {
             mainLayout->addWidget(settingsGroup);
 
             QObject::connect(applyButton, &QPushButton::clicked, [&]() {
-                currentSettings.bhighResBscan = triggerCheckBox->isChecked();
-                currentSettings.ipAddress = ipAddressField->text().toStdString();
-                currentSettings.port = portSpinBox->value();
-                currentSettings.timeout = timeoutSpinBox->value();
-                currentSettings.device_name = deviceNameField->text().toStdString();
+                currentSettings->bhighResBscan = triggerCheckBox->isChecked();
+                currentSettings->ipAddress = ipAddressField->text().toStdString();
+                currentSettings->port = portSpinBox->value();
+                currentSettings->timeout = timeoutSpinBox->value();
+                currentSettings->device_name = deviceNameField->text().toStdString();
 
                 ConfigLocator::getInstance().settingconf = currentSettings;
                 ConfigLocator::getInstance().saveToRegistry();
@@ -217,17 +215,17 @@ namespace nmainUI {
             
 
             // Set current theme selection
-            themeComboBox->setCurrentText(QString::fromStdString(currentSettings.qsTheme));
+            themeComboBox->setCurrentText(QString::fromStdString(currentSettings->qsTheme));
 
             formLayout->addRow(new QLabel("Theme:"), themeComboBox);
             
             QPushButton* reloadTheme = new QPushButton("Hotload");
             formLayout->addWidget(reloadTheme);
             QObject::connect(reloadTheme, &QPushButton::clicked, [&]() {
-                currentSettings.qsTheme = themeComboBox->currentText().toStdString();
+                currentSettings->qsTheme = themeComboBox->currentText().toStdString();
                 ConfigLocator::getInstance().settingconf = currentSettings;
                 UISETTING();
-                sttlogs->logInfo("Reload to use theme: " + currentSettings.qsTheme);
+                sttlogs->logInfo("Reload to use theme: " + currentSettings->qsTheme);
                 });
 
             mainLayout->addWidget(settingsGroup);
@@ -246,6 +244,22 @@ namespace nmainUI {
         settingsDialog.exec();
     }
 
+    void UIManager::logical()
+    {
+        if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
+        static std::shared_ptr<AscanProcessor> processor;
+        if (!processor) { processor = std::make_shared<AscanProcessor>(); }
+        if (processor)
+        {
+            auto factframe = nFactoryFrame::crCviewFrm();
+            factframe->clearScandat();
+            auto res = processor->analyze(&*factframe);
+            factframe->setSttlogs();
+            if (res) { sttlogs->logInfo("Scanning Data is Loaded."); }
+            factframe->setter_Curpt(1, 1, 1);
+            nsubject->startNotifyTimer(52);
+        }
+    }
 
     QWidget* UIManager::addFrameName(const QString& name, QWidget* frame) {
         if (!frame->layout()) {
@@ -261,7 +275,7 @@ namespace nmainUI {
         label->raise();
         return frame;
     }
-    QWidget* UIManager::createLogFrame(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject) {
+    QWidget* UIManager::createLogFrame() {
         QWidget* logWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(logWidget);
         layout->setContentsMargins(0, 0, 0, 0);
@@ -277,7 +291,7 @@ namespace nmainUI {
         return logWidget;
     }
 
-    QWidget* UIManager::createLogSettings(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject) {
+    QWidget* UIManager::createLogSettings() {
         QWidget* settingsWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(settingsWidget);
         layout->setContentsMargins(1, 1, 1, 1);
@@ -285,16 +299,15 @@ namespace nmainUI {
         // Resolution setting
         auto resInput = new QSpinBox();
         resInput->setRange(1, 100);
-        resInput->setValue(resolution);
+        resInput->setValue(ConfigLocator::getInstance().sysParams->resolution);
         auto resLayout = new QHBoxLayout();
         resLayout->addWidget(new QLabel("Res:"));
         resLayout->addWidget(resInput);
         layout->addLayout(resLayout);
 
         QObject::connect(resInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) mutable {
-            resolution = resInput->value();
+            ConfigLocator::getInstance().sysParams->resolution = resInput->value();
             nsubject->stopRealtimeUpdate();
-            nsubject->notify(nullptr);
             });
 
         // Add a button
@@ -302,16 +315,18 @@ namespace nmainUI {
         layout->addWidget(btnLoad);
         QObject::connect(btnLoad, &QPushButton::clicked, [=]() mutable {
             nsubject->stopRealtimeUpdate();
-            omc->omDisconnectDevice();
-            app->logical();
+            nsubject->startNotifyTimer(52);
+            IOmConnect::Create()->omDisconnectDevice();
+            logical();
             });
 
         // Add a button
         QPushButton* btnConnect = new QPushButton("Connect");
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
-            nsubject->startRealtimeUpdate( 1000.0f / (configL->omconf.Rate + 10) ); //NOTE: refresh rate for realtime rendering
-            omc->omConnectDevice();            
+            nsubject->stopNotifyTimer();
+            nsubject->startRealtimeUpdate( 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) ); //NOTE: refresh rate for realtime rendering
+            IOmConnect::Create()->omConnectDevice();
             sttlogs->logCritical("Start RealTime!");
             });
         // add 3D button
@@ -329,20 +344,19 @@ namespace nmainUI {
         checkBox->setCheckState(Qt::Unchecked);
         layout->addWidget(checkBox);
         QObject::connect(checkBox, &QCheckBox::stateChanged, [=](int state) {
-            isCscanLayer = (state == Qt::Checked);
-            nsubject->notify(nullptr);
+            ConfigLocator::getInstance().sysParams->isCscanLayer = (state == Qt::Checked);
             });
 
         return settingsWidget;
     }
-    QWidget* UIManager::createSetting2(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject)
+    QWidget* UIManager::createSetting2()
     {
         QWidget* logWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(logWidget);
         layout->setContentsMargins(0, 0, 0, 0);
         return logWidget;
     }            
-    QWidget* UIManager::createAscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
+    QWidget* UIManager::createAscanFrame()
     {
         // Create Ascan Frame layout
         QWidget* ascanWidget = new QWidget();
@@ -350,53 +364,53 @@ namespace nmainUI {
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto aScanFrm = nFactoryFrame::crAviewFrm(app);
+        auto aScanFrm = nFactoryFrame::crAviewFrm();
         nsubject->addObserver(aScanFrm);
         layout->addWidget(aScanFrm->createFrame());
         
 
         return addFrameName("Ascan", ascanWidget);
     }
-    QWidget* UIManager::createSscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
+    QWidget* UIManager::createSscanFrame()
     {
         QWidget* SscanWidget = new QWidget();
         QHBoxLayout* layout = new QHBoxLayout(SscanWidget);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto SviewFrame = nFactoryFrame::crSViewFrm(app);
+        auto SviewFrame = nFactoryFrame::crSViewFrm();
         nsubject->addObserver(SviewFrame);
         layout->addWidget(SviewFrame->createFrame());
 
         return addFrameName("Sscan", SscanWidget);
     }
-    QWidget* UIManager::createCscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
+    QWidget* UIManager::createCscanFrame()
     {
         QWidget* cscanWidget = new QWidget();
         QHBoxLayout* layout = new QHBoxLayout(cscanWidget);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto cScanFrm = nFactoryFrame::crCviewFrm(app);
+        auto cScanFrm = nFactoryFrame::crCviewFrm();
         nsubject->addObserver(cScanFrm);
         layout->addWidget(cScanFrm->createFrame());
 
         return addFrameName("Cscan", cscanWidget);
     }
-    QWidget* UIManager::createBscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject)
+    QWidget* UIManager::createBscanFrame()
     {
         QWidget* Bview = new QWidget();
         QHBoxLayout* layout = new QHBoxLayout(Bview);
         layout->setContentsMargins(0, 0, 0, 0);
         //layout->setSpacing(0);
 
-        auto BFrame = nFactoryFrame::crBviewFrm(app);
+        auto BFrame = nFactoryFrame::crBviewFrm();
         nsubject->addObserver(BFrame);
         layout->addWidget(BFrame->createFrame());
 
         return addFrameName("Bscan", Bview);
     }
-    QWidget* UIManager::create3DFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject) {
+    QWidget* UIManager::create3DFrame() {
         QWidget* VWidget = new QWidget();
 
         // Initialize Vulkan instance

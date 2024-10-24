@@ -12,26 +12,33 @@
 // Graphics Frame
 class CviewFrame : public nObserver {
 private:
+
     void CreateXYview();
-    void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
+    void MouseGetPosXY();
     void addPoints(bool Cviewlink, int x, int y);
 
-    std::shared_ptr<QGraphicsScene> scene;
-    std::shared_ptr<ZoomableGraphicsView> graphicsView;
+    QGraphicsScene* scene;
+    ZoomableGraphicsView* graphicsView;
     nmainUI::UIFrame* uiframe;
     uint64_t ysize, xsize, zsize;
     std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
 
-    std::shared_ptr<XYOverlayGrid> overlay;
+    std::shared_ptr<XYOverlayGrid> overlay = nullptr;
     std::shared_ptr<cv::Mat> orgimage;
     std::shared_ptr<cv::Mat> scaledImage;
     QGraphicsView* navigatorView;
+    bool isRealTime = false;
+
 public:
-    void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;
     void update() override;
-    void updateRealTime() override {};
+    void updateRealTime() override;
     void setter_Curpt(int x, int y, int z) {curpt.x = x; curpt.y = y; curpt.z = z;}
+    ~CviewFrame() {
+        if (graphicsView) {
+            graphicsView->setScene(nullptr);
+        }
+    }
 };
 
 #endif

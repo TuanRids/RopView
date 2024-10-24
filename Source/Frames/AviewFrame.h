@@ -26,7 +26,6 @@ private:
     QValueAxis* axisX;
     QValueAxis* axisY;
 
-    size_t beamPos = 0; /*FIXME this should be a spinbox*/
 
 
     QChart* chart;
@@ -39,6 +38,14 @@ public:
     QWidget* createFrame() override;
     void update() override;
     void updateRealTime() override ;
+    ~AviewFrame() {
+        if (graphicsView) {
+            graphicsView->setScene(nullptr);
+        }
+
+        graphicsView.reset();
+        scene.reset();
+    }
 };
 
 #endif

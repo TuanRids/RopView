@@ -14,12 +14,21 @@ nDataProcess::~nDataProcess()
     Stop();
 }
 
+void SetThreadName(const std::string& name) {
+    HRESULT hr = SetThreadDescription(GetCurrentThread(), std::wstring(name.begin(), name.end()).c_str());
+    if (FAILED(hr)) { }}
+
 void nDataProcess::Start()
 {
     if (m_running) return;
     m_running = true;
     sdk_logger->info("New Thread Starting data acquisition...");
-    m_future = std::async(std::launch::async, &nDataProcess::Run, this);
+    // m_future = std::async(std::launch::async, &nDataProcess::Run, this);
+    m_future = std::async(std::launch::async, [this]() {
+        SetThreadName("Data Acquisition Thread");
+        this->Run();
+        });
+
 }
 
 
@@ -50,7 +59,7 @@ void nDataProcess::Run()
             {
                 if (waitForDataResult.cycleData->GetAscanCollection()->GetCount() > 0)
                 {
-                    for (int i(0); i < configL->omconf.beamLimit;++i)
+                    for (int i(0); i < configL->omconf->beamLimit;++i)
                     {
                         //auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(i);
                         //auto xxx = std::vector<int>(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());

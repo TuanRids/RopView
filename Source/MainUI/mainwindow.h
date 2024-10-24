@@ -1,28 +1,28 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "..\pch.h"
 
 
-#include "..\Source\OmConnect\OmConnect.h"
-#include "..\event\ZoomableGraphicsView.h"
 
-#include "IUIWindow.h"
+#include "../pch.h"
+#include "event/ZoomableGraphicsView.h"
+#include "statuslogs.h"
+#include "PAUTFileReader/AscanProcessor.h"
+#include "OmConnect/IOmConnect.h"
+#include "SystemConfig/ConfigLocator.h"
+
 
 namespace nmainUI {
-    /// <summary>
-    /// MainUI with singleton for avoiding multiple instance.
-    /// </summary>
-    class UIFrame : public UIWindow {
+    class UIFrame  {
     public:
         static UIFrame& getInstance() { static UIFrame instance; return instance; }
         int mainloop(int argc, char* argv[]);
-        void logical();
-        void refreshxyz(nObserver* crframe) ;
     private:
         UIFrame();
         ~UIFrame() = default;
-        // Other object        
+        nmainUI::statuslogs* sttlogs = nullptr;
+        QApplication* app;
+
     };
 
 }

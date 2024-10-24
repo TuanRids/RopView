@@ -7,7 +7,8 @@
 #include <QPointF>
 #include <QScrollBar>
 
-class ZoomableGraphicsView : public QGraphicsView {
+class ZoomableGraphicsView
+    : public QGraphicsView {
     Q_OBJECT
 public:
     explicit ZoomableGraphicsView(QWidget* parent = nullptr) :
@@ -129,134 +130,145 @@ private:
 
 class XYOverlayGrid : public QObject, public QGraphicsItemGroup {
     QGraphicsScene* scene;
-    QGraphicsItemGroup* lineGroup;
-    QGraphicsItemGroup* pointGroup;
+    QGraphicsView* graphicsView;
     QTimer* blinkTimer;
-    bool isBlinkOn;             // Flag to track whether to show the lines or not
-    QGraphicsLineItem* verticalLine;
-    QGraphicsLineItem* horizontalLine;
+    bool isBlinkOn;           
 public:
-    XYOverlayGrid(QGraphicsScene* scene) : scene(scene),lineGroup(nullptr), blinkTimer(nullptr), isBlinkOn(true), verticalLine(nullptr), horizontalLine(nullptr),pointGroup(nullptr) {
+    XYOverlayGrid(QGraphicsView* ggraphicview, QGraphicsScene* scene) : graphicsView(ggraphicview), scene(scene), blinkTimer(nullptr), isBlinkOn(true) {
         blinkTimer = new QTimer(this);
         connect(blinkTimer, &QTimer::timeout, this, &XYOverlayGrid::toggleBlink);
         blinkTimer->start(100);
     }
     void updateOverlay(int original_y, int original_z, int imageWidth, int imageHeight) {
-        // Clear only the line group, not the entire scene
-        if (lineGroup)
-        {
-            scene->removeItem(lineGroup); // Remove the current group from the scene
-            delete lineGroup;             // Delete the old group to prevent memory leaks
-            lineGroup = new QGraphicsItemGroup();  // Create a new group for the lines
-            scene->addItem(lineGroup);    // Add the new group to the scene
-        }
-        else
-        {
-            lineGroup = new QGraphicsItemGroup();
-            scene->addItem(lineGroup);  // Add the group to the scene
-        }
-        double lineSize = 0.003 * std::min(scene->height(), scene->width());
-        // Set the pen width to 3 pixels for both lines
-        QPen verticalPen(Qt::darkBlue);
-        verticalPen.setWidth(lineSize);  // Set width to 3 pixels
-
-        QPen horizontalPen(Qt::magenta);
-        horizontalPen.setWidth(lineSize);  // Set width to 3 pixels
+        removeItemsByData("VerHorLine");
+        auto lineGroup = new QGraphicsItemGroup();
+        scene->addItem(lineGroup);
 
 
-        // Add the vertical line
-        verticalLine = new QGraphicsLineItem(original_y, 0, original_y, imageHeight);
-        verticalLine->setPen(verticalPen);
-        lineGroup->addToGroup(verticalLine);
-
-        // Add the horizontal line
-        horizontalLine = new QGraphicsLineItem(0, original_z, imageWidth, original_z);
-        horizontalLine->setPen(horizontalPen);
-        lineGroup->addToGroup(horizontalLine);
-    }
-    void updatePoints(double pixelX, double pixelY, Qt::GlobalColor vcolor, Qt::GlobalColor hcolor) {
-        if (!pointGroup) {
-            pointGroup = new QGraphicsItemGroup();
-            scene->addItem(pointGroup);  // Add point group to the scene
-        }
-        else {
-            // Clear points group
-            for (auto* item : pointGroup->childItems()) {
-                pointGroup->removeFromGroup(item);
-                delete item;
-            }
-        }
-
-        QPen pen(Qt::red);
-        QBrush brush(Qt::red);
-        pen.setWidth(0.1);
-
-        double sceneWidth = scene->width();
-        double sceneHeight = scene->height();
-        double pointSize = 0.008 * std::min(sceneWidth, sceneHeight);
-        // Add points
-        QGraphicsEllipseItem* point = new QGraphicsEllipseItem(pixelX- pointSize /2, pixelY- pointSize /2, pointSize, pointSize);
-        //QGraphicsEllipseItem* point = new QGraphicsEllipseItem(pixelX- size * resolution/2, pixelY- size * resolution/2, size * resolution, size * resolution);
-        point->setPen(pen);
-        point->setBrush(brush);
-        pointGroup->addToGroup(point);
-
-        //// Lines
-        for (auto item : scene->items()) {
-            if (item->data(0).toString() == "MarkLine") {
-                scene->removeItem(item);
-                delete item;
-                break;
-            }
-        }
-
-        auto* MarkLine = new QGraphicsItemGroup();
-        MarkLine->setData(0, "MarkLine");
-        scene->addItem(MarkLine);
-
-        double artworkWidth, artworkHeight;
         QGraphicsItem* artwork = nullptr;
+        auto pointGroup = new QGraphicsItemGroup();
+        scene->addItem(pointGroup);
         for (auto* item : scene->items()) {
             if (item->data(0).toString() == "artwork") {
                 artwork = item;
                 break;
             }
         }
-
+        double artworkWidth = 0;
+        double artworkHeight = 0;
         if (artwork) {
-            QRectF artworkRect = artwork->boundingRect();  
+            QRectF artworkRect = artwork->boundingRect();
             artworkWidth = artworkRect.width();
             artworkHeight = artworkRect.height();
         }
+
+        double viewWidth = graphicsView->viewport()->width();
+        double viewHeight = graphicsView->viewport()->height();
+
+        double scaleX = artworkWidth / viewWidth;
+        double scaleY = artworkHeight / viewHeight;
+
+        double pointSizeInScreen = 0.01 * std::min(viewWidth, viewHeight);
+        double pointSizeInScene = pointSizeInScreen * std::max(scaleX, scaleY);
+
+        QPen verticalPen(Qt::darkBlue);
+        verticalPen.setWidth(pointSizeInScene * 0.1);
+        QPen horizontalPen(Qt::magenta);
+        horizontalPen.setWidth(pointSizeInScene * 0.1);
+
+        auto verticalLine = new QGraphicsLineItem(original_y, 0, original_y, imageHeight);
+        verticalLine->setData(0,"VerHorLine");
+        verticalLine->setZValue(1);
+        verticalLine->setPen(verticalPen);
+        lineGroup->addToGroup(verticalLine);
+
+        auto horizontalLine = new QGraphicsLineItem(0, original_z, imageWidth, original_z);
+        horizontalLine->setData(0, "VerHorLine");
+        horizontalLine->setZValue(1);
+        horizontalLine->setPen(horizontalPen);
+        lineGroup->addToGroup(horizontalLine);
+    }
+    void updatePoints(double pixelX, double pixelY, Qt::GlobalColor vcolor, Qt::GlobalColor hcolor) {
+        removeItemsByData("Point");
+        removeItemsByData("MarkLine");
+
+        QGraphicsItem* artwork = nullptr;
+        auto pointGroup = new QGraphicsItemGroup();
+        scene->addItem(pointGroup);
+        for (auto* item : scene->items()) {
+            if (item->data(0).toString() == "artwork") {
+                artwork = item;
+                break;
+            }
+        }
+        double artworkWidth = 0;
+        double artworkHeight = 0;
+        if (artwork) {
+            QRectF artworkRect = artwork->boundingRect();
+            artworkWidth = artworkRect.width();
+            artworkHeight = artworkRect.height();
+        }
+
+        QPen pen(Qt::red);
+        QBrush brush(Qt::red);
+        double viewWidth = graphicsView->viewport()->width();
+        double viewHeight = graphicsView->viewport()->height();
+
+        double scaleX = artworkWidth / viewWidth;
+        double scaleY = artworkHeight / viewHeight;
+
+        double pointSizeInScreen = 0.01 * std::min(viewWidth, viewHeight); 
+        double pointSizeInScene = pointSizeInScreen * std::max(scaleX, scaleY);  
+
+        QPointF scenePoint = graphicsView->mapToScene(QPoint(static_cast<int>(pixelX), static_cast<int>(pixelY)));
+
+        QGraphicsEllipseItem* point = new QGraphicsEllipseItem(pixelX - pointSizeInScene / 2, pixelY - pointSizeInScene / 2, pointSizeInScene, pointSizeInScene);
+        point->setData(0, "Point");
+        point->setZValue(2);  
+        pen.setCosmetic(true);  
+        point->setPen(pen);
+        point->setBrush(brush);
+        pointGroup->addToGroup(point);
+
+        auto MarkLine = new QGraphicsItemGroup();
+        scene->addItem(MarkLine);
+        
+        
         double lineSize = 0.001 * std::min(scene->height(), scene->width());
 
         auto* verticalLine = new QGraphicsLineItem(pixelX, 0, pixelX, artworkHeight);
+        verticalLine->setData(0, "MarkLine");
         QPen gpen(vcolor);
-        gpen.setWidth(lineSize);
+        gpen.setWidth(pointSizeInScene * 0.1);
         gpen.setCosmetic(true);
         verticalLine->setPen(gpen);
         MarkLine->addToGroup(verticalLine);
         if (hcolor != Qt::color0)
         {
             QPen gpen(hcolor);
-            gpen.setWidth(lineSize);
+            gpen.setWidth(pointSizeInScene * 0.1);
             gpen.setCosmetic(true);
             auto* HorizontalLine = new QGraphicsLineItem(0, pixelY, artworkWidth, pixelY);
+            HorizontalLine->setData(0, "MarkLine");
             HorizontalLine->setPen(gpen);
             MarkLine->addToGroup(HorizontalLine);
-        }
+        };
+
     }
+
+
     void toggleBlink() {
         static const QVector<QColor> colors = { Qt::red, Qt::darkGreen, Qt::darkMagenta, Qt::yellow, Qt::cyan };
         static int currentColorIndex = 0;
 
         static int lineGroupBlinkCounter = 0;
-        static bool isDashLine = false; 
+        static bool isDashLine = false;
 
         isBlinkOn = !isBlinkOn;
 
-        if (pointGroup) {
-            for (auto* item : pointGroup->childItems()) {
+        auto items = scene->items();
+        for (auto* item : items) {
+            if (item->data(0).toString() == "Point") {
                 if (isBlinkOn) {
                     if (auto ellipse = dynamic_cast<QGraphicsEllipseItem*>(item)) {
                         QPen pen = ellipse->pen();
@@ -276,53 +288,47 @@ public:
                 }
             }
         }
+        lineGroupBlinkCounter++;
+        if (lineGroupBlinkCounter >= 5) {
+            lineGroupBlinkCounter = 0;
+            isDashLine = !isDashLine;
 
-        if (lineGroup) {
-            lineGroupBlinkCounter++;
-            if (lineGroupBlinkCounter >= 5) {
-                lineGroupBlinkCounter = 0;  
-                isDashLine = !isDashLine;
-
-                QPen vlinePen = verticalLine->pen();
-                QPen hlinePen = horizontalLine->pen();
-                if (isDashLine) {
-                    vlinePen.setStyle(Qt::DashLine); 
-                    hlinePen.setStyle(Qt::DashLine); 
-                    vlinePen.setColor(Qt::darkBlue);
-                    hlinePen.setColor(Qt::magenta);
+            for (auto* item : items) {
+                if (item->data(0).toString() == "VerHorLine") {
+                    if (auto lineItem = dynamic_cast<QGraphicsLineItem*>(item)) {
+                        QPen pen = lineItem->pen();
+                        if (isDashLine) {
+                            pen.setStyle(Qt::DashLine);
+                        }
+                        else {
+                            pen.setStyle(Qt::SolidLine);
+                        }
+                        lineItem->setPen(pen);
+                    }
+                    item->show();
                 }
-                else {
-                    vlinePen.setStyle(Qt::SolidLine);
-                    hlinePen.setStyle(Qt::SolidLine);
-                    vlinePen.setColor(Qt::darkBlue);
-                    hlinePen.setColor(Qt::magenta);
-                }
-                verticalLine->setPen(vlinePen);                
-                horizontalLine->setPen(hlinePen);
             }
-
-            verticalLine->show();
-            horizontalLine->show();
-
-            scene->update();
         }
+        scene->update();      
     }
-    void clearEvery() {
-        try {
-            delete verticalLine; verticalLine = nullptr;
-            delete horizontalLine; horizontalLine = nullptr;
-            if (lineGroup) { delete lineGroup; lineGroup = nullptr; }
-            if (pointGroup) { delete pointGroup; pointGroup = nullptr; }
-        }
-        catch (const std::exception& e) { void(0); }
-    }
+
     void ClearLineGroup() {
-        try {
-            delete verticalLine; verticalLine = nullptr;
-            delete horizontalLine; horizontalLine = nullptr;
-            if (lineGroup) { delete lineGroup; lineGroup = nullptr; }
+        for (auto item : scene->items()) {
+            if (item->data(0).toString() == "VerHorLine") {
+                scene->removeItem(item);
+                delete item;
+                break;
+            }
         }
-        catch (const std::exception& e) { void(0); }
+    }
+    void removeItemsByData(const QString& dataName) {
+        auto items = scene->items();
+        for (auto* item : items) {
+            if (item->data(0).toString() == dataName) {
+                scene->removeItem(item);
+                delete item;
+            }
+        }
     }
 };
 #endif // ZOOMABLEGRAPHICSVIEW_H

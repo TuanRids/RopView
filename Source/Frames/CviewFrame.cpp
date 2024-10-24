@@ -1,25 +1,23 @@
-#include "..\pch.h"
+#include "../pch.h"
 #include "CviewFrame.h"
-
 QWidget* CviewFrame::createFrame(){
-    overlay = nullptr;
-    scene = std::make_shared<QGraphicsScene>();
-    graphicsView = std::make_shared<ZoomableGraphicsView>();
-    graphicsView->setScene(scene.get());
+    if (!scene) { scene = new QGraphicsScene; }
+    if (!graphicsView) { graphicsView = new ZoomableGraphicsView; }
+    graphicsView->setScene(scene);
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatioByExpanding);
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    MouseGetPosXY(graphicsView);
+    MouseGetPosXY();
 
     // Create layout and frame
     QVBoxLayout* layout = new QVBoxLayout();    
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(graphicsView.get());
+    layout->addWidget(graphicsView);
 
     navigatorView = new QGraphicsView();
-    navigatorView->setScene(scene.get());
+    navigatorView->setScene(scene);
     navigatorView->setFixedSize(graphicsView->size().width() / 10, graphicsView->size().height() / 10);
     navigatorView->setBackgroundBrush(Qt::transparent);
     navigatorView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -32,6 +30,7 @@ QWidget* CviewFrame::createFrame(){
     // Container
     QWidget* containerWidget = new QWidget();
     containerWidget->setLayout(layout);
+    overlay = std::make_shared<XYOverlayGrid>(graphicsView, scene);
 
     return containerWidget;
 
@@ -39,24 +38,29 @@ QWidget* CviewFrame::createFrame(){
 }
 
 void CviewFrame::update() {
-    if (scandat.Amplitudes.empty()) { return; }
+    isRealTime = false;
     static int lastResolution = -1;
-    if (overlay) { overlay->clearEvery(); }
-    if (lastResolution != uiframe->get_resolution()) {
-        lastResolution = uiframe->get_resolution();
+    if (scandat.Amplitudes.empty()) { return; }
+    if (lastResolution != ConfigL.sysParams->resolution) {
+        lastResolution = ConfigL.sysParams->resolution;
         CreateXYview();
     }
     // if Bscan and Cscan layer
-    if (uiframe->check_isCscanLayer()) {
+    if (ConfigL.sysParams->resolution) {
         CreateXYview();
     }
 
     static bool lastIsCscanLayer = false;
-    if (lastIsCscanLayer != uiframe->check_isCscanLayer()) {
-        lastIsCscanLayer = uiframe->check_isCscanLayer();
+    if (lastIsCscanLayer != ConfigL.sysParams->isCscanLayer) {
+        lastIsCscanLayer = ConfigL.sysParams->isCscanLayer;
         CreateXYview();
     }
     addPoints(true,-1,-1);
+}
+
+void CviewFrame::updateRealTime()
+{
+    if (!isRealTime) {scene->clear(); isRealTime = true;}
 }
 
 void CviewFrame::CreateXYview() {
@@ -79,7 +83,7 @@ void CviewFrame::CreateXYview() {
     // Processing amplitude data to assign colors
     for (uint64_t y = 0; y < ysize; ++y) {
         for (uint64_t x = 0; x < xsize; ++x) {
-            if (!uiframe->check_isCscanLayer()) {
+            if (!ConfigL.sysParams->isCscanLayer) {
                 int16_t maxAmplitude = 0;
                 for (uint64_t z = 0; z < zsize; ++z) {
                     uint64_t index = z * (xsize * ysize) + y * xsize + x;
@@ -108,8 +112,33 @@ void CviewFrame::CreateXYview() {
             orgimage->at<cv::Vec3b>(y, x) = cv::Vec3b(color.B, color.G, color.R);
         }
     }
-    UpdateGraphic(orgimage, scaledImage, scene, graphicsView, 1,Qt::blue, Qt::red);
-    //UpdateGraphic(orgimage, scaledImage, scene, graphicsView, uiframe->get_resolution());
+
+    double frameRatio = static_cast<double>(graphicsView->size().width()) / static_cast<double>(graphicsView->size().height());
+    double imageRatio = static_cast<double>(orgimage->cols) / static_cast<double>(orgimage->rows);
+
+    auto newWidth = (frameRatio > imageRatio) ? static_cast<int>(orgimage->rows * frameRatio) : orgimage->cols;
+    auto newHeight = (frameRatio > imageRatio) ? orgimage->rows : static_cast<int>(orgimage->cols / frameRatio);
+
+    auto scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? 1 : 1.0;
+    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
+
+    cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), 0);
+    auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+    *qImage = qImage->rgbSwapped();
+
+    QPixmap pixmap = QPixmap::fromImage(*qImage);
+    for (auto item : scene->items()) {
+        if (item->data(0).toString() == "artwork") {
+            scene->removeItem(item);
+            delete item;
+            break;
+        }
+    }
+    QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
+    artworkItem->setData(0, "artwork");
+
+    graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+    graphicsView->update();
 
 }
 
@@ -118,12 +147,8 @@ void CviewFrame::addPoints(bool Cviewlink, int x, int y)
     double pixelX= (Cviewlink) ? static_cast<double>(curpt.x) * scaledImage->cols / xsize : static_cast<double>(x);
     double pixelY = (Cviewlink) ? static_cast<double>(curpt.y) * scaledImage->rows / ysize : static_cast<double>(y);
 
-    if (overlay) {
-        overlay->updatePoints(pixelX, pixelY, Qt::blue, Qt::red);
-    }
-
+    if (overlay) { overlay->updatePoints(pixelX, pixelY, Qt::blue, Qt::red); }
     graphicsView->update();
-    return;
 }
 
 std::pair<int, int> CviewFrame::calculateOriginalPos(int scaled_x, int scaled_y) {
@@ -142,11 +167,10 @@ std::pair<int, int> CviewFrame::calculateOriginalPos(int scaled_x, int scaled_y)
     return { original_x, original_y };
 }
 
-void CviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
+void CviewFrame::MouseGetPosXY()
 {
     static int temX{ 0 }, temY{ 0 };
-    overlay = std::make_shared<XYOverlayGrid>(scene.get());
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseMoved, [=](int scaled_x, int scaled_y) {
+    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseMoved, [=](int scaled_x, int scaled_y) {
         try
         {
             temX = scaled_x; temY = scaled_y;
@@ -160,37 +184,37 @@ void CviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         catch (...) { (void)0; }
         });
 
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_y) {
+    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_y) {
         try
         {
             temX = scaled_x; temY = scaled_y;
             std::tie(curpt.x, curpt.y) = calculateOriginalPos(scaled_x, scaled_y);
             isPanning = false;
-            uiframe->refreshxyz(this);
+
             addPoints(false, scaled_x, scaled_y);
         }
         catch (...) { (void)0; }
         });
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseDragClicked, [=](int scaled_x, int scaled_y) {
+    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseDragClicked, [=](int scaled_x, int scaled_y) {
         try
         {
             temX = scaled_x; temY = scaled_y;
             std::tie(curpt.x, curpt.y) = calculateOriginalPos(scaled_x, scaled_y);
             isPanning = true;
-            uiframe->refreshxyz(this);
+
             addPoints(false, scaled_x, scaled_y);
         }
         catch (...) { (void)0; }
         });
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseStopDragClicked, [=]() {
+    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseStopDragClicked, [=]() {
         try
         {
             isPanning = false;
-            uiframe->refreshxyz(this);
+
         }
         catch (...) { (void)0; }
         });
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseLeftView, [=]() {
+    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseLeftView, [=]() {
         overlay->ClearLineGroup();
         });
 }

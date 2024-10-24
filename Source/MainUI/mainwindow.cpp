@@ -11,23 +11,16 @@
 
 nmainUI::UIManager uiManager;
 nmainUI::UIFrame::UIFrame() 
-{ 
-    namespace di = boost::di;
-    auto injection = di::make_injector(
-        di::bind<OmniConfig>().to(std::make_shared<OmniConfig>()));
-    
-    omc = injection.create<std::shared_ptr<OmConnect>>();
-}
+{ }
 
 
 
 std::shared_ptr<nSubject> nsubject;
 
 int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
-    app = make_unique<QApplication>(argc, argv);
-
+    app = new QApplication(argc, argv);
     nsubject = std::make_shared<nSubject>();
-
+    uiManager.getUIPointers(nsubject);
     app->setWindowIcon(QIcon(uiManager.loadLogoFromResource()));
     uiManager.UISETTING();
 
@@ -39,7 +32,7 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
 
     // create menu bar 
-    QWidget* menuBarWidget = uiManager.createMenuBarFrame(this, nsubject);
+    QWidget* menuBarWidget = uiManager.createMenuBarFrame();
     mainLayout->setMenuBar(static_cast<QMenuBar*>(menuBarWidget->layout()->menuBar()));
 
     // Main splitter (Vertical)
@@ -51,9 +44,9 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     auto TopLogsSplitter = new QSplitter(Qt::Horizontal);
         TopLogsSplitter->setObjectName("TopLogsSplitter");
         TopLogsSplitter->setHandleWidth(20);
-        TopLogsSplitter->addWidget(uiManager.createLogFrame(this, nsubject));
-        TopLogsSplitter->addWidget(uiManager.createLogSettings(this, nsubject));
-        TopLogsSplitter->addWidget(uiManager.createSetting2(this, nsubject));
+        TopLogsSplitter->addWidget(uiManager.createLogFrame());
+        TopLogsSplitter->addWidget(uiManager.createLogSettings());
+        TopLogsSplitter->addWidget(uiManager.createSetting2());
         mainSplitter->addWidget(TopLogsSplitter);
 
     // Main viewport splitter (Horizontal)
@@ -68,15 +61,15 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     auto BviewCview = new QSplitter(Qt::Vertical);
         BviewCview->setObjectName("BviewCview");
         BviewCview->setHandleWidth(0);
-        BviewCview->addWidget(uiManager.createCscanFrame(this, nsubject));
-        BviewCview->addWidget(uiManager.createBscanFrame(this, nsubject));
+        BviewCview->addWidget(uiManager.createCscanFrame());
+        BviewCview->addWidget(uiManager.createBscanFrame());
 
     // A-scan and S-scan splitter (Horizontal)
     auto AviewSview = new QSplitter(Qt::Vertical);
         AviewSview->setObjectName("AscanSscanSplitter");
         AviewSview->setHandleWidth(0);
-        AviewSview->addWidget(uiManager.createSscanFrame(this, nsubject));
-        AviewSview->addWidget(uiManager.createAscanFrame(this, nsubject));
+        AviewSview->addWidget(uiManager.createSscanFrame());
+        AviewSview->addWidget(uiManager.createAscanFrame());
 
     scanFrameSplitter->addWidget(BviewCview);
     scanFrameSplitter->addWidget(AviewSview);
@@ -87,7 +80,7 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     auto viewport3DSplitter = new QSplitter(Qt::Vertical);
         viewport3DSplitter->setObjectName("viewport3DSplitter");
         viewport3DSplitter->setHandleWidth(0);
-        viewport3DSplitter->addWidget(uiManager.create3DFrame(this, nsubject));
+        viewport3DSplitter->addWidget(uiManager.create3DFrame());
 
     mainViewportSplitter->addWidget(viewport3DSplitter);
     mainSplitter->addWidget(mainViewportSplitter);
@@ -105,24 +98,3 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     return app->exec();
 }
 
-
-void nmainUI::UIFrame::logical() {
-
-    if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
-    if (!processor) { processor = std::make_shared<AscanProcessor>(); }
-    if (processor) 
-    { 
-        auto factframe = nFactoryFrame::crCviewFrm(this);
-        factframe->clearScandat();
-        auto res = processor->analyze(&*factframe);
-        factframe->setSttlogs();
-        if (res) { sttlogs->logInfo("Scanning Data is Loaded."); }
-        factframe->setter_Curpt(1, 1, 1);
-        nsubject->notify(nullptr);
-    }    
-}
-
-void nmainUI::UIFrame::refreshxyz(nObserver* crframe)
-{
-    nsubject->notify(crframe);
-}

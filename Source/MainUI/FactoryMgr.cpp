@@ -6,30 +6,22 @@
 #include "Frames/BviewFrame.h"
 
 
-std::shared_ptr<CviewFrame> nFactoryFrame::crCviewFrm(nmainUI::UIFrame* uifmr) {
-    auto res = std::make_unique<CviewFrame>();
-    res->setUIFrame(uifmr);
-    return res;     
+std::shared_ptr<CviewFrame> nFactoryFrame::crCviewFrm() {
+    return std::make_unique<CviewFrame>();
 }
 
-std::shared_ptr<SviewFrame> nFactoryFrame::crSViewFrm(nmainUI::UIFrame* uifmr)
+std::shared_ptr<SviewFrame> nFactoryFrame::crSViewFrm()
 {
-    auto res = std::make_unique<SviewFrame>();
-    res->setUIFrame(uifmr);
-    return res;
+    return std::make_unique<SviewFrame>();
 
 }
 
-std::shared_ptr<AviewFrame> nFactoryFrame::crAviewFrm(nmainUI::UIFrame* uifmr)
+std::shared_ptr<AviewFrame> nFactoryFrame::crAviewFrm()
 {
-    auto res = std::make_unique<AviewFrame>();
-    res->setUIFrame(uifmr);
-    return res;
+    return std::make_unique<AviewFrame>();
 }
 
-std::shared_ptr<BviewFrame> nFactoryFrame::crBviewFrm(nmainUI::UIFrame* uifmr)
+std::shared_ptr<BviewFrame> nFactoryFrame::crBviewFrm()
 {
-    auto res = std::make_unique<BviewFrame>();
-    res->setUIFrame(uifmr);
-    return res;
+    return std::make_unique<BviewFrame>();
 }

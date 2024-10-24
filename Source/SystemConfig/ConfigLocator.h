@@ -6,6 +6,9 @@
 class ConfigLocator {
 private:
     ConfigLocator() {
+        omconf = std::make_shared<OmniConfig>();
+		settingconf = std::make_shared<SettingConfig>();
+        sysParams = std::make_shared<SystemParams>();
         loadFromRegistry();  
     }
 
@@ -15,8 +18,9 @@ public:
         return instance;
     }
 
-    static OmniConfig omconf;
-    static SettingConfig settingconf;
+    static std::shared_ptr<OmniConfig> omconf;
+    static std::shared_ptr<SettingConfig> settingconf;
+    static std::shared_ptr<SystemParams> sysParams;
 
     void saveToRegistry();
     void loadFromRegistry();

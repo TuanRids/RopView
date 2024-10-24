@@ -2,7 +2,7 @@
 struct OmniConfig {
     size_t BeamPosition = 0;          // Beam position
     size_t Rate = 90;                // Hz. Cycle rate that collects data per second
-    size_t beamLimit = 64;            // Number of beams
+    size_t beamLimit = 32;            // Number of beams
     size_t elementAperture = 16;      // Element aperture size
     double delayResolution = 2.5;     // Delay resolution in nanoseconds
     double pulserBaseDelay = 500;     // Base delay for pulsers
@@ -21,4 +21,10 @@ struct SettingConfig {
     unsigned int timeout = 5000;
     std::string device_name = "RoqView";
     std::string qsTheme = "Takezo.qss";
+};
+
+struct SystemParams {
+    unsigned int resolution = 12;
+    bool isCscanLayer = false;
+
 };

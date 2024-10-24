@@ -1,5 +1,5 @@
-
-#include "IUIWindow.h"
+#ifndef UIManager_H
+#define UIManager_H
 #include <QSettings>
 #include <QSplitter>
 #include "ObserverMgr.h"
@@ -8,24 +8,25 @@
 #include "..\Model3D\MainViewport.h"
 
 namespace nmainUI {
-    class UIManager : public UIWindow {
+    class UIManager {
     public:
         UIManager();
         ~UIManager()  = default;
-        QWidget* createMenuBarFrame(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject);
+        QWidget* createMenuBarFrame();
 
-        QWidget* createLogFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
-        QWidget* createLogSettings(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject);
-        QWidget* createSetting2(nmainUI::UIFrame* app, std::shared_ptr<nSubject> nsubject);
-        QWidget* createAscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
-        QWidget* createSscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
-        QWidget* createCscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
-        QWidget* createBscanFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
-        QWidget* create3DFrame(nmainUI::UIFrame* app, shared_ptr<nSubject> nsubject);
+        QWidget* createLogFrame();
+        QWidget* createLogSettings();
+        QWidget* createSetting2();
+        QWidget* createAscanFrame();
+        QWidget* createSscanFrame();
+        QWidget* createCscanFrame();
+        QWidget* createBscanFrame();
+        QWidget* create3DFrame();
 
         QWidget* addFrameName(const QString& name, QWidget* frame);
         QPixmap loadLogoFromResource();
 
+        void getUIPointers(std::shared_ptr<nSubject> gnsubject){ nsubject = gnsubject;}
         void UISETTING();
         void saveWidgetState(QWidget* widget);
         void restoreWidgetState(QWidget* widget);
@@ -40,8 +41,14 @@ namespace nmainUI {
         void onFullScreen() {};
         void openSettingsDialog();
     private:
+        void logical();
         VulkanWindow* vulkanWindow;
         void refreshWidgets(const QList<QWidget*>& widgets);
+        std::shared_ptr<nSubject> nsubject;
+        nmainUI::statuslogs* sttlogs = nullptr;
+        std::unique_ptr<QSettings> settings = nullptr;
     };
 }
 
+
+#endif

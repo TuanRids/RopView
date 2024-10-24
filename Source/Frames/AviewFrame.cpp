@@ -1,8 +1,9 @@
 #include "AviewFrame.h"
 #include "..\pch.h"
-#include "OmConnect/CircularBuffer.h"
 #include <omp.h>
 #include <random>
+#include "SystemConfig/ConfigLocator.h"
+
 int getRandomNumber(int min, int max) {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -12,7 +13,7 @@ int getRandomNumber(int min, int max) {
 QWidget* AviewFrame::createFrame() {
     scene = std::make_shared<QGraphicsScene>();
     graphicsView = std::make_shared<QGraphicsView>();
-    graphicsView->setScene(&*scene);
+    graphicsView->setScene(scene.get());
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatioByExpanding);
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -22,15 +23,8 @@ QWidget* AviewFrame::createFrame() {
     QVBoxLayout* layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->addWidget(graphicsView.get());
-    /*BeamPos temporarity*/
-    QSpinBox* beamPosSpinBox = new QSpinBox();
-    beamPosSpinBox->setRange(0, 64); 
-    beamPosSpinBox->setValue(0);   
-    QObject::connect(beamPosSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), [=](int newBeamPos) mutable {
-        this->beamPos = newBeamPos;
-        });
 
-    layout->addWidget(beamPosSpinBox);
+
 
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0); 
@@ -56,7 +50,8 @@ void AviewFrame::updateRealTime()
     try {
         std::shared_ptr<IAscan> Bdata;
         if (nAscanCollection.empty()) return;
-        Bdata = nAscanCollection.front()->GetAscan(beamPos);
+        std::cout << ConfigLocator::getInstance().omconf->BeamPosition << std::endl;
+        Bdata = nAscanCollection.front()->GetAscan(ConfigLocator::getInstance().omconf->BeamPosition);
 
         const int* data = Bdata->GetData();
         size_t dataSize = Bdata->GetSampleQuantity();
@@ -132,7 +127,12 @@ void AviewFrame::OfflineProcess()
     // Logging coordinates
     if (!isPanning)
     {
-        sttlogs->logInfo("Coord x: " + std::to_string(curpt.x) + " - Coord y: " + std::to_string(curpt.y) + " Coord z: " + std::to_string(curpt.z) + ".");
+        static float lastpos[3] = { curpt.x, curpt.y, curpt.z };
+        if (curpt.x != lastpos[0] || curpt.y != lastpos[1] || curpt.z != lastpos[2])
+        {
+			lastpos[0] = curpt.x; lastpos[1] = curpt.y; lastpos[2] = curpt.z;
+            sttlogs->logInfo("Coord x: " + std::to_string(curpt.x) + " - Coord y: " + std::to_string(curpt.y) + " Coord z: " + std::to_string(curpt.z) + ".");
+        }
     }
 }
 

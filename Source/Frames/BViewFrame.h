@@ -26,12 +26,21 @@ private:
     std::shared_ptr<cv::Mat> orgimage;
     std::shared_ptr<cv::Mat> scaledImage;
     QGraphicsView* navigatorView;
+    bool isRealTime = false;
 public:
     void setUIFrame(nmainUI::UIFrame* ui) { uiframe = ui; }
     QWidget* createFrame() override;
     void update() override;
-    void updateRealTime() override {};
+    void updateRealTime() override;
     //void setter_Curpt(int x, int y, int z) { curpt.x = x; curpt.y = y; curpt.z = z; }
+    ~BviewFrame() {
+        if (graphicsView) {
+            graphicsView->setScene(nullptr);
+        }
+
+        graphicsView.reset();
+        scene.reset();
+    }
 };
 
 #endif

@@ -18,7 +18,7 @@ void nObserver::UpdateGraphic(std::shared_ptr<cv::Mat> OrgImg, std::shared_ptr<c
     auto newWidth = (frameRatio > imageRatio) ? static_cast<int>(OrgImg->rows * frameRatio) : OrgImg->cols;
     auto newHeight = (frameRatio > imageRatio) ? OrgImg->rows : static_cast<int>(OrgImg->cols / frameRatio);
 
-    auto scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf.bhighResBscan) ? res : 1.0;
+    auto scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? res : 1.0;
     cv::resize(*OrgImg, *Img, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*Img, *Img, cv::Size(1, 1), 0);
