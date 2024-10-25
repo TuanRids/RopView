@@ -95,4 +95,26 @@ namespace nmainUI {
 
 }
 
+
+
+class spdThoughout
+{
+private:
+    std::atomic<float> throughout;
+
+    spdThoughout() : throughout(0) {}
+    ~spdThoughout() = default;
+
+    spdThoughout(const spdThoughout&) = delete;
+    spdThoughout& operator=(const spdThoughout&) = delete;
+
+public:
+    static spdThoughout& getinstance() {
+        static spdThoughout instance;
+        return instance;
+    }
+
+    void set(float value) { throughout = value; }
+    float get() { return throughout.load(); }
+};
 #endif // STATUSLOGS_H

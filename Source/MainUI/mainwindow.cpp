@@ -46,8 +46,9 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
         TopLogsSplitter->setHandleWidth(20);
         TopLogsSplitter->addWidget(uiManager.createLogFrame());
         TopLogsSplitter->addWidget(uiManager.createLogSettings());
-        TopLogsSplitter->addWidget(uiManager.createSetting2());
         TopLogsSplitter->addWidget(uiManager.createLogDebug());
+        TopLogsSplitter->addWidget(uiManager.createOmSetting());
+        TopLogsSplitter->addWidget(uiManager.createSetting2());
         mainSplitter->addWidget(TopLogsSplitter);
 
     // Main viewport splitter (Horizontal)

@@ -85,36 +85,17 @@ void SviewFrame::update() {
 
 void SviewFrame::updateRealTime()
 {
+    return;
     try {
         if (!isRealTime) { scene->clear(); isRealTime = true; }
-        /*std::shared_ptr<IAscanCollection> Bdata;
-        if (nAscanCollection.empty()) return;
-
-        Bdata = nAscanCollection.front();
-        int xsize = static_cast<int>(Bdata->GetCount());
-        auto ascan = Bdata->GetAscan(0);  
-        int ysize = static_cast<int>(ascan->GetSampleQuantity());
-
-
-        orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
-        scaledImage = std::make_unique<cv::Mat>();
-#pragma omp parallel for
-        auto everyColors = CreateColorPalette();
-        for (int beamID = 0; beamID < xsize; ++beamID) {
-            auto ascan = Bdata->GetAscan(beamID);  
-            const int* ascanData = ascan->GetData();
-            for (int y = 0; y < ysize; ++y) {
-                double percentAmplitude = std::abs(ascanData[y]) / (32768 / 100.0);
-                Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
-                orgimage->at<cv::Vec3b>(y, beamID) = cv::Vec3b(color.B, color.G, color.R);
-            }
-        }*/
         orgimage.reset();
         orgimage = ArtScan->SViewBuf; 
         if (!orgimage) return;
         scaledImage = std::make_unique<cv::Mat>();
+
         cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width(), graphicsView->height()), 0, 0, cv::INTER_NEAREST);
         auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+
         *qImage = qImage->rgbSwapped();  
         QPixmap pixmap = QPixmap::fromImage(*qImage);
         
@@ -149,7 +130,6 @@ void SviewFrame::addPoints(bool Cviewlink, int x, int y)
         pixelY = (Cviewlink) ? static_cast<double>(ConfigL.omconf->BeamPosition) * scaledImage->cols / ysize : static_cast<double>(x);
         pixelZ = (Cviewlink) ? static_cast<double>(curpt.z) * scaledImage->rows / zsize : static_cast<double>(y);
     }
-
     if (overlay) overlay->updatePoints(pixelY, pixelZ, Qt::red, Qt::color0);
     graphicsView->update();
 }
@@ -221,28 +201,7 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         }
 		catch (...) { (void)0; }
         });
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseDragClicked, [=](int scaled_y, int scaled_z) {
-        try
-        {
-            if (!isRealTime)
-            {
-                std::tie(curpt.y, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
-                addPoints(false, scaled_y, scaled_z);
-                isPanning = true;
-            }
-        }
-        catch (...) { (void)0; }
-        });
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseStopDragClicked, [=]() {
-        try
-        {
-            if (!isRealTime)
-            {                
-                isPanning = false;
-            }
-        }
-        catch (...) { (void)0; }
-        });
+
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseLeftView, [=]() {
         overlay->ClearLineGroup();
         });

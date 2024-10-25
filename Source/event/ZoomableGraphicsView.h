@@ -17,8 +17,6 @@ public:
 signals:
     void mouseLeftView();
     void mouseClicked(int x, int y);
-    void mouseDragClicked(int x, int y);
-    void mouseStopDragClicked();
     void mouseMoved(int x, int y);
     void nKeyPressedEvent();
 protected:
@@ -36,6 +34,9 @@ private:
     QPoint panStartPoint;
     QGraphicsView* navigatorView;
     void updateNavigator() {};
+    QGraphicsRectItem* rubberBandRect = nullptr;
+    QPointF startPoint;
+    QPointF scenePos;
 };
 
 

@@ -1,12 +1,16 @@
 #include "..\pch.h"
 #include "ObserverMgr.h"
 #include "SystemConfig/ConfigLocator.h"
-AscanData nObserver::scandat;
-nmainUI::statuslogs* nObserver::sttlogs = nullptr;
-curpt3d nObserver::curpt{ 0,0,0 };
-bool nObserver::isPanning = false;
-deque<shared_ptr<IAscanCollection>> nObserver::nAscanCollection = deque<shared_ptr<IAscanCollection>>();
-size_t nObserver::_buffSize = 0;
+// Static variables *******************************************************************************
+    AscanData nObserver::scandat;
+    nmainUI::statuslogs* nObserver::sttlogs = nullptr;
+    curpt3d nObserver::curpt{ 0,0,0 };
+    bool nObserver::isPanning = false;
+    deque<shared_ptr<IAscanCollection>> nObserver::nAscanCollection = deque<shared_ptr<IAscanCollection>>();
+    size_t nObserver::_buffSize = 0;
+    UIArtScan* nObserver::ArtScan = nullptr;
+
+// Functions *******************************************************************************
 nObserver::nObserver()
 {
     if (!sttlogs)  sttlogs = &nmainUI::statuslogs::getinstance();
@@ -29,29 +33,56 @@ void nObserver::RealDatProcess()
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
        
-    
+
+    // aview and sview would be reset as realtime
     ArtScan->resetall();
     ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3);
     ArtScan->AViewBuf->clear();
     QVector<QPointF> points(zsize);
+
+    cv::Mat newMat(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
+    if (ArtScan->CViewBuf->empty()) { ArtScan->CViewBuf->create(ysize, 500 , CV_8UC3); }
+    else {
+        if (ArtScan->CViewBuf->cols > 2500) {
+            ArtScan->CViewBuf = std::make_shared<cv::Mat>(ArtScan->CViewBuf->colRange(0, 499).clone()); 
+        }        
+
+        
+
+    }
+        
+
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
+        double maxAmplitude = 0; Color maxColor{};
         const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
         for (int z = 0; z < zsize; ++z) {
+
             // Process Sscan Data
             double percentAmplitude = std::abs(ascanData[z]) / (32768 / 100.0);
+            percentAmplitude = percentAmplitude < 2.5 ? percentAmplitude * 40 : percentAmplitude;
+
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
             ArtScan->SViewBuf->at<cv::Vec3b>(z, beamID) = cv::Vec3b(color.B, color.G, color.R);
 
             // Process Ascan Data
             if (ConfigLocator::getInstance().omconf->BeamPosition == beamID)
             {
-                points[z] = QPointF(static_cast<double>(z), static_cast<double>(ascanData[z]));
-                
+                points[z] = QPointF(static_cast<double>(ascanData[z]), static_cast<double>(z));
+            }
+            // process Cscan collectdata
+            if (percentAmplitude > maxAmplitude) {
+                maxColor = color; maxAmplitude = percentAmplitude;
             }
         }
+
+        // process Cscan        
+        newMat.at<cv::Vec3b>(beamID,0 ) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
     *ArtScan->AViewBuf = points;
+    ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(newMat.colRange(1, newMat.cols));
+
+    ArtScan->CViewBuf = std::make_shared<cv::Mat>(newMat);
 
 }
 

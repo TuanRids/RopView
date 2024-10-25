@@ -19,6 +19,7 @@ namespace nmainUI {
         QWidget* createLogSettings();
         QWidget* createSetting2();
         QWidget* createLogDebug();
+        QWidget* createOmSetting();
         QWidget* createAscanFrame();
         QWidget* createSscanFrame();
         QWidget* createCscanFrame();

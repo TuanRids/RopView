@@ -3,12 +3,12 @@
 #include "SystemConfig/ConfigLocator.h"
 #include "../pch.h"
 #include "IOmConnect.h"
+using namespace std;
 class OmConfigSetup {
 public:
-
-
-private:
-
+	static Olympus::FileManagement::ISetupPtr initSetup();
+	static bool ConfigAcquisitionFromSetup(IAcquisitionPtr acquisition, Olympus::FileManagement::ISetupPtr setup);
+	static bool ConfigDeviceFromSetup(IDevicePtr device, Olympus::FileManagement::ISetupPtr setup);
 
 };
 

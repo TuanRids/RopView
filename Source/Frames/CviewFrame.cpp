@@ -49,7 +49,37 @@ void CviewFrame::update() {
 
 void CviewFrame::updateRealTime()
 {
-    if (!isRealTime) {scene->clear(); isRealTime = true;}
+    return;
+    if (!isRealTime) {
+        scene->clear();
+        isRealTime = true;
+    }
+    auto orgimage = std::make_shared<cv::Mat>(ArtScan->CViewBuf->clone());
+    if (!orgimage) return;
+
+    scaledImage = std::make_unique<cv::Mat>();
+
+    int originalWidth = orgimage->cols;
+
+    int newHeight = graphicsView->size().height();
+
+    cv::resize(*orgimage, *scaledImage, cv::Size(originalWidth, newHeight), 0, 0, cv::INTER_NEAREST);
+
+    auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+    *qImage = qImage->rgbSwapped();
+
+    QPixmap pixmap = QPixmap::fromImage(*qImage);
+    for (auto item : scene->items()) {
+        if (item->data(0).toString() == "artwork") {
+            scene->removeItem(item);
+            delete item;
+            break;
+        }
+    }
+    QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
+    artworkItem->setData(0, "artwork");
+
+    graphicsView->update();
 }
 
 void CviewFrame::CreateXYview() {
@@ -184,26 +214,19 @@ void CviewFrame::MouseGetPosXY()
         }
         catch (...) { (void)0; }
         });
-    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseDragClicked, [=](int scaled_x, int scaled_y) {
-        try
-        {
-            temX = scaled_x; temY = scaled_y;
-            std::tie(curpt.x, curpt.y) = calculateOriginalPos(scaled_x, scaled_y);
-            isPanning = true;
+    
 
-            addPoints(false, scaled_x, scaled_y);
-        }
-        catch (...) { (void)0; }
-        });
-    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseStopDragClicked, [=]() {
-        try
-        {
-            isPanning = false;
-
-        }
-        catch (...) { (void)0; }
-        });
     QObject::connect(graphicsView, &ZoomableGraphicsView::mouseLeftView, [=]() {
         overlay->ClearLineGroup();
+        });
+
+    QObject::connect(graphicsView, &ZoomableGraphicsView::nKeyPressedEvent, [=]() {
+        for (auto item : scene->items()) {
+            if (item->data(0).toString() == "artwork") {
+                graphicsView->fitInView(item->boundingRect(), Qt::KeepAspectRatio);
+                break;
+            }
+        }
+
         });
 }

@@ -1,7 +1,9 @@
 #include "dataProcess.h"
 #include "MainUI/ObserverMgr.h"
+#include "MainUI/statuslogs.h"
 
 std::shared_ptr<upFrame> obser = std::make_shared<upFrame>();
+
 nDataProcess::nDataProcess(std::shared_ptr<IAcquisition> acquisition)
     : m_acquisition(acquisition)
 {
@@ -17,15 +19,20 @@ void SetThreadName(const std::string& name) {
     HRESULT hr = SetThreadDescription(GetCurrentThread(), std::wstring(name.begin(), name.end()).c_str());
     if (FAILED(hr)) { }}
 
-void nDataProcess::Start()
+bool nDataProcess::Start()
 {
-    if (m_running) return;
+    if (m_running) return true;
     m_running = true;
+    if (exceptionFound)  
+    {
+        exceptionFound = false; return false;
+    }
     // m_future = std::async(std::launch::async, &nDataProcess::Run, this);
     m_future = std::async(std::launch::async, [this]() {
         SetThreadName("Data Acquisition Thread");
         this->Run();
         });
+	return true;
 }
 
 void nDataProcess::Stop()
@@ -37,9 +44,10 @@ void nDataProcess::Stop()
 
 void nDataProcess::Run()
 {
-    bool exceptionFound(false);
+    
     m_acquisition->Start();
     static size_t setIndex = 0;
+    static auto setthoughout = &spdThoughout::getinstance();
     try
     {
         do
@@ -54,25 +62,19 @@ void nDataProcess::Run()
             {
                 if (waitForDataResult.cycleData->GetAscanCollection()->GetCount() > 0)
                 {
-                    for (int i(0); i < configL->omconf->beamLimit;++i)
-                    {
-                        std::lock_guard<std::mutex> lock(m_mtx);
-                        obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
-                    }
-                }
-                /*
-                    if (sharedBuffer.size() == 0) continue;
                     std::lock_guard<std::mutex> lock(m_mtx);
-                    auto data = sharedBuffer.pop();
-                    std::ostringstream oss;
-                    for (int j = 0; j < data.size(); ++j)
-                    {
-                        oss << data[j] << " ";
-                    }
-                    std::cout << oss.str() << std::endl;
-                    std::string dataStr = oss.str();
-                    sdk_logger->debug("ID: {}, DataSize: {}, Data: {}", ++index, data.size(), dataStr);
-                */
+                    obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+                    setthoughout->set(m_acquisition->GetThroughput());
+                }
+
+                /*auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
+                std::vector<int> ascanVector(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
+                std::ostringstream oss;
+                for (int j = 0; j < ascanVector.size(); ++j)
+                { oss << ascanVector[j] << " "; }
+                std::cout << oss.str() << std::endl;*/
+
+                
                 if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
                 {
                     auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
@@ -81,10 +83,14 @@ void nDataProcess::Run()
             }
             ++setIndex;
         } while ((m_running));
+
     }
-    catch (const exception&)
+    catch (const exception& e)
     {
+        std::cerr << "Exception found" << e.what() << std::endl;
         exceptionFound = true;
+        m_acquisition->Stop();
+        m_running = false;
     }
 
     m_acquisition->Stop();

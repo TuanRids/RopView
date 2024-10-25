@@ -324,7 +324,8 @@ namespace nmainUI {
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
             nsubject->stopNotifyTimer();
-            nsubject->startRealtimeUpdate( 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) ); //NOTE: refresh rate for realtime rendering
+            auto resHz = 1000.0f / (ConfigLocator::getInstance().omconf->Rate ) > 10 ? 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) : 20.0f;
+            nsubject->startRealtimeUpdate( resHz); //NOTE: refresh rate for realtime rendering
             IOmConnect::Create()->omConnectDevice();
             sttlogs->logCritical("Start RealTime!");
             });
@@ -366,18 +367,153 @@ namespace nmainUI {
         QTextEdit* logOutput = new QTextEdit();
         logOutput->setLineWrapMode(QTextEdit::NoWrap);
         logOutput->setReadOnly(true);
-
+        static auto setthoughout = &spdThoughout::getinstance();
         QObject::connect(timer, &QTimer::timeout, [logOutput]() {
             size_t buffer = std::make_shared<upFrame>()->bufferSize();
             logOutput->clear();
             QString text = QString("Buffer Size: %1\n").arg(buffer);
+            text += QString("Throughput Mbs: %1\n").arg(setthoughout->get());
             logOutput->append(text);  
             });
 
-        timer->start(50);  
+        timer->start(50); 
         layout->addWidget(logOutput);
         return logWidget;
     }
+
+    QWidget* UIManager::createOmSetting() {
+        auto omc = ConfigLocator::getInstance().omconf;
+        QWidget* settingsWidget = new QWidget();
+        QHBoxLayout* mainLayout = new QHBoxLayout(settingsWidget);
+        mainLayout->setSpacing(5);
+        mainLayout->setContentsMargins(1, 1, 1, 1);
+
+        // Group 1 - Beam Settings
+        QGroupBox* group1 = new QGroupBox("Beam Settings");
+        QVBoxLayout* layout1 = new QVBoxLayout(group1);
+
+        auto addSetting = [](QVBoxLayout* layout, const QString& label, QWidget* widget) {
+            QHBoxLayout* hLayout = new QHBoxLayout();
+            hLayout->addWidget(new QLabel(label));
+            hLayout->addWidget(widget);
+            layout->addLayout(hLayout);
+            };
+
+        auto beamPositionInput = new QSpinBox();
+        beamPositionInput->setRange(0, 100);
+        beamPositionInput->setValue(omc->BeamPosition);
+        addSetting(layout1, "Beam Position:", beamPositionInput);
+        QObject::connect(beamPositionInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->BeamPosition = value;
+            });
+
+        auto rateInput = new QSpinBox();
+        rateInput->setRange(10, 1000);
+        rateInput->setValue(omc->Rate);
+        addSetting(layout1, "Rate (Hz):", rateInput);
+        QObject::connect(rateInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->Rate = value;
+            });
+
+        auto beamLimitInput = new QSpinBox();
+        beamLimitInput->setRange(1, 64);
+        beamLimitInput->setValue(omc->beamLimit);
+        addSetting(layout1, "Beam Limit:", beamLimitInput);
+        QObject::connect(beamLimitInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->beamLimit = value;
+            });
+
+        auto apertureInput = new QSpinBox();
+        apertureInput->setRange(1, 64);
+        apertureInput->setValue(omc->elementAperture);
+        addSetting(layout1, "Element Aperture:", apertureInput);
+        QObject::connect(apertureInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->elementAperture = value;
+            });
+
+        mainLayout->addWidget(group1);
+
+        // Group 2 - Delay Settings
+        QGroupBox* group2 = new QGroupBox("Delay Settings");
+        QVBoxLayout* layout2 = new QVBoxLayout(group2);
+
+        auto delayResolutionInput = new QDoubleSpinBox();
+        delayResolutionInput->setRange(0.1, 10.0);
+        delayResolutionInput->setValue(omc->delayResolution);
+        addSetting(layout2, "Delay Resolution (ns):", delayResolutionInput);
+        QObject::connect(delayResolutionInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {
+            omc->delayResolution = value;
+            });
+
+        auto pulserDelayInput = new QDoubleSpinBox();
+        pulserDelayInput->setRange(0, 1000);
+        pulserDelayInput->setValue(omc->pulserBaseDelay);
+        addSetting(layout2, "Pulser Base Delay:", pulserDelayInput);
+        QObject::connect(pulserDelayInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {
+            omc->pulserBaseDelay = value;
+            });
+
+        auto receiverDelayInput = new QDoubleSpinBox();
+        receiverDelayInput->setRange(0, 1000);
+        receiverDelayInput->setValue(omc->receiverBaseDelay);
+        addSetting(layout2, "Receiver Base Delay:", receiverDelayInput);
+        QObject::connect(receiverDelayInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {
+            omc->receiverBaseDelay = value;
+            });
+
+        mainLayout->addWidget(group2);
+
+        // Group 3 - Gate & Ascan Settings
+        QGroupBox* group3 = new QGroupBox("Gate & Ascan Settings");
+        QVBoxLayout* layout3 = new QVBoxLayout(group3);
+
+        auto ascanStartInput = new QSpinBox();
+        ascanStartInput->setRange(0, 10000);
+        ascanStartInput->setValue(omc->ascanStart);
+        addSetting(layout3, "Ascan Start Position:", ascanStartInput);
+        QObject::connect(ascanStartInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->ascanStart = value;
+            });
+
+        auto ascanLengthInput = new QSpinBox();
+        ascanLengthInput->setRange(0, 20000);
+        ascanLengthInput->setValue(omc->ascanLength);
+        addSetting(layout3, "Ascan Length:", ascanLengthInput);
+        QObject::connect(ascanLengthInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->ascanLength = value;
+            });
+
+        auto gateStartInput = new QSpinBox();
+        gateStartInput->setRange(0, 10000);
+        gateStartInput->setValue(omc->gateStart);
+        addSetting(layout3, "Gate Start:", gateStartInput);
+        QObject::connect(gateStartInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->gateStart = value;
+            });
+
+        auto gateLengthInput = new QSpinBox();
+        gateLengthInput->setRange(0, 5000);
+        gateLengthInput->setValue(omc->gateLength);
+        addSetting(layout3, "Gate Length:", gateLengthInput);
+        QObject::connect(gateLengthInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->gateLength = value;
+            });
+
+        auto gateThresholdInput = new QSpinBox();
+        gateThresholdInput->setRange(0, 100);
+        gateThresholdInput->setValue(omc->gateThreshold);
+        addSetting(layout3, "Gate Threshold:", gateThresholdInput);
+        QObject::connect(gateThresholdInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
+            omc->gateThreshold = value;
+            });
+
+        mainLayout->addWidget(group3);
+
+        settingsWidget->setLayout(mainLayout);
+        return settingsWidget;
+    }
+
+
 
     QWidget* UIManager::createAscanFrame()
     {

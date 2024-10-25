@@ -32,8 +32,8 @@ class UIArtScan {
 private:
     UIArtScan() {
         SViewBuf = std::make_shared<cv::Mat>();
-        BViewBuf = std::make_shared<cv::Mat>();
-        CViewBuf = std::make_shared<cv::Mat>();
+        BViewBuf = std::make_shared<cv::Mat>(cv::Mat());
+        CViewBuf = std::make_shared<cv::Mat>(cv::Mat());
         AViewBuf = std::make_shared<QVector<QPointF>>();
     }
 
@@ -43,16 +43,14 @@ public:
         return instance;
     }
     void resetall() {
-        SViewBuf.reset(); BViewBuf.reset(); CViewBuf.reset(); AViewBuf.reset();
+        SViewBuf.reset();  AViewBuf.reset();
         SViewBuf = std::make_shared<cv::Mat>();
-        BViewBuf = std::make_shared<cv::Mat>();
-        CViewBuf = std::make_shared<cv::Mat>();
         AViewBuf = std::make_shared<QVector<QPointF>>();
     }
-    static std::shared_ptr<cv::Mat> SViewBuf;
-    static std::shared_ptr<cv::Mat> BViewBuf;
-    static std::shared_ptr<cv::Mat> CViewBuf;
-    static std::shared_ptr<QVector<QPointF>> AViewBuf;
+    std::shared_ptr<cv::Mat> SViewBuf;
+    std::shared_ptr<cv::Mat> BViewBuf;
+    std::shared_ptr<cv::Mat> CViewBuf;
+    std::shared_ptr<QVector<QPointF>> AViewBuf;
 };
 
 

@@ -1,14 +1,14 @@
 #include "../pch.h"
 struct OmniConfig {
     size_t BeamPosition = 0;          // Beam position
-    size_t Rate = 50;                // Hz. Cycle rate that collects data per second
+    size_t Rate = 120;                // Hz. Cycle rate that collects data per second
     size_t beamLimit = 32;            // Number of beams
-    size_t elementAperture = 16;      // Element aperture size
+    size_t elementAperture = 32;      // Element aperture size
     double delayResolution = 2.5;     // Delay resolution in nanoseconds
     double pulserBaseDelay = 500;     // Base delay for pulsers
     double receiverBaseDelay = 1000;  // Base delay for receivers
-    int ascanStart = 0;               // Ascan start position
-    int ascanLength = 20000;          // Ascan length
+    int ascanStart = 5000;               // Ascan start position
+    int ascanLength = 10000;          // Ascan length
     int gateStart = 1500;             // Gate start position
     int gateLength = 300;             // Gate length
     int gateThreshold = 15;           // Gate threshold value

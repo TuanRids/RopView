@@ -82,6 +82,7 @@
 #include <QtCharts/qchart.h>
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
+#include <QtCharts/qsplineseries.h>
 #include <QtCharts/QValueAxis>
 
 // ======== Project-Specific Headers ============

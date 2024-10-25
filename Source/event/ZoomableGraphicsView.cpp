@@ -47,8 +47,15 @@ void ZoomableGraphicsView::leaveEvent(QEvent* event) {
 
 void ZoomableGraphicsView::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
-        QPointF scenePos = mapToScene(event->pos());
-        emit mouseClicked(static_cast<int>(scenePos.x()), static_cast<int>(scenePos.y()));
+        scenePos = mapToScene(event->pos());
+        // reg zoom
+        startPoint = mapToScene(event->pos());
+        rubberBandRect = new QGraphicsRectItem(QRectF(startPoint, QSizeF(0, 0)));
+        rubberBandRect->setData(2, "rubberBandRect");
+        rubberBandRect->setPen(QPen(Qt::DashLine));
+        rubberBandRect->setBrush(Qt::NoBrush);
+        scene()->addItem(rubberBandRect);
+
     }
     if (event->button() == Qt::MiddleButton) {
         isPanning = true;
@@ -56,7 +63,7 @@ void ZoomableGraphicsView::mousePressEvent(QMouseEvent* event) {
         setCursor(Qt::ClosedHandCursor);
     }
 }
-
+//================= Drag and Drop =================
 void ZoomableGraphicsView::mouseMoveEvent(QMouseEvent* event) {
     if (event->buttons() == Qt::MiddleButton) {
         isPanning = true;
@@ -65,10 +72,10 @@ void ZoomableGraphicsView::mouseMoveEvent(QMouseEvent* event) {
         horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
         verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
     }
-    else if (event->buttons() == Qt::LeftButton) {
-        isLDragging = true;
-        QPointF scenePos = mapToScene(event->pos());
-        emit mouseDragClicked(static_cast<int>(scenePos.x()), static_cast<int>(scenePos.y()));
+    if (rubberBandRect) {
+        QPointF endPoint = mapToScene(event->pos());
+        QRectF newRect(startPoint, endPoint);
+        rubberBandRect->setRect(newRect.normalized()); 
     }
 
     QPointF scenePos = mapToScene(event->pos());
@@ -80,12 +87,32 @@ void ZoomableGraphicsView::mouseReleaseEvent(QMouseEvent* event) {
         isPanning = false;
         setCursor(Qt::ArrowCursor);
     }
-    if (event->button() == Qt::LeftButton && isLDragging) {
-        isLDragging = false;
-        emit mouseStopDragClicked();
+    if (event->button() == Qt::LeftButton && rubberBandRect) {
+        QRectF finalRect = rubberBandRect->rect();
+        if (!finalRect.isEmpty()) {
+            fitInView(finalRect, Qt::KeepAspectRatio); 
+        }
+        else
+        {
+            emit mouseClicked(static_cast<int>(scenePos.x()), static_cast<int>(scenePos.y()));
+        }
+        for (auto item : scene()->items()) {
+            if (item->data(0).toString() == "rubberBandRect") {
+                scene()->removeItem(item);
+                delete item;
+                break;
+            }
+        }
+
+        delete rubberBandRect;
+        rubberBandRect = nullptr;
+
     }
 }
 
+
+
+// ==================== Key Press ================
 void ZoomableGraphicsView::keyPressEvent(QKeyEvent* event)
 {
     if (event->key() == Qt::Key_T) 

@@ -57,10 +57,10 @@ void AviewFrame::updateRealTime()
         if (!lineSeries) RenderFrame(); 
         lineSeries->clear();  
         lineSeries->replace(points); 
-        axisX->setRange(0, static_cast<int>(dataSize));
-        axisY->setRange(
-            std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.y() < b.y(); })->y(),
-            std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.y() < b.y(); })->y()
+        axisY->setRange(0, static_cast<int>(dataSize));
+        axisX->setRange(
+            std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
+            std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x()
         );
         axisY->setReverse(true);
         static size_t lastpos = curpt.y;

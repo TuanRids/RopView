@@ -26,8 +26,3 @@ void ConfigLocator::loadFromRegistry() {
     settingconf->qsTheme = regSettings.value("qsTheme", "RoqView").toString().toStdString();
 }
 
-// ========== UIArtScan ===========
-std::shared_ptr<cv::Mat> UIArtScan::SViewBuf = nullptr;
-std::shared_ptr<cv::Mat> UIArtScan::BViewBuf = nullptr;
-std::shared_ptr<cv::Mat> UIArtScan::CViewBuf = nullptr;
-std::shared_ptr<QVector<QPointF>> UIArtScan::AViewBuf = nullptr;

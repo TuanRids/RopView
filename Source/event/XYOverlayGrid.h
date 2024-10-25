@@ -66,12 +66,9 @@ public:
         lineGroup->addToGroup(horizontalLine);
     }
     void updatePoints(double pixelX, double pixelY, Qt::GlobalColor vcolor, Qt::GlobalColor hcolor) {
-        removeItemsByData("Point");
         removeItemsByData("MarkLine");
 
         QGraphicsItem* artwork = nullptr;
-        auto pointGroup = new QGraphicsItemGroup();
-        scene->addItem(pointGroup);
         for (auto* item : scene->items()) {
             if (item->data(0).toString() == "artwork") {
                 artwork = item;
@@ -99,13 +96,6 @@ public:
 
         QPointF scenePoint = graphicsView->mapToScene(QPoint(static_cast<int>(pixelX), static_cast<int>(pixelY)));
 
-        QGraphicsEllipseItem* point = new QGraphicsEllipseItem(pixelX - pointSizeInScene / 2, pixelY - pointSizeInScene / 2, pointSizeInScene, pointSizeInScene);
-        point->setData(0, "Point");
-        point->setZValue(2);
-        pen.setCosmetic(true);
-        point->setPen(pen);
-        point->setBrush(brush);
-        pointGroup->addToGroup(point);
 
         auto MarkLine = new QGraphicsItemGroup();
         scene->addItem(MarkLine);

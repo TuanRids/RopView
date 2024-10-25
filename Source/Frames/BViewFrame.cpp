@@ -161,24 +161,7 @@ void BviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         }
         catch (...) { (void)0; }
         });
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseDragClicked, [=](int scaled_x, int scaled_z) {
-        try
-        {
-            std::tie(curpt.x, curpt.z) = calculateOriginalPos(scaled_x, scaled_z);
-            addPoints(false, scaled_x, scaled_z);
-            isPanning = true;
-
-        }
-        catch (...) { (void)0; }
-        });
-    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseStopDragClicked, [=]() {
-        try
-        {
-            isPanning = false;
-
-        }
-        catch (...) { (void)0; }
-        });
+   
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseLeftView, [=]() {
         overlay->ClearLineGroup();
         });

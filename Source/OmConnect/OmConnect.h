@@ -4,7 +4,7 @@
 #include "../MainUI/statuslogs.h"
 #include "SystemConfig/ConfigLocator.h"
 #include "dataProcess.h"
-
+#include "OmConfigSetup.h"
 using namespace Instrumentation;
 using namespace std;
 
@@ -22,6 +22,7 @@ private:
     void ConfigureDevice() override;
     void newThread();
     shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
+
 
     ConfigLocator* configL;
     nmainUI::statuslogs* sttlogs;

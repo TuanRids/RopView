@@ -4,7 +4,6 @@
 #include "../pch.h"
 #include "statuslogs.h"
 
-
 class nSubject {
 private:
 	std::vector<std::shared_ptr<nObserver>> observers;
@@ -53,14 +52,15 @@ public:
 		{
 			QElapsedTimer timer;
 			timer.start();
+
 			observers[0]->RealDatProcess();
 			for (const auto& object : observers) {
 				object->updateRealTime();
 			}
-			qDebug() << "RealTime: " << timer.elapsed();
+			// qDebug() << "RealTime: " << timer.elapsed();
 
 		}
-		catch (const std::exception& e)
+		catch (...)
 		{ void(0); }
 	}
 };

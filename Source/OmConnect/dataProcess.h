@@ -14,12 +14,13 @@ class nDataProcess
     std::atomic<bool> m_running{ false };
     std::future<void> m_future;
 
+    bool exceptionFound = false;
     ConfigLocator* configL;
 public:
     nDataProcess(std::shared_ptr<IAcquisition> acquisition);
     ~nDataProcess();
 
-    void Start();
+    bool Start();
     void Stop();
 
 private:

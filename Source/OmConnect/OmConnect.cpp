@@ -51,7 +51,6 @@ shared_ptr<IDevice> OmConnect::DiscoverDevice()
 
 void OmConnect::StartDevice()
 {
-    // Select the latest version of firmware packages.
     wstring packageName(L"FocusPxPackage");
     shared_ptr<IFirmwarePackage> package;
     auto packages = IFirmwarePackageScanner::GetFirmwarePackageCollection();
@@ -63,63 +62,44 @@ void OmConnect::StartDevice()
             sttlogs->logNotify("Package: " + wstostring(packages->GetFirmwarePackage(packageIndex)->GetName()));
         }
     }
-
     if (package == nullptr)
         throw std::exception("Could not find the firmware package");
-
     if (!device->HasPackage(package))
         device->Download(package);
-
     device->Start(package);
     {
         HINSTANCE handle = OpenView::Libraries::LoadInstrumentation();
         auto version = Instrumentation::GetLibraryVersionEx();
         sttlogs->logNotify("Instrumentation Version: " + wstostring(version));
         OpenView::Libraries::UnLoad(handle);
-    }
-
-    {
-        HINSTANCE handle = OpenView::Libraries::LoadStorage();
-        std::wstring version = Olympus::FileManagement::Storage::GetLibraryVersion();
+        handle = OpenView::Libraries::LoadStorage();
+        version = Olympus::FileManagement::Storage::GetLibraryVersion();
         sttlogs->logNotify("Storage Version: " + wstostring(version));
         OpenView::Libraries::UnLoad(handle);
     }
-
 }
-
 void OmConnect::ConfigureDevice()
 {
-    if (!device)
-    {
-        throw std::exception("Device not connected.");
-    }
+    if (!device) { throw std::exception("Device not connected."); }
     std::cout << device->GetInfo();
     std::shared_ptr<IBeamSet> beamSet;
-
-    // Configure for phased array ultrasound
     auto ultrasoundConfiguration = device->GetConfiguration()->GetUltrasoundConfiguration();
 
     // Detect the type of ultrasound (phased array or conventional)
     auto digitizer = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
-
     if (digitizer)
-    {
-        beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetPhasedArray(L"BeamSet-PhasedArray", GenerateBeamFormations(digitizer->GetBeamSetFactory()));
-    }
+    { beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetPhasedArray(L"BeamSet-PhasedArray", GenerateBeamFormations(digitizer->GetBeamSetFactory())); }
     else
     {
         digitizer = ultrasoundConfiguration->GetDigitizerTechnology(UltrasoundTechnology::Conventional);
         beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetConventional(L"BeamSet-Conventional");
     }
-
     if (!digitizer)
     {
         throw std::exception("No valid ultrasound digitizer available.");
     }
-
     auto amplitudeSettings = beamSet->GetDigitizingSettings()->GetAmplitudeSettings();
     amplitudeSettings->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
-
     for (size_t i = 0; i < beamSet->GetBeamCount(); ++i)
     {
         auto beam = beamSet->GetBeam(i);
@@ -140,25 +120,6 @@ void OmConnect::ConfigureDevice()
 
     auto connector = digitizer->GetConnectorCollection()->GetPulseAndReceiveConnector();
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
-
-    acquisition = IAcquisition::CreateEx(device);
-    // adjusted |= ConfigAcquisitionFromSetup(acquisition, setup);
-    acquisition->SetRate(configL->omconf->Rate); // Use Rate from configL->omconf
-    acquisition->ApplyConfiguration();
-}
-
-void OmConnect::newThread()
-{
-    if (!device)
-    {
-        sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
-        device = DiscoverDevice();
-        StartDevice();
-        ConfigureDevice();
-    }
-    
-    if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
-    datProcess->Start();
 }
 
 shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory)
@@ -188,3 +149,30 @@ shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_pt
     return beamFormations;
 }
 
+void OmConnect::newThread()
+{
+    if (!device)
+    {
+        sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
+        device = DiscoverDevice();
+        StartDevice();
+        ConfigureDevice();
+
+        
+        auto getsetup = OmConfigSetup::initSetup();
+        // auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
+
+        // sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
+        acquisition = IAcquisition::CreateEx(device);
+        // OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
+        // sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
+        acquisition->SetRate(configL->omconf->Rate); 
+        acquisition->ApplyConfiguration();
+    }    
+    if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
+    if (!datProcess->Start())
+    {
+        acquisition.reset();
+        acquisition = nullptr; ConfigureDevice();
+    }
+}
