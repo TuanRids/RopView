@@ -35,7 +35,6 @@ QWidget* AviewFrame::createFrame() {
 
 void AviewFrame::update() 
 {
-
     if (scandat.Amplitudes.empty()) {
         if (sttlogs) { sttlogs->logWarning("No amplitude data available"); }
         return;
@@ -49,22 +48,6 @@ void AviewFrame::updateRealTime()
     static int idex = 0;
     try {
         if (nAscanCollection.empty()) return;
-        /*std::shared_ptr<IAscan> Bdata;
-        Bdata = nAscanCollection.front()->GetAscan(ConfigLocator::getInstance().omconf->BeamPosition);
-
-        const int* data = Bdata->GetData();
-        size_t dataSize = Bdata->GetSampleQuantity();
-
-        if (!lineSeries) RenderFrame();
-        lineSeries->clear();
-
-        QVector<QPointF> points(dataSize);  
-        QPointF* pointData = points.data();
-        points.reserve(dataSize);
-#pragma omp parallel for
-        for (size_t i = 0; i < dataSize; ++i) {
-            pointData[i] = QPointF(static_cast<double>(i), static_cast<double>(data[i]));  
-        }*/
         if (!lineSeries) RenderFrame();
         lineSeries->clear();
 

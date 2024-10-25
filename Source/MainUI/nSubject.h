@@ -51,10 +51,13 @@ public:
 		if (!isRealTime) return;
 		try
 		{
+			QElapsedTimer timer;
+			timer.start();
 			observers[0]->RealDatProcess();
 			for (const auto& object : observers) {
 				object->updateRealTime();
 			}
+			qDebug() << "RealTime: " << timer.elapsed();
 
 		}
 		catch (const std::exception& e)

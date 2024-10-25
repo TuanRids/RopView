@@ -78,6 +78,8 @@ void SviewFrame::update() {
 
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
     graphicsView->update();
+
+   
     addPoints(true,-1,-1);
 }
 
@@ -109,6 +111,7 @@ void SviewFrame::updateRealTime()
         }*/
         orgimage.reset();
         orgimage = ArtScan->SViewBuf; 
+        if (!orgimage) return;
         scaledImage = std::make_unique<cv::Mat>();
         cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width(), graphicsView->height()), 0, 0, cv::INTER_NEAREST);
         auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
@@ -128,7 +131,6 @@ void SviewFrame::updateRealTime()
         QGraphicsPixmapItem* pixmapItem = new QGraphicsPixmapItem(pixmap);
         pixmapItem->setData(0, "artwork");
         artWork->addToGroup(pixmapItem);
-        graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
         graphicsView->update();
     }
 	catch (exception& e)
@@ -165,6 +167,7 @@ std::pair<int, int> SviewFrame::calculateOriginalPos(int scaled_y, int scaled_z)
     else
     {
 		original_y = static_cast<int>(scaled_y * static_cast<double>(orgimage->cols) / scaledImage->cols);
+        if (original_y < 0 || original_y > ConfigL.omconf->beamLimit) original_y = 0;
 		//int original_z = static_cast<int>(scaled_z * static_cast<double>(orgimage->rows) / scaledImage->rows);
         original_z = scaled_z;
     }
@@ -243,6 +246,16 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseLeftView, [=]() {
         overlay->ClearLineGroup();
         });
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::nKeyPressedEvent, [=]() {
+        for (auto item : scene->items()) {
+            if (item->data(0).toString() == "artwork") {
+                graphicsView->fitInView(item->boundingRect(), Qt::KeepAspectRatio);
+                break;
+            }
+        }
+
+        });
+
 }
 
 

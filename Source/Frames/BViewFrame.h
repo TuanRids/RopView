@@ -7,6 +7,7 @@
 #include "..\Source\MainUI\ObserverMgr.h"
 #include "..\Source\MainUI\mainwindow.h"
 #include "..\Source\event\ZoomableGraphicsView.h"
+#include "event/XYOverlayGrid.h"
 
 
 // Graphics Frame
