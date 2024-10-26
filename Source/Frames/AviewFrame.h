@@ -23,7 +23,7 @@ private:
     QValueAxis* axisY;
 
     QChart* chart;
-    QLineSeries* lineSeries;
+    QSplineSeries* lineSeries;
     QChartView* chartView;
 public:
 

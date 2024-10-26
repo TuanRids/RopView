@@ -49,16 +49,17 @@ public:
 	void notifyRealtime() {
 		if (!isRealTime) return;
 		try
-		{
+		{	
+			std::cout << "Start Processing ------>> " ;
 			QElapsedTimer timer;
 			timer.start();
-
 			observers[0]->RealDatProcess();
+			std::cout << "RealTime Update ------>>" << std::endl;
 			for (const auto& object : observers) {
 				object->updateRealTime();
 			}
-			// qDebug() << "RealTime: " << timer.elapsed();
-
+			spdThoughout::getinstance().set_Fps(timer.elapsed());
+			std::cout << "Finish Processing" << std::endl;
 		}
 		catch (...)
 		{ void(0); }

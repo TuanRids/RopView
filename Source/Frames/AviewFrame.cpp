@@ -153,7 +153,7 @@ void AviewFrame::RenderFrame()
         linePen.setWidth(2);
         scene->clear();
         chart = new QChart();
-        lineSeries = new QLineSeries();
+        lineSeries = new QSplineSeries();
 
         // Attach series and axes
         chart->addSeries(lineSeries);
@@ -163,7 +163,7 @@ void AviewFrame::RenderFrame()
         lineSeries->attachAxis(axisX);
         lineSeries->attachAxis(axisY);
         lineSeries->setPen(linePen);
-        lineSeries->setPointsVisible(false);
+        lineSeries->setPointsVisible(true);
 
         // Axis settings
         axisX->setTitleBrush(QBrush(QColor(Qt::darkCyan)));

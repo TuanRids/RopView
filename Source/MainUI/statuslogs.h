@@ -101,6 +101,7 @@ class spdThoughout
 {
 private:
     std::atomic<float> throughout;
+    std::atomic<float> fps_allScan;
 
     spdThoughout() : throughout(0) {}
     ~spdThoughout() = default;
@@ -114,7 +115,9 @@ public:
         return instance;
     }
 
-    void set(float value) { throughout = value; }
-    float get() { return throughout.load(); }
+    void set(float value) { throughout = value; }/* Throughout*/
+    void set_Fps(float value) { fps_allScan = value; }/* FPS*/
+    float get() { return throughout.load(); } /* Throughout*/
+    float get_FPS() { return fps_allScan.load(); }/* FPS*/
 };
 #endif // STATUSLOGS_H

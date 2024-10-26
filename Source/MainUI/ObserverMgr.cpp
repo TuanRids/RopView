@@ -21,43 +21,39 @@ void nObserver::RealDatProcess()
 {
     static auto everyColors = CreateColorPalette();
     std::lock_guard<std::mutex> lock(collectionMutex);
-
-    _buffSize = nAscanCollection.size();
-    if (_buffSize == 0) throw std::runtime_error("nAscanCollection is empty.");
+    _buffSize = 10 - nAscanCollection.size() > 0 ? 10 - nAscanCollection.size() : _buffSize;
+    if (nAscanCollection.size() == 0) throw std::runtime_error("nAscanCollection is empty.");
 
     auto RawAsanDat = std::move(nAscanCollection.back());
     if (!RawAsanDat) throw std::runtime_error("nAscanCollection is empty.");
-
     while (nAscanCollection.size() > 10) nAscanCollection.pop_front();
 
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
-       
 
     // aview and sview would be reset as realtime
     ArtScan->resetall();
     ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3);
     ArtScan->AViewBuf->clear();
     QVector<QPointF> points(zsize);
-
-    cv::Mat newMat(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
-    if (ArtScan->CViewBuf->empty()) { ArtScan->CViewBuf->create(ysize, 500 , CV_8UC3); }
+    cv::Mat newMat;
+    if (ArtScan->CViewBuf->empty()) {
+        ArtScan->CViewBuf->create(ysize, 500, CV_8UC3);
+        newMat.create(ysize, 500, CV_8UC3);
+    }
     else {
         if (ArtScan->CViewBuf->cols > 2500) {
-            ArtScan->CViewBuf = std::make_shared<cv::Mat>(ArtScan->CViewBuf->colRange(0, 499).clone()); 
-        }        
-
-        
-
+            ArtScan->CViewBuf = std::make_shared<cv::Mat>(ArtScan->CViewBuf->colRange(0, 499).clone());
+        }
+        newMat.create(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
+        ArtScan->CViewBuf->copyTo(newMat);
     }
         
-
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
         double maxAmplitude = 0; Color maxColor{};
         const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
         for (int z = 0; z < zsize; ++z) {
-
             // Process Sscan Data
             double percentAmplitude = std::abs(ascanData[z]) / (32768 / 100.0);
             percentAmplitude = percentAmplitude < 2.5 ? percentAmplitude * 40 : percentAmplitude;
@@ -75,13 +71,11 @@ void nObserver::RealDatProcess()
                 maxColor = color; maxAmplitude = percentAmplitude;
             }
         }
-
         // process Cscan        
         newMat.at<cv::Vec3b>(beamID,0 ) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
     *ArtScan->AViewBuf = points;
     ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(newMat.colRange(1, newMat.cols));
-
     ArtScan->CViewBuf = std::make_shared<cv::Mat>(newMat);
 
 }

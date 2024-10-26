@@ -324,8 +324,8 @@ namespace nmainUI {
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
             nsubject->stopNotifyTimer();
-            auto resHz = 1000.0f / (ConfigLocator::getInstance().omconf->Rate ) > 10 ? 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) : 20.0f;
-            nsubject->startRealtimeUpdate( resHz); //NOTE: refresh rate for realtime rendering
+            auto resHz = 1000.0f / (ConfigLocator::getInstance().omconf->Rate ) > 10 ? 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) : 5.0f;
+            nsubject->startRealtimeUpdate( 1); //NOTE: refresh rate for realtime rendering
             IOmConnect::Create()->omConnectDevice();
             sttlogs->logCritical("Start RealTime!");
             });
@@ -356,7 +356,6 @@ namespace nmainUI {
         layout->setContentsMargins(0, 0, 0, 0);
         return logWidget;
     }
-
     QWidget* UIManager::createLogDebug()
     {
         QWidget* logWidget = new QWidget();
@@ -367,12 +366,13 @@ namespace nmainUI {
         QTextEdit* logOutput = new QTextEdit();
         logOutput->setLineWrapMode(QTextEdit::NoWrap);
         logOutput->setReadOnly(true);
-        static auto setthoughout = &spdThoughout::getinstance();
         QObject::connect(timer, &QTimer::timeout, [logOutput]() {
+            static auto setthoughout = &spdThoughout::getinstance();
             size_t buffer = std::make_shared<upFrame>()->bufferSize();
             logOutput->clear();
-            QString text = QString("Buffer Size: %1\n").arg(buffer);
+            QString text = QString("Buffer Size: %1\n").arg(static_cast<int>(buffer));
             text += QString("Throughput Mbs: %1\n").arg(setthoughout->get());
+            text += QString("AllScan TimeCycle ms: %1\n").arg(setthoughout->get_FPS());
             logOutput->append(text);  
             });
 
@@ -512,8 +512,6 @@ namespace nmainUI {
         settingsWidget->setLayout(mainLayout);
         return settingsWidget;
     }
-
-
 
     QWidget* UIManager::createAscanFrame()
     {

@@ -85,7 +85,6 @@ void SviewFrame::update() {
 
 void SviewFrame::updateRealTime()
 {
-    return;
     try {
         if (!isRealTime) { scene->clear(); isRealTime = true; }
         orgimage.reset();
