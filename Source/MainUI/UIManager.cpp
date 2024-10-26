@@ -12,11 +12,54 @@
 #include "SystemConfig/ConfigLocator.h"
 #include "../Data3DProcessing/Data3DProcess.h"
 
+QMainWindow* getMainWindow() {
+    foreach(QWidget * widget, QApplication::topLevelWidgets()) {
+        if (QMainWindow* mainWindow = qobject_cast<QMainWindow*>(widget)) {
+            return mainWindow;
+        }
+    }
+    return nullptr;
+}
 namespace nmainUI {
     UIManager::UIManager(): sttlogs(nullptr), nsubject(nullptr){
         settings = std::make_unique<QSettings>("RoqView COM", "FrameStatus");
         if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
     }
+    QPixmap UIManager::loadLogoFromResource() {
+        HRSRC hRes = FindResource(NULL, MAKEINTRESOURCE(107), RT_RCDATA);
+        if (hRes) {
+            HGLOBAL hData = LoadResource(NULL, hRes);
+            if (hData) {
+                DWORD dataSize = SizeofResource(NULL, hRes);
+                const char* data = static_cast<const char*>(LockResource(hData));
+                if (data) {
+                    QByteArray byteArray(data, dataSize);
+                    QPixmap pixmap;
+                    pixmap.loadFromData(byteArray, "PNG");
+                    return pixmap;
+                }
+            }
+        }
+        return QPixmap();
+    }
+    void UIManager::saveWidgetState(QWidget* widget) {
+        QList<QSplitter*> splitters = widget->findChildren<QSplitter*>();
+        for (auto splitter : splitters) {
+            settings->setValue(splitter->objectName() + "_splitterState", splitter->saveState());
+        }
+    }
+    void UIManager::restoreWidgetState(QWidget* widget) {
+        QList<QSplitter*> splitters = widget->findChildren<QSplitter*>();
+        for (auto splitter : splitters) {
+            QByteArray splitterState = settings->value(splitter->objectName() + "_splitterState").toByteArray();
+            if (!splitterState.isEmpty()) {
+                splitter->restoreState(splitterState);
+            }
+        }
+        widget->update(); 
+    }
+
+
     QWidget* UIManager::createMenuBarFrame()
     {
         // Create a main widget for the menu bar
@@ -44,6 +87,7 @@ namespace nmainUI {
         editMenu->addAction("Paste", [=]() { onPaste(); });
 
         viewMenu->addAction("FullScreen", [=]() { onFullScreen(); });
+        viewMenu->addAction("Debug Logs", [=]() { showRealTimeLogs(); });
 
 
         // Add the QMenuBar to the layout
@@ -51,6 +95,47 @@ namespace nmainUI {
 
         return menuBarWidget;
     }
+
+    void UIManager::showRealTimeLogs() {
+        return;
+        auto nmainwd = getMainWindow();
+        QDockWidget* logDockWidget = new QDockWidget("Real-Time Logs", nmainwd);
+        QTextEdit* logTextEdit = new QTextEdit(logDockWidget);
+        logTextEdit->setReadOnly(true);
+        logDockWidget->setWidget(logTextEdit);
+        nmainwd->addDockWidget(Qt::RightDockWidgetArea, logDockWidget);
+
+        QString logFilePath = QString::fromStdString(ConfigLocator::getInstance().sysParams->tempBufferLogs);
+        static qint64 lastPos = 0;
+        const int maxLogSize = 10000;  
+
+        QTimer* logUpdateTimer = new QTimer(nmainwd);
+        QObject::connect(logUpdateTimer, &QTimer::timeout, [logTextEdit, logFilePath]() mutable {
+            QFile file(logFilePath);
+            if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                file.seek(lastPos);
+                QTextStream in(&file);
+                QString newContent = in.readAll();
+                lastPos = file.pos();
+                file.close();
+
+                if (!newContent.isEmpty()) {
+                    if (logTextEdit->toPlainText().size() > maxLogSize) {
+                        logTextEdit->clear();
+                    }
+
+                    logTextEdit->moveCursor(QTextCursor::End);
+                    logTextEdit->insertPlainText(newContent);
+                    logTextEdit->moveCursor(QTextCursor::End);
+                }
+            }
+            });
+
+        logUpdateTimer->start(1000); 
+        logDockWidget->show();
+
+    }
+
     void UIManager::refreshWidgets(const QList<QWidget*>& widgets) {
         for (QWidget* widget : widgets) {
             widget->setStyleSheet(qApp->styleSheet());
@@ -100,39 +185,6 @@ namespace nmainUI {
 
     }
 
-    QPixmap UIManager::loadLogoFromResource() {
-        HRSRC hRes = FindResource(NULL, MAKEINTRESOURCE(107), RT_RCDATA);
-        if (hRes) {
-            HGLOBAL hData = LoadResource(NULL, hRes);
-            if (hData) {
-                DWORD dataSize = SizeofResource(NULL, hRes);
-                const char* data = static_cast<const char*>(LockResource(hData));
-                if (data) {
-                    QByteArray byteArray(data, dataSize);
-                    QPixmap pixmap;
-                    pixmap.loadFromData(byteArray, "PNG");
-                    return pixmap;
-                }
-            }
-        }
-        return QPixmap();
-    }
-    void UIManager::saveWidgetState(QWidget* widget) {
-        QList<QSplitter*> splitters = widget->findChildren<QSplitter*>();
-        for (auto splitter : splitters) {
-            settings->setValue(splitter->objectName() + "_splitterState", splitter->saveState());
-        }
-    }
-    void UIManager::restoreWidgetState(QWidget* widget) {
-        QList<QSplitter*> splitters = widget->findChildren<QSplitter*>();
-        for (auto splitter : splitters) {
-            QByteArray splitterState = settings->value(splitter->objectName() + "_splitterState").toByteArray();
-            if (!splitterState.isEmpty()) {
-                splitter->restoreState(splitterState);
-            }
-        }
-        widget->update(); 
-    }
     void UIManager::openSettingsDialog()
     {
         auto currentSettings = ConfigLocator::getInstance().settingconf;
@@ -325,9 +377,8 @@ namespace nmainUI {
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
             nsubject->stopNotifyTimer();
             auto resHz = 1000.0f / (ConfigLocator::getInstance().omconf->Rate ) > 10 ? 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) : 5.0f;
-            nsubject->startRealtimeUpdate( 1); //NOTE: refresh rate for realtime rendering
-            IOmConnect::Create()->omConnectDevice();
-            sttlogs->logCritical("Start RealTime!");
+            nsubject->startRealtimeUpdate( 5); //NOTE: refresh rate for realtime rendering
+            if (IOmConnect::Create()->omConnectDevice()) sttlogs->logCritical("Start RealTime!");
             });
         // add 3D button
 		QPushButton* btn3D = new QPushButton("3D");
@@ -401,7 +452,7 @@ namespace nmainUI {
 
         auto beamPositionInput = new QSpinBox();
         beamPositionInput->setRange(0, 100);
-        beamPositionInput->setValue(omc->BeamPosition);
+        beamPositionInput->setValue(static_cast<int>(omc->BeamPosition));
         addSetting(layout1, "Beam Position:", beamPositionInput);
         QObject::connect(beamPositionInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->BeamPosition = value;
@@ -409,15 +460,15 @@ namespace nmainUI {
 
         auto rateInput = new QSpinBox();
         rateInput->setRange(10, 1000);
-        rateInput->setValue(omc->Rate);
+        rateInput->setValue(static_cast<int>(omc->Rate));
         addSetting(layout1, "Rate (Hz):", rateInput);
         QObject::connect(rateInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->Rate = value;
             });
 
         auto beamLimitInput = new QSpinBox();
-        beamLimitInput->setRange(1, 64);
-        beamLimitInput->setValue(omc->beamLimit);
+        beamLimitInput->setRange(1, 512);
+        beamLimitInput->setValue(static_cast<int>(omc->beamLimit));
         addSetting(layout1, "Beam Limit:", beamLimitInput);
         QObject::connect(beamLimitInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->beamLimit = value;
@@ -425,7 +476,7 @@ namespace nmainUI {
 
         auto apertureInput = new QSpinBox();
         apertureInput->setRange(1, 64);
-        apertureInput->setValue(omc->elementAperture);
+        apertureInput->setValue(static_cast<int>(omc->elementAperture));
         addSetting(layout1, "Element Aperture:", apertureInput);
         QObject::connect(apertureInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->elementAperture = value;

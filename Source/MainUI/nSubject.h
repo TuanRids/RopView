@@ -50,16 +50,14 @@ public:
 		if (!isRealTime) return;
 		try
 		{	
-			std::cout << "Start Processing ------>> " ;
+			if (observers[0]->bufferSize() < 1) return;
 			QElapsedTimer timer;
 			timer.start();
 			observers[0]->RealDatProcess();
-			std::cout << "RealTime Update ------>>" << std::endl;
 			for (const auto& object : observers) {
 				object->updateRealTime();
 			}
 			spdThoughout::getinstance().set_Fps(timer.elapsed());
-			std::cout << "Finish Processing" << std::endl;
 		}
 		catch (...)
 		{ void(0); }

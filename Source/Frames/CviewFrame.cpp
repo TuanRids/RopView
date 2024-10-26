@@ -53,7 +53,7 @@ void CviewFrame::updateRealTime()
         scene->clear();
         isRealTime = true;
     }
-    auto orgimage = std::make_shared<cv::Mat>(ArtScan->CViewBuf->clone());
+    orgimage = std::make_shared<cv::Mat>(ArtScan->CViewBuf->clone());
     if (!orgimage) return;
 
     scaledImage = std::make_unique<cv::Mat>();

@@ -20,8 +20,30 @@ bool OmConnect::omConnectDevice()
     ipAddress = ConfigLocator::getInstance().settingconf->ipAddress;
     try
     {
-        // new thread
-        newThread();
+        if (!device)
+        {
+            sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
+            device = DiscoverDevice();
+            StartDevice();
+            ConfigureDevice();
+
+
+            auto getsetup = OmConfigSetup::initSetup();
+            // auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
+
+            // sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
+            acquisition = IAcquisition::CreateEx(device);
+            // OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
+            // sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
+            acquisition->SetRate(configL->omconf->Rate);
+            acquisition->ApplyConfiguration();
+        }
+        if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
+        if (!datProcess->Start())
+        {
+            acquisition.reset();
+            acquisition = nullptr; ConfigureDevice();
+        }
         return true;
     }
     catch (const std::exception& e)
@@ -151,28 +173,5 @@ shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_pt
 
 void OmConnect::newThread()
 {
-    if (!device)
-    {
-        sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
-        device = DiscoverDevice();
-        StartDevice();
-        ConfigureDevice();
-
-        
-        auto getsetup = OmConfigSetup::initSetup();
-        // auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
-
-        // sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
-        acquisition = IAcquisition::CreateEx(device);
-        // OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
-        // sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
-        acquisition->SetRate(configL->omconf->Rate); 
-        acquisition->ApplyConfiguration();
-    }    
-    if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
-    if (!datProcess->Start())
-    {
-        acquisition.reset();
-        acquisition = nullptr; ConfigureDevice();
-    }
+    
 }

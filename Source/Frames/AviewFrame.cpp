@@ -48,20 +48,20 @@ void AviewFrame::updateRealTime()
     static int idex = 0;
     try {
         if (nAscanCollection.empty()) return;
-        if (!lineSeries) RenderFrame();
-        lineSeries->clear();
-
-        auto& points = *ArtScan->AViewBuf;
+        if (!lineSeries)  RenderFrame(); 
+        points = *ArtScan->AViewBuf;
         size_t dataSize = points.size();
 
-        if (!lineSeries) RenderFrame(); 
         lineSeries->clear();  
         lineSeries->replace(points); 
-        axisY->setRange(0, static_cast<int>(dataSize));
-        axisX->setRange(
-            std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
-            std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x()
-        );
+        if (!axisX)
+        {
+            axisY->setRange(0, static_cast<int>(dataSize));
+            axisX->setRange(
+                std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
+                std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x()
+            );
+        }
         axisY->setReverse(true);
         static size_t lastpos = curpt.y;
         if (ConfigLocator::getInstance().omconf->BeamPosition != lastpos)
@@ -70,8 +70,7 @@ void AviewFrame::updateRealTime()
             if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
             sttlogs->logInfo("Beam Position: " + std::to_string(lastpos));
         }
-
-        RenderFrame();  
+ 
     }
     catch (exception& e)
     { std::cout << "ESCAN ERROR: " << e.what() << std::endl; return; }
@@ -96,7 +95,7 @@ void AviewFrame::OfflineProcess()
     uint64_t ysize = scandat.AmplitudeAxes[1].Quantity;
     uint64_t xsize = scandat.AmplitudeAxes[2].Quantity;
 
-    QVector<QPointF> points;
+
     points.reserve(zsize);
 
     double minY = std::numeric_limits<double>::max();
@@ -136,19 +135,18 @@ void AviewFrame::OfflineProcess()
     }
 }
 
-void AviewFrame::RealTimeProcess()
-{
-}
+
+
 
 void AviewFrame::RenderFrame()
 {
     // ********** INITIALIZATION & SETTINGS **********
-    axisX = new QValueAxis();
-    axisY = new QValueAxis();
     static QFont axisFont;
     static QPen linePen(QColor(0, 102, 204));
 
     if (!chart || !lineSeries) {
+        axisX = new QValueAxis();
+        axisY = new QValueAxis();       
         axisFont.setPointSize(8);
         linePen.setWidth(2);
         scene->clear();
@@ -193,16 +191,22 @@ void AviewFrame::RenderFrame()
 
         scene->addWidget(chartView);
         QShortcut* shortcut = new QShortcut(QKeySequence(Qt::Key_R), chartView);
-        QObject::connect(shortcut, &QShortcut::activated, chart, &QChart::zoomReset);
+        QObject::connect(shortcut, &QShortcut::activated, [this]() {
+            size_t dataSize = points.size();
+            axisY->setRange(0, static_cast<int>(dataSize));
+            axisX->setRange(
+                std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
+                std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x()
+            );
+            });
     }
-
+    cout << "Hekllo";
     // Adjust aspect ratio based on the graphicsView's size
     int viewWidth = graphicsView->width() * 1.0;
     int viewHeight = graphicsView->height() * 1.0;
     double aspectRatio = static_cast<double>(viewWidth) / static_cast<double>(viewHeight);
     chartView->setFixedSize(viewWidth, viewHeight);
     chartView->setGeometry(-10, 10, viewWidth, viewHeight);
-
     graphicsView->update();
 }
 

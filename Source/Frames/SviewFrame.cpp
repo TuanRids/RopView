@@ -87,17 +87,8 @@ void SviewFrame::updateRealTime()
 {
     try {
         if (!isRealTime) { scene->clear(); isRealTime = true; }
-        orgimage.reset();
-        orgimage = ArtScan->SViewBuf; 
+        orgimage = std::make_shared<cv::Mat>(ArtScan->SViewBuf->clone());
         if (!orgimage) return;
-        scaledImage = std::make_unique<cv::Mat>();
-
-        cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width(), graphicsView->height()), 0, 0, cv::INTER_NEAREST);
-        auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
-
-        *qImage = qImage->rgbSwapped();  
-        QPixmap pixmap = QPixmap::fromImage(*qImage);
-        
         for (auto item : scene->items()) {
             if (item->data(0).toString() == "artwork") {
                 scene->removeItem(item);
@@ -105,12 +96,18 @@ void SviewFrame::updateRealTime()
                 break;
             }
         }
-        auto artWork = new QGraphicsItemGroup();
-        artWork->setZValue(-1);
-        scene->addItem(artWork);
-        QGraphicsPixmapItem* pixmapItem = new QGraphicsPixmapItem(pixmap);
+
+        scaledImage = std::make_unique<cv::Mat>();
+        cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width(), graphicsView->height()), 0, 0, cv::INTER_NEAREST);
+        auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+
+        *qImage = qImage->rgbSwapped();  
+        QPixmap pixmap = QPixmap::fromImage(*qImage);
+
+        auto pixmapItem = scene->addPixmap(pixmap);
+        pixmapItem->setZValue(-1);
         pixmapItem->setData(0, "artwork");
-        artWork->addToGroup(pixmapItem);
+                
         graphicsView->update();
     }
 	catch (exception& e)

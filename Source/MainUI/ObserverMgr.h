@@ -26,8 +26,11 @@ public:
 	void clearScandat() { scandat = AscanData(); }
 	void popFront() {};
 	void RealDatProcess();
-
-	size_t bufferSize() { return _buffSize; }
+	size_t bufferSize() { return nAscanCollection.size(); }
+	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {
+		std::lock_guard<std::mutex> lock(collectionMutex);
+		nAscanCollection.push_back(_nAscanCollection);
+	}
 
 protected:
 	ConfigLocator ConfigL = ConfigLocator::getInstance();
@@ -49,10 +52,9 @@ class upFrame : public nObserver {
 	QWidget* createFrame() override {return nullptr;}
 	void update() override {}
 	void updateRealTime() override {}
+	std::mutex upMutex;
 public:
-	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {
-		nAscanCollection.push_back(_nAscanCollection);
-	}
+
 };
 
 #endif // NOBSERVER_H

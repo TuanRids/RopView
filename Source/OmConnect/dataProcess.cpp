@@ -62,9 +62,12 @@ void nDataProcess::Run()
             {
                 if (waitForDataResult.cycleData->GetAscanCollection()->GetCount() > 0)
                 {
-                    std::lock_guard<std::mutex> lock(m_mtx);
-                    obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
-                    setthoughout->set(m_acquisition->GetThroughput());
+                    if (waitForDataResult.cycleData && waitForDataResult.cycleData->GetAscanCollection())
+                    {
+                        std::lock_guard<std::mutex> lock(m_mtx);                        
+                        obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+                        setthoughout->set(m_acquisition->GetThroughput());
+                    }
                 }
 
                 /*auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);

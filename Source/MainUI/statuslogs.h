@@ -23,10 +23,8 @@ namespace nmainUI {
         }        
 
         void setupLoggers() {
-            auto t = std::time(nullptr);
-            std::ostringstream oss; tm tm; localtime_s(&tm, &t);
-            oss << "logs//Robview_" << std::put_time(&tm, "%Y-%m-%d_%H_%M_%S") << ".txt";
-
+            std::ostringstream oss; 
+            oss << "logs//Robview_Genelal_" << ".txt";
             auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(oss.str(), true);
             logger = std::make_shared<spdlog::logger>("Robview Record", spdlog::sinks_init_list{ file_sink });
             logger->set_level(spdlog::level::info);

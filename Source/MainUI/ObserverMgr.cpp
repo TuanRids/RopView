@@ -1,6 +1,7 @@
 #include "..\pch.h"
 #include "ObserverMgr.h"
 #include "SystemConfig/ConfigLocator.h"
+
 // Static variables *******************************************************************************
     AscanData nObserver::scandat;
     nmainUI::statuslogs* nObserver::sttlogs = nullptr;
@@ -19,17 +20,35 @@ nObserver::nObserver()
 
 void nObserver::RealDatProcess()
 {
+    auto logger = spdlog::get("file_logger");
+    if (logger) {
+        logger->info("--->Starting RealDatProcess");
+    }
+     
     static auto everyColors = CreateColorPalette();
     std::lock_guard<std::mutex> lock(collectionMutex);
-    _buffSize = 10 - nAscanCollection.size() > 0 ? 10 - nAscanCollection.size() : _buffSize;
-    if (nAscanCollection.size() == 0) throw std::runtime_error("nAscanCollection is empty.");
+    while (nAscanCollection.size() > 5)
+    {
+        nAscanCollection.pop_front();
+    }
 
-    auto RawAsanDat = std::move(nAscanCollection.back());
-    if (!RawAsanDat) throw std::runtime_error("nAscanCollection is empty.");
-    while (nAscanCollection.size() > 10) nAscanCollection.pop_front();
+    if (!nAscanCollection.front()) {
+        if (logger) {
+            logger->error("RawAsanDat is NULLPTR. Buffer Size: {}", nAscanCollection.size());
+        }
+        nAscanCollection.pop_front();
+        throw std::runtime_error("nAscanCollection is empty.");
+    }
+    auto RawAsanDat = std::move(nAscanCollection.front());
+
+    // while (nAscanCollection.size() > 100) nAscanCollection.pop_front();
 
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
+
+    if (logger) {
+        logger->info("zsize: {}, ysize: {}", zsize, ysize);
+    }
 
     // aview and sview would be reset as realtime
     ArtScan->resetall();
@@ -40,13 +59,22 @@ void nObserver::RealDatProcess()
     if (ArtScan->CViewBuf->empty()) {
         ArtScan->CViewBuf->create(ysize, 500, CV_8UC3);
         newMat.create(ysize, 500, CV_8UC3);
+        if (logger) {
+            logger->info("Created new CViewBuf & newMat ({}, {})", ysize, 500);
+        }
     }
     else {
         if (ArtScan->CViewBuf->cols > 2500) {
             ArtScan->CViewBuf = std::make_shared<cv::Mat>(ArtScan->CViewBuf->colRange(0, 499).clone());
+            if (logger) {
+                logger->warn("CViewBuf columns exceeded limit, --> to 500.");
+            }
         }
         newMat.create(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
         ArtScan->CViewBuf->copyTo(newMat);
+        if (logger) {
+            logger->info("Copied CViewBuf to newMat ({}, {})", ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols);
+        }
     }
         
 #pragma omp parallel for
@@ -77,7 +105,9 @@ void nObserver::RealDatProcess()
     *ArtScan->AViewBuf = points;
     ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(newMat.colRange(1, newMat.cols));
     ArtScan->CViewBuf = std::make_shared<cv::Mat>(newMat);
-
+    if (logger) {
+        logger->info("RealDatProcess: Completed <----");
+    }
 }
 
 std::vector<Color> nObserver::CreateColorPalette()

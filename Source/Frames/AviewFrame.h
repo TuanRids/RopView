@@ -12,7 +12,7 @@ class AviewFrame : public nObserver {
 private:
     //************** Method
     void OfflineProcess(); 
-    void RealTimeProcess(); 
+    void ReZoom(); 
     void RenderFrame();
 
     //************** Properties   
@@ -21,6 +21,7 @@ private:
 
     QValueAxis* axisX;
     QValueAxis* axisY;
+    QVector<QPointF> points;
 
     QChart* chart;
     QSplineSeries* lineSeries;

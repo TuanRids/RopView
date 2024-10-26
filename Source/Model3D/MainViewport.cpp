@@ -9,24 +9,24 @@ void VulkanWindow::GetDeviceInfo()
     QVulkanInstance* inst = this->vulkanInstance();
 
     QString info;
-    info += " **********\n";
-    info += "\t  *  Physical Devices: " + QString::number(this->availablePhysicalDevices().count()) + "\n";
+    info += "\n********************\n";
+    info += " Physical Devices: " + QString::number(this->availablePhysicalDevices().count()) + "\n";
 
     QVulkanFunctions* f = inst->functions();
     VkPhysicalDeviceProperties props;
     f->vkGetPhysicalDeviceProperties(this->physicalDevice(), &props);
-    info += "\t   *  Device: " + QString::fromUtf8(props.deviceName) + "\n";
-    info += "\t   *  API version: " + QString::number(VK_VERSION_MAJOR(props.apiVersion)) + "."
+    info += " Device: " + QString::fromUtf8(props.deviceName) + "\n";
+    info += " API version: " + QString::number(VK_VERSION_MAJOR(props.apiVersion)) + "."
         + QString::number(VK_VERSION_MINOR(props.apiVersion)) + "."
         + QString::number(VK_VERSION_PATCH(props.apiVersion)) + "\n";
 
-    info += "\t   *  Color format: " + QString::number(this->colorFormat()) + "\n";
-    info += "\t   *  Depth-stencil format: " + QString::number(this->depthStencilFormat()) + "\n";
+    info += " Color format: " + QString::number(this->colorFormat()) + "\n";
+    info += " Depth-stencil format: " + QString::number(this->depthStencilFormat()) + "\n";
 
-    info += "\t   *  Supported sample counts: ";
+    info += " Supported sample counts: ";
     for (int count : this->supportedSampleCounts())
         info += QString::number(count) + " ";
-    info += "\n\t   *********";
+    info += "\n********************";
     nmainUI::statuslogs::getinstance().logNotify(info.toStdString());
 }
 

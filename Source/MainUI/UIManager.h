@@ -44,6 +44,7 @@ namespace nmainUI {
         void onFullScreen() {};
         void openSettingsDialog();
     private:
+        void showRealTimeLogs();
         void logical();
         VulkanWindow* vulkanWindow;
         void refreshWidgets(const QList<QWidget*>& widgets);
