@@ -24,7 +24,7 @@ shared_ptr<IBeamSet> AddConventionalFiringBeamSet(shared_ptr<IUltrasoundConfigur
     shared_ptr<IBeamSet> beamSet;
     shared_ptr<IConnector> connector;
 
-    if (portName == FocusPX::PA_PORT)
+    if (portName == OmniScanX3::PA_PORT)
     {
         auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
         beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetConventional(beamSetName);
@@ -35,38 +35,23 @@ shared_ptr<IBeamSet> AddConventionalFiringBeamSet(shared_ptr<IUltrasoundConfigur
         auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::Conventional);
         beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetConventional(beamSetName);
 
-        if (portName == FocusPX::UT_P1_PORT)
+        if (portName == OmniScanX3::UT_P1_PORT)
         {
             connector = digitizer->GetConnectorCollection()->GetConnector(0);
         }
-        else if (portName == FocusPX::UT_P2_PORT)
+        else if (portName == OmniScanX3::UT_R1_PORT)
         {
             connector = digitizer->GetConnectorCollection()->GetConnector(1);
         }
-        else if (portName == FocusPX::UT_P3_PORT)
+        else if (portName == OmniScanX3::UT_P2_PORT)
         {
             connector = digitizer->GetConnectorCollection()->GetConnector(2);
         }
-        else if (portName == FocusPX::UT_P4_PORT)
+        else if (portName == OmniScanX3::UT_R2_PORT)
         {
             connector = digitizer->GetConnectorCollection()->GetConnector(3);
         }
-        else if (portName == FocusPX::UT_P2R2_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(4);
-        }
-        else if (portName == FocusPX::UT_P3R3_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(5);
-        }
-        else if (portName == FocusPX::UT_P3R3_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(6);
-        }
-        else if (portName == FocusPX::UT_P4R4_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(7);
-        }
+
     }
 
     ultrasoundConfig->GetFiringBeamSetCollection()->Add(beamSet, connector);
@@ -119,7 +104,7 @@ IBeamSetPtr CreateFiringBeamSetConventional(IConfigurationPtr config, shared_ptr
         if (probeConv)
         {
             wstring portName = probeConv->GetConnector()->GetConnection()->GetName();
-            beamSet = AddConventionalFiringBeamSet(ultrasoundConfig, peMethod->GetName(), portName);
+            beamSet = AddConventionalFiringBeamSet(ultrasoundConfig, peMethod->GetName(), OmniScanX3::UT_P1_PORT);
         }
         else
         {

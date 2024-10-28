@@ -25,15 +25,16 @@ bool OmConnect::omConnectDevice()
             sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
             device = DiscoverDevice();
             StartDevice();
-            ConfigureDevice();
-
-            //auto getsetup = OmConfigSetup::initSetup();
-            //auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
-
-            //sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
             acquisition = IAcquisition::CreateEx(device);
-            //OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
-            //sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
+
+            //ConfigureDevice();
+
+            auto getsetup = OmConfigSetup::initSetup();
+            auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
+            sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
+            OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
+            sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
+
             acquisition->SetRate(configL->omconf->Rate);
             acquisition->ApplyConfiguration();
         }

@@ -383,9 +383,7 @@ namespace nmainUI {
             nsubject->stopNotifyTimer();
             auto resHz = 1000.0f / (ConfigLocator::getInstance().omconf->Rate ) > 10 ? 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) : 5.0f;
             if (IOmConnect::Create()->omConnectDevice()) sttlogs->logCritical("Start RealTime!");
-
-            nsubject->startRealtimeUpdate( 5 ); //NOTE: refresh rate for realtime rendering
-
+            nsubject->startRealtimeUpdate( 45 ); //NOTE: refresh rate for realtime rendering
             });
         // add 3D button
 		QPushButton* btn3D = new QPushButton("3D");

@@ -39,9 +39,11 @@ void nDataProcess::Stop()
 {
     m_running = false;
     if (m_future.valid()) {
-        m_future.wait(); 
+        if (m_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+            nmainUI::statuslogs::getinstance().logCritical("Forcing acquisition stop due to timeout.");
+            m_acquisition->Stop();
+        }
     }
-    std::this_thread::sleep_for(std::chrono::seconds(2));
 
 }
 
@@ -54,10 +56,10 @@ void nDataProcess::Run()
     {
         do
         {
+            std::this_thread::sleep_for(std::chrono::milliseconds(4));
             auto waitForDataResult = m_acquisition->WaitForDataEx();
             if (m_acquisition->WaitForDataEx().status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
-                std::cout << "Data not available" << std::endl;
                 m_acquisition->Stop();
                 m_running = false;
                 return;
@@ -67,7 +69,6 @@ void nDataProcess::Run()
             
             if (waitForDataResult.cycleData && waitForDataResult.cycleData->GetAscanCollection())
             {
-                std::cout << "Data available" << std::endl;
                 std::lock_guard<std::mutex> lock(m_mtx);                        
                 obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
                 setthoughout->set(m_acquisition->GetThroughput());
@@ -78,13 +79,13 @@ void nDataProcess::Run()
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             }
-            
         } while ((m_running));
 
     }
     catch (const exception& e)
     {
-        std::cerr << "Exception found" << e.what() << std::endl;
+        std::lock_guard<std::mutex> lock(m_mtx);
+        nmainUI::statuslogs::getinstance().logCritical("Exception found: " + std::string(e.what()));
         exceptionFound = true;
         m_acquisition->Stop();
         m_running = false;

@@ -116,7 +116,7 @@ namespace OpenView
 
         auto raProbe = equipfactory->CreateRectangularArray(L"Phased Array Probe", raTransducer, raWedge);
         auto acqUnit = scanPlan->GetAcquisitionUnits()->GetAcquisitionUnit(0);
-        auto paPort = acqUnit->FindMultiPulserReceiverPort(FocusPX::PA_PORT);
+        auto paPort = acqUnit->FindMultiPulserReceiverPort(OmniScanX3::PA_PORT);
         raProbe->GetConnector()->SetConnection(paPort);
 
         // Phased array sectorial inspection method
