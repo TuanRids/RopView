@@ -40,12 +40,12 @@ void AviewFrame::update()
         return;
     }
     OfflineProcess();
-    RenderFrame();
+    // RenderFrame();
 }
 
 void AviewFrame::updateRealTime()
 {
-    static int idex = 0;
+    static bool first_flag = false;
     try {
         if (nAscanCollection.empty()) return;
         if (!lineSeries)  RenderFrame(); 
@@ -54,8 +54,9 @@ void AviewFrame::updateRealTime()
 
         lineSeries->clear();  
         lineSeries->replace(points); 
-        if (!axisX)
+        if (!axisX || !first_flag)
         {
+            first_flag = true;
             axisY->setRange(0, static_cast<int>(dataSize));
             axisX->setRange(
                 std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
@@ -70,13 +71,10 @@ void AviewFrame::updateRealTime()
             if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
             sttlogs->logInfo("Beam Position: " + std::to_string(lastpos));
         }
- 
     }
     catch (exception& e)
     { std::cout << "ESCAN ERROR: " << e.what() << std::endl; return; }
 }
-
-
 
 void AviewFrame::OfflineProcess()
 {
@@ -135,12 +133,10 @@ void AviewFrame::OfflineProcess()
     }
 }
 
-
-
-
 void AviewFrame::RenderFrame()
 {
     // ********** INITIALIZATION & SETTINGS **********
+
     static QFont axisFont;
     static QPen linePen(QColor(0, 102, 204));
 
@@ -198,9 +194,14 @@ void AviewFrame::RenderFrame()
                 std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
                 std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x()
             );
+            int viewWidth = graphicsView->width() * 1.0;
+            int viewHeight = graphicsView->height() * 1.0;
+            double aspectRatio = static_cast<double>(viewWidth) / static_cast<double>(viewHeight);
+            chartView->setFixedSize(viewWidth, viewHeight);
+            chartView->setGeometry(-10, 10, viewWidth, viewHeight);
+            graphicsView->update();
             });
     }
-    cout << "Hekllo";
     // Adjust aspect ratio based on the graphicsView's size
     int viewWidth = graphicsView->width() * 1.0;
     int viewHeight = graphicsView->height() * 1.0;

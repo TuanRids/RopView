@@ -1,5 +1,5 @@
 #include "dataProcess.h"
-#include "MainUI/ObserverMgr.h"
+#include "MainUI/FacObsFrames/ObserverMgr.h"
 #include "MainUI/statuslogs.h"
 
 std::shared_ptr<upFrame> obser = std::make_shared<upFrame>();
@@ -38,7 +38,10 @@ bool nDataProcess::Start()
 void nDataProcess::Stop()
 {
     m_running = false;
-    if (m_future.valid()) m_future.wait();
+    if (m_future.valid()) {
+        m_future.wait(); 
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
 }
 
@@ -46,45 +49,36 @@ void nDataProcess::Run()
 {
     
     m_acquisition->Start();
-    static size_t setIndex = 0;
     static auto setthoughout = &spdThoughout::getinstance();
     try
     {
         do
         {
             auto waitForDataResult = m_acquisition->WaitForDataEx();
-            if (waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
+            if (m_acquisition->WaitForDataEx().status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
+                std::cout << "Data not available" << std::endl;
                 m_acquisition->Stop();
                 m_running = false;
                 return;
             }
+
+            if (waitForDataResult.cycleData == nullptr || waitForDataResult.cycleData->GetAscanCollection()->GetCount() == 0) continue;
+            
+            if (waitForDataResult.cycleData && waitForDataResult.cycleData->GetAscanCollection())
             {
-                if (waitForDataResult.cycleData->GetAscanCollection()->GetCount() > 0)
-                {
-                    if (waitForDataResult.cycleData && waitForDataResult.cycleData->GetAscanCollection())
-                    {
-                        std::lock_guard<std::mutex> lock(m_mtx);                        
-                        obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
-                        setthoughout->set(m_acquisition->GetThroughput());
-                    }
-                }
-
-                /*auto ascan = waitForDataResult.cycleData->GetAscanCollection()->GetAscan(0);
-                std::vector<int> ascanVector(ascan->GetData(), ascan->GetData() + ascan->GetSampleQuantity());
-                std::ostringstream oss;
-                for (int j = 0; j < ascanVector.size(); ++j)
-                { oss << ascanVector[j] << " "; }
-                std::cout << oss.str() << std::endl;*/
-
+                std::cout << "Data available" << std::endl;
+                std::lock_guard<std::mutex> lock(m_mtx);                        
+                obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+                setthoughout->set(m_acquisition->GetThroughput());
+            }           
                 
-                if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
-                {
-                    auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
-                    double crossingTime = !cscan->GetCrossingTime();
-                }
+            if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
+            {
+                auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
+                double crossingTime = !cscan->GetCrossingTime();
             }
-            ++setIndex;
+            
         } while ((m_running));
 
     }

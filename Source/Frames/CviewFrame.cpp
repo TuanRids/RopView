@@ -94,7 +94,7 @@ void CviewFrame::CreateXYview() {
     orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    std::vector<Color> everyColors = CreateColorPalette();
+    std::vector<Color> everyColors = CreateColorPalette(ConfigL.sysParams->colorPalette);
     uint64_t z_offset = curpt.z * (xsize * ysize);
     double percentAmplitude;
 

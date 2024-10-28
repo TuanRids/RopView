@@ -1,6 +1,6 @@
 
 #include "AscanProcessor.h"
-#include <MainUI/ObserverMgr.h>
+#include <MainUI/FacObsFrames/ObserverMgr.h>
 #include <fstream>
 #include <hdf5.h>
 #include <rapidjson/document.h>

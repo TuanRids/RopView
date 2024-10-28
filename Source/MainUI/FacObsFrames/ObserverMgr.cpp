@@ -20,12 +20,12 @@ nObserver::nObserver()
 
 void nObserver::RealDatProcess()
 {
-    auto logger = spdlog::get("file_logger");
+    static auto logger = spdlog::get("file_logger");
     if (logger) {
         logger->info("--->Starting RealDatProcess");
     }
      
-    static auto everyColors = CreateColorPalette();
+    static auto everyColors = CreateColorPalette(ConfigL.sysParams->colorPalette);
     std::lock_guard<std::mutex> lock(collectionMutex);
     while (nAscanCollection.size() > 5)
     {
@@ -39,16 +39,14 @@ void nObserver::RealDatProcess()
         nAscanCollection.pop_front();
         throw std::runtime_error("nAscanCollection is empty.");
     }
-    auto RawAsanDat = std::move(nAscanCollection.front());
+    shared_ptr<IAscanCollection> RawAsanDat = std::move(nAscanCollection.front());
 
     // while (nAscanCollection.size() > 100) nAscanCollection.pop_front();
 
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
 
-    if (logger) {
-        logger->info("zsize: {}, ysize: {}", zsize, ysize);
-    }
+    if (logger) { logger->info("zsize: {}, ysize: {}", zsize, ysize); }
 
     // aview and sview would be reset as realtime
     ArtScan->resetall();
@@ -108,69 +106,57 @@ void nObserver::RealDatProcess()
     if (logger) {
         logger->info("RealDatProcess: Completed <----");
     }
+    RawAsanDat.reset();
 }
 
-std::vector<Color> nObserver::CreateColorPalette()
+std::vector<Color> nObserver::CreateColorPalette(int gainFactor = 0)
 {
-    int gainFactor = 2;
-    // Define a set of key colors that will be used as reference points for the gradient.
     std::vector<Color> colors;
     std::vector<Color> everyColors;
 
-    // Key colors in the gradient, ranging from white to deep red.
     colors.emplace_back(Color{ 255, 255, 255 }); // white
+    colors.emplace_back(Color{ 241, 211, 43 });  // light yellow
+    colors.emplace_back(Color{ 211, 223, 45 });  // yellow
+    colors.emplace_back(Color{ 126, 187, 94 });  // light green
+    colors.emplace_back(Color{ 59, 140, 127 });  // green
     colors.emplace_back(Color{ 184, 212, 244 }); // light blue
     colors.emplace_back(Color{ 113, 170, 233 }); // blue
     colors.emplace_back(Color{ 62, 105, 190 });  // dark blue
     colors.emplace_back(Color{ 14, 37, 143 });   // dark purple
     colors.emplace_back(Color{ 27, 72, 129 });   // purple
-    colors.emplace_back(Color{ 59, 140, 127 });  // green
-    colors.emplace_back(Color{ 126, 187, 94 });  // light green
-    colors.emplace_back(Color{ 211, 223, 45 });  // yellow
-    colors.emplace_back(Color{ 241, 211, 43 });  // light yellow
     colors.emplace_back(Color{ 222, 156, 80 });  // orange
     colors.emplace_back(Color{ 209, 121, 87 });  // light orange
     colors.emplace_back(Color{ 205, 116, 49 });  // dark orange
     colors.emplace_back(Color{ 194, 98, 23 });   // brown
     colors.emplace_back(Color{ 167, 50, 26 });   // dark brown
-    colors.emplace_back(Color{ 145, 12, 29 });   // red
+    colors.emplace_back(Color{ 145, 12, 29 });   // dark red
 
-    // Number of interpolation points between each pair of key colors.
     size_t interpolationPoints{ 7 };
-    double f = 1.0 / interpolationPoints;   // Fractional step size for interpolation.
+    double f = 1.0 / interpolationPoints;
 
-    // Interpolate between each pair of consecutive key colors.
     for (size_t colorIdx(0); colorIdx < colors.size() - 1; colorIdx++) {
-        Color x = colors[colorIdx];         // Start color
-        Color y = colors[colorIdx + 1];     // End color
+        Color x = colors[colorIdx];
+        Color y = colors[colorIdx + 1];
 
-        // Generate intermediate colors between x and y.
         for (size_t j(0); j < interpolationPoints; j++) {
-            // Interpolate each RGB component separately.
             uint8_t r = static_cast<uint8_t>(x.R + (y.R - x.R) * (j * f));
             uint8_t g = static_cast<uint8_t>(x.G + (y.G - x.G) * (j * f));
             uint8_t b = static_cast<uint8_t>(x.B + (y.B - x.B) * (j * f));
-
-            // Add the interpolated color to the resulting palette.
             everyColors.emplace_back(Color{ r, g, b });
         }
     }
 
-    // Apply gainFactor to shift colors based on the intensity
     size_t numColors = everyColors.size();
     std::vector<Color> gainAdjustedColors(numColors);
 
-    // Adjust the colors based on the gain factor.
     for (size_t i = 0; i < numColors; ++i) {
-        // Calculate the shifted index based on gain.
-        int shiftedIndex = static_cast<int>(i * gainFactor);
-        if (shiftedIndex >= numColors) {
-            shiftedIndex = static_cast<int>(numColors - 1); // Cap at the last color
-        }
-        gainAdjustedColors[i] = everyColors[shiftedIndex];
+        int adjustedIndex = i + gainFactor;
+        if (adjustedIndex < 0) adjustedIndex = 0;
+        if (adjustedIndex >= static_cast<int>(numColors)) adjustedIndex = numColors - 1;
+        gainAdjustedColors[i] = everyColors[adjustedIndex];
     }
 
     return gainAdjustedColors;
-
 }
+
 

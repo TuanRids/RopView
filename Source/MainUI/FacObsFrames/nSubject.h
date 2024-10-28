@@ -49,15 +49,19 @@ public:
 	void notifyRealtime() {
 		if (!isRealTime) return;
 		try
-		{	
+		{
+			// _CrtDumpMemoryLeaks();
 			if (observers[0]->bufferSize() < 1) return;
 			QElapsedTimer timer;
 			timer.start();
 			observers[0]->RealDatProcess();
 			for (const auto& object : observers) {
 				object->updateRealTime();
+
 			}
+#ifndef NDEBUG
 			spdThoughout::getinstance().set_Fps(timer.elapsed());
+#endif		
 		}
 		catch (...)
 		{ void(0); }

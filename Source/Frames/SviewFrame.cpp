@@ -32,7 +32,7 @@ void SviewFrame::update() {
     orgimage = std::make_unique<cv::Mat>(zsize, ysize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    auto everyColors = CreateColorPalette();
+    auto everyColors = CreateColorPalette(ConfigL.sysParams->colorPalette);
 #pragma omp parallel for
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {

@@ -1,7 +1,7 @@
 #ifndef FACTORYMGR_H
 #define FACTORYMGR_H
 #include "../pch.h"
-#include "mainwindow.h"
+#include "../mainwindow.h"
 // forward declaration for fixing Circular reference
 class CviewFrame; // Oxy
 class SviewFrame; // Oyz

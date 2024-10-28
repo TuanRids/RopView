@@ -2,11 +2,11 @@
 #define UIManager_H
 #include <QSettings>
 #include <QSplitter>
-#include "ObserverMgr.h"
-#include "nSubject.h"
-#include "..\Source\PAUTFileReader\AscanProcessor.h"
+#include "FacObsFrames/ObserverMgr.h"
+#include "FacObsFrames/nSubject.h"
+#include "PAUTFileReader/AscanProcessor.h"
 
-#include "..\Model3D\MainViewport.h"
+#include "Model3D/MainViewport.h"
 
 namespace nmainUI {
     class UIManager {

@@ -24,8 +24,13 @@ struct SettingConfig {
 };
 
 struct SystemParams {
+    // Resolution scale - offline
     unsigned int resolution = 12;
+    // cscan layer
     bool isCscanLayer = false;
     std::string tempBufferLogs ="";
+    //color Palette upper | lowewr
+    int colorPalette = 2;
+    
 };
 

@@ -45,7 +45,14 @@ pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_ARCHITECTURES 75) # adjust based on our architecture
 # Add source to this project's executable.
-file(GLOB_RECURSE SOURCES "Source/*.cpp" "Source/*.c" "Source/*.cc" "Source/*.hpp" "Source/*.cu" "Source/*.qrc" )
+file(GLOB_RECURSE SOURCES
+    "Source/**/*.cpp"
+    "Source/**/*.c"
+    "Source/**/*.cc"
+    "Source/**/*.hpp"
+    "Source/**/*.cu"
+    "Source/**/*.qrc"
+)
 
 # Add the header files that contain Q_OBJECT
 set(HEADER_FILES 
@@ -54,8 +61,6 @@ set(HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Model3D/MainViewport.h
 
 )
-
-
 # Use qt6_wrap_cpp to process the headers with Q_OBJECT
 qt6_wrap_cpp(MOC_SOURCES ${HEADER_FILES})
 qt_add_resources(RopView_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shader/shaders.qrc)
@@ -63,7 +68,7 @@ qt_add_resources(RopView_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shader/shade
 
 
 # Combine all sources and moc-generated sources
-add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc  "Source/MainUI/ObserverMgr.cpp")
+add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc  "Source/MainUI/FacObsFrames/ObserverMgr.cpp")
 
 
 # Depending on the compiler (MSVC or GCC), add specific flags or settings
@@ -81,9 +86,12 @@ endif()
 target_precompile_headers(RopView PRIVATE "pch.h")
 
 # Add include directories for headers
+
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/Include")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/Source")
 target_include_directories(RopView PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+
+#link libraries
 target_link_libraries(RopView PRIVATE ${OpenCV_LIBS})
 target_link_libraries(RopView PRIVATE opencv_ml opencv_dnn opencv_core opencv_flann)
 target_link_libraries(RopView PRIVATE Qt6::Widgets)
@@ -95,11 +103,16 @@ target_link_libraries(RopView PRIVATE ${VTK_LIBRARIES})
 target_link_libraries(RopView PRIVATE CUDA::cudart)
 target_link_libraries(RopView PRIVATE spdlog::spdlog)
 target_link_libraries(RopView PRIVATE unofficial::qwt::qwt)
+
+
 #target_link_libraries(RopView CUDA::cudart)
 
 set(QT_PLUGIN_PATH "C:/vcpkg/vcpkg/installed/x64-windows/Qt6/plugins/platforms")
 # Add library directories for linking
 if (MSVC)
+    # Enable MASM (Microsoft Macro Assembler) in MSVC
+    set(CMAKE_ASM_MASM_SOURCE_FILE_EXTENSIONS asm)
+    enable_language(ASM_MASM)
     link_directories("${CMAKE_CURRENT_SOURCE_DIR}/Lib/Release")
     link_directories("${CMAKE_CURRENT_SOURCE_DIR}/Lib/Debug")
 endif()

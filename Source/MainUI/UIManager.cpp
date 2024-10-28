@@ -4,14 +4,14 @@
 #include <QVBoxLayout>
 #include <QTimer>
 
-#include "FactoryMgr.h"
+#include "FacObsFrames/FactoryMgr.h"
 #include "Frames/CviewFrame.h"
 #include "Frames/SviewFrame.h"
 #include "Frames/BviewFrame.h"
 #include "Frames/AviewFrame.h"
 #include "SystemConfig/ConfigLocator.h"
 #include "../Data3DProcessing/Data3DProcess.h"
-
+#include "OmConnect/OmCreateSetupSetting/OmCreateSetup.h"
 QMainWindow* getMainWindow() {
     foreach(QWidget * widget, QApplication::topLevelWidgets()) {
         if (QMainWindow* mainWindow = qobject_cast<QMainWindow*>(widget)) {
@@ -97,7 +97,6 @@ namespace nmainUI {
     }
 
     void UIManager::showRealTimeLogs() {
-        return;
         auto nmainwd = getMainWindow();
         QDockWidget* logDockWidget = new QDockWidget("Real-Time Logs", nmainwd);
         QTextEdit* logTextEdit = new QTextEdit(logDockWidget);
@@ -362,7 +361,7 @@ namespace nmainUI {
             });
 
         // Add a button
-        QPushButton* btnLoad = new QPushButton("Load");
+        QPushButton* btnLoad = new QPushButton("Load Offline");
         layout->addWidget(btnLoad);
         QObject::connect(btnLoad, &QPushButton::clicked, [=]() mutable {
             nsubject->stopRealtimeUpdate();
@@ -370,15 +369,23 @@ namespace nmainUI {
             IOmConnect::Create()->omDisconnectDevice();
             logical();
             });
-
+        // Add a button
+        QPushButton* btnSaveSetup = new QPushButton("Save Setup");
+        layout->addWidget(btnSaveSetup);
+        QObject::connect(btnSaveSetup, &QPushButton::clicked, [=]() mutable {
+            if (OmCreateSetup::SaveSetup()) sttlogs->logCritical("Save Setup!");
+            else sttlogs->logCritical("Save Setup Failed!");
+            });
         // Add a button
         QPushButton* btnConnect = new QPushButton("Connect");
         layout->addWidget(btnConnect);
         QObject::connect(btnConnect, &QPushButton::clicked, [=]() mutable {
             nsubject->stopNotifyTimer();
             auto resHz = 1000.0f / (ConfigLocator::getInstance().omconf->Rate ) > 10 ? 1000.0f / (ConfigLocator::getInstance().omconf->Rate + 10) : 5.0f;
-            nsubject->startRealtimeUpdate( 5); //NOTE: refresh rate for realtime rendering
             if (IOmConnect::Create()->omConnectDevice()) sttlogs->logCritical("Start RealTime!");
+
+            nsubject->startRealtimeUpdate( 5 ); //NOTE: refresh rate for realtime rendering
+
             });
         // add 3D button
 		QPushButton* btn3D = new QPushButton("3D");
@@ -435,13 +442,7 @@ namespace nmainUI {
     QWidget* UIManager::createOmSetting() {
         auto omc = ConfigLocator::getInstance().omconf;
         QWidget* settingsWidget = new QWidget();
-        QHBoxLayout* mainLayout = new QHBoxLayout(settingsWidget);
-        mainLayout->setSpacing(5);
-        mainLayout->setContentsMargins(1, 1, 1, 1);
-
-        // Group 1 - Beam Settings
-        QGroupBox* group1 = new QGroupBox("Beam Settings");
-        QVBoxLayout* layout1 = new QVBoxLayout(group1);
+        QTabWidget* tabWidget = new QTabWidget(settingsWidget);
 
         auto addSetting = [](QVBoxLayout* layout, const QString& label, QWidget* widget) {
             QHBoxLayout* hLayout = new QHBoxLayout();
@@ -450,9 +451,18 @@ namespace nmainUI {
             layout->addLayout(hLayout);
             };
 
+        // Tab 1
+        QWidget* tab1 = new QWidget();
+        QVBoxLayout* tab1Layout = new QVBoxLayout(tab1);
+
+        // Group 1 - Beam Settings
+        QGroupBox* group1 = new QGroupBox("Beam Settings");
+        QVBoxLayout* layout1 = new QVBoxLayout(group1);
+
         auto beamPositionInput = new QSpinBox();
         beamPositionInput->setRange(0, 100);
         beamPositionInput->setValue(static_cast<int>(omc->BeamPosition));
+        beamPositionInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout1, "Beam Position:", beamPositionInput);
         QObject::connect(beamPositionInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->BeamPosition = value;
@@ -461,6 +471,7 @@ namespace nmainUI {
         auto rateInput = new QSpinBox();
         rateInput->setRange(10, 1000);
         rateInput->setValue(static_cast<int>(omc->Rate));
+        rateInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout1, "Rate (Hz):", rateInput);
         QObject::connect(rateInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->Rate = value;
@@ -469,6 +480,7 @@ namespace nmainUI {
         auto beamLimitInput = new QSpinBox();
         beamLimitInput->setRange(1, 512);
         beamLimitInput->setValue(static_cast<int>(omc->beamLimit));
+        beamLimitInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout1, "Beam Limit:", beamLimitInput);
         QObject::connect(beamLimitInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->beamLimit = value;
@@ -477,50 +489,60 @@ namespace nmainUI {
         auto apertureInput = new QSpinBox();
         apertureInput->setRange(1, 64);
         apertureInput->setValue(static_cast<int>(omc->elementAperture));
+        apertureInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout1, "Element Aperture:", apertureInput);
         QObject::connect(apertureInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->elementAperture = value;
             });
 
-        mainLayout->addWidget(group1);
+        tab1Layout->addWidget(group1);
 
         // Group 2 - Delay Settings
         QGroupBox* group2 = new QGroupBox("Delay Settings");
         QVBoxLayout* layout2 = new QVBoxLayout(group2);
 
         auto delayResolutionInput = new QDoubleSpinBox();
-        delayResolutionInput->setRange(0.1, 10.0);
+        delayResolutionInput->setRange(0.1, 20.0);
         delayResolutionInput->setValue(omc->delayResolution);
+        delayResolutionInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout2, "Delay Resolution (ns):", delayResolutionInput);
         QObject::connect(delayResolutionInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {
             omc->delayResolution = value;
             });
 
         auto pulserDelayInput = new QDoubleSpinBox();
-        pulserDelayInput->setRange(0, 1000);
+        pulserDelayInput->setRange(0, 2000);
         pulserDelayInput->setValue(omc->pulserBaseDelay);
+        pulserDelayInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout2, "Pulser Base Delay:", pulserDelayInput);
         QObject::connect(pulserDelayInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {
             omc->pulserBaseDelay = value;
             });
 
         auto receiverDelayInput = new QDoubleSpinBox();
-        receiverDelayInput->setRange(0, 1000);
+        receiverDelayInput->setRange(0, 2000);
         receiverDelayInput->setValue(omc->receiverBaseDelay);
+        receiverDelayInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout2, "Receiver Base Delay:", receiverDelayInput);
         QObject::connect(receiverDelayInput, QOverload<double>::of(&QDoubleSpinBox::valueChanged), [=](double value) {
             omc->receiverBaseDelay = value;
             });
 
-        mainLayout->addWidget(group2);
+        tab1Layout->addWidget(group2);
+        tab1->setLayout(tab1Layout);
+
+        // Tab 2
+        QWidget* tab2 = new QWidget();
+        QVBoxLayout* tab2Layout = new QVBoxLayout(tab2);
 
         // Group 3 - Gate & Ascan Settings
         QGroupBox* group3 = new QGroupBox("Gate & Ascan Settings");
         QVBoxLayout* layout3 = new QVBoxLayout(group3);
 
         auto ascanStartInput = new QSpinBox();
-        ascanStartInput->setRange(0, 10000);
+        ascanStartInput->setRange(0, 20000);
         ascanStartInput->setValue(omc->ascanStart);
+        ascanStartInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout3, "Ascan Start Position:", ascanStartInput);
         QObject::connect(ascanStartInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->ascanStart = value;
@@ -529,38 +551,50 @@ namespace nmainUI {
         auto ascanLengthInput = new QSpinBox();
         ascanLengthInput->setRange(0, 20000);
         ascanLengthInput->setValue(omc->ascanLength);
+        ascanLengthInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout3, "Ascan Length:", ascanLengthInput);
         QObject::connect(ascanLengthInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->ascanLength = value;
             });
 
         auto gateStartInput = new QSpinBox();
-        gateStartInput->setRange(0, 10000);
+        gateStartInput->setRange(0, 20000);
         gateStartInput->setValue(omc->gateStart);
+        gateStartInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout3, "Gate Start:", gateStartInput);
         QObject::connect(gateStartInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->gateStart = value;
             });
 
         auto gateLengthInput = new QSpinBox();
-        gateLengthInput->setRange(0, 5000);
+        gateLengthInput->setRange(0, 20000);
         gateLengthInput->setValue(omc->gateLength);
+        gateLengthInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout3, "Gate Length:", gateLengthInput);
         QObject::connect(gateLengthInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->gateLength = value;
             });
 
         auto gateThresholdInput = new QSpinBox();
-        gateThresholdInput->setRange(0, 100);
+        gateThresholdInput->setRange(0, 500);
         gateThresholdInput->setValue(omc->gateThreshold);
+        gateThresholdInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
         addSetting(layout3, "Gate Threshold:", gateThresholdInput);
         QObject::connect(gateThresholdInput, QOverload<int>::of(&QSpinBox::valueChanged), [=](int value) {
             omc->gateThreshold = value;
             });
 
-        mainLayout->addWidget(group3);
+        tab2Layout->addWidget(group3);
+        tab2->setLayout(tab2Layout);
 
+        // Add tabs to the tab widget
+        tabWidget->addTab(tab1, "Settings Tab 1");
+        tabWidget->addTab(tab2, "Settings Tab 2");
+
+        QVBoxLayout* mainLayout = new QVBoxLayout(settingsWidget);
+        mainLayout->addWidget(tabWidget);
         settingsWidget->setLayout(mainLayout);
+
         return settingsWidget;
     }
 
@@ -627,7 +661,7 @@ namespace nmainUI {
         if (!inst->create()) {
             qFatal("Failed to create Vulkan instance");
         }
-
+        
         // Create Vulkan window and set the Vulkan instance
         vulkanWindow = new VulkanWindow;
         vulkanWindow->setVulkanInstance(inst);

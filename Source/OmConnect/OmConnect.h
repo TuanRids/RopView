@@ -1,7 +1,7 @@
 #pragma once
 #include "../pch.h"
 #include "IOmConnect.h"
-#include "../MainUI/statuslogs.h"
+#include "MainUI/statuslogs.h"
 #include "SystemConfig/ConfigLocator.h"
 #include "dataProcess.h"
 #include "OmConfigSetup.h"

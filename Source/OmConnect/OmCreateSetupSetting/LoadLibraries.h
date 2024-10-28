@@ -161,5 +161,4 @@ namespace OpenView
         }
     };
 
-    bool OpenView::Libraries::IsBinariesBeside = true;
 }

@@ -25,7 +25,6 @@
 #include <spdlog/sinks/basic_file_sink.h>
 // ======== Windows-Specific Headers ============
 #include <windows.h>
-
 // ======== Boost Library ============
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>

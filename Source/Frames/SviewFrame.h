@@ -1,12 +1,12 @@
 #ifndef SSCANFRAME_H
 #define SSCANFRAME_H
 
-#include "..\pch.h"
-#include "..\Source\PAUTFileReader\AscanProcessor.h"
-#include "..\Source\MainUI\FactoryMgr.h"
-#include "..\Source\MainUI\ObserverMgr.h"
-#include "..\Source\MainUI\mainwindow.h"
-#include "..\Source\event\ZoomableGraphicsView.h"
+#include "../pch.h"
+#include "PAUTFileReader/AscanProcessor.h"
+#include "MainUI/FacObsFrames/FactoryMgr.h"
+#include "MainUI/FacObsFrames/ObserverMgr.h"
+#include "MainUI/mainwindow.h"
+#include "event/ZoomableGraphicsView.h"
 #include "event/XYOverlayGrid.h"
 
 // Graphics Frame

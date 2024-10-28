@@ -6,9 +6,10 @@ using namespace Olympus::Equipment;
 using namespace Olympus::Inspection;
 using namespace Olympus::FileManagement;
 using namespace Olympus::FileManagement::Storage;
+
 Olympus::FileManagement::ISetupPtr OmConfigSetup::initSetup()
 { 
-    std::filesystem::path inputFile = std::filesystem::current_path() / "sample" / "Setup.ovs";
+    std::filesystem::path inputFile = std::filesystem::current_path() / "sample" / "Setup1.ovs";
     // check if input file exists
     if (std::filesystem::exists(inputFile)) 
     {
@@ -77,7 +78,7 @@ shared_ptr<IBeamSet> AddPhasedArrayFiringBeamSet(shared_ptr<IUltrasoundConfigura
 {
     shared_ptr<IBeamSet> beamSet;
 
-    if (portName == L"PAPort")
+    if (portName == L"PA")
     {
         auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
         auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
@@ -305,10 +306,13 @@ bool ConfigBeamSetConventional(shared_ptr<IBeamSet> beamSet, IConfigurationPtr c
 bool ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config)
 {
     bool adjusted(false);
-
     auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
+    if (!(paConfig->GetPulsingSettings()->GetPulseWidth()))
+        throw bad_cast{};
+    else
+        std::cout << paConfig->GetPulsingSettings()->GetPulseWidth() << std::endl;
     adjusted |= beamSet->GetPulsingSettings()->SetAscanAveragingFactor(paConfig->GetPulsingSettings()->GetAscanAveragingFactor());
-    adjusted |= beamSet->GetPulsingSettings()->SetPulseWidth(paConfig->GetPulsingSettings()->GetPulseWidth());
+    adjusted |= beamSet->GetPulsingSettings()->SetPulseWidth(100);
     adjusted |= CopyDigitizingSettings(beamSet->GetDigitizingSettings(), paConfig->GetDigitizingSettings());
 
     for (size_t beamIdx(0); beamIdx < beamSet->GetBeamCount(); ++beamIdx)
@@ -352,7 +356,6 @@ bool ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr co
 
     return adjusted;
 }
-
 
 bool OmConfigSetup::ConfigAcquisitionFromSetup(IAcquisitionPtr nacquisition, Olympus::FileManagement::ISetupPtr setup)
 {
@@ -426,6 +429,8 @@ bool OmConfigSetup::ConfigDeviceFromSetup(IDevicePtr ndevice, Olympus::FileManag
                 if (paMethod)
                 {
                     auto beamSet = CreateFiringBeamSetPhasedArray(config, ultrasoundConfig);
+                    if (!beamSet) /* throw print */
+                        throw bad_cast{};
                     adjusted |= ConfigBeamSetPhasedArray(beamSet, config);
                 }
                 else

@@ -39,7 +39,7 @@ protected:
 	static AscanData scandat;
 	static nmainUI::statuslogs* sttlogs;
 	static deque<shared_ptr<IAscanCollection>> nAscanCollection;
-	std::vector<Color> CreateColorPalette();
+	std::vector<Color> CreateColorPalette(int gainFactor );
 	static UIArtScan* ArtScan;
 	std::mutex collectionMutex;
 private:

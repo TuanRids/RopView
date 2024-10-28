@@ -1,5 +1,5 @@
 #include "OmConnect.h"
-#include "LoadLibraries.h"
+#include "OmCreateSetupSetting/LoadLibraries.h"
 #include "SystemConfig/ConfigLocator.h"
 using namespace Instrumentation;
 std::string wstostring(const std::wstring& wstr) {
@@ -27,30 +27,30 @@ bool OmConnect::omConnectDevice()
             StartDevice();
             ConfigureDevice();
 
+            //auto getsetup = OmConfigSetup::initSetup();
+            //auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
 
-            auto getsetup = OmConfigSetup::initSetup();
-            // auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
-
-            // sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
+            //sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
             acquisition = IAcquisition::CreateEx(device);
-            // OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
-            // sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
+            //OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
+            //sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
             acquisition->SetRate(configL->omconf->Rate);
             acquisition->ApplyConfiguration();
         }
-        if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);
+        if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);    
         if (!datProcess->Start())
         {
             acquisition.reset();
             acquisition = nullptr; ConfigureDevice();
         }
-        return true;
+
     }
     catch (const std::exception& e)
     {
         sttlogs->logCritical(e.what());
         return false;
     }
+    return true;
 }
 
 void OmConnect::omDisconnectDevice()
