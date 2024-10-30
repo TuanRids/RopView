@@ -67,7 +67,6 @@ void nDataProcess::Run()
             }
 
             if (waitForDataResult.cycleData == nullptr || waitForDataResult.cycleData->GetAscanCollection()->GetCount() == 0) continue;
-            
             if (waitForDataResult.cycleData && waitForDataResult.cycleData->GetAscanCollection())
             {
                 std::lock_guard<std::mutex> lock(m_mtx);                        

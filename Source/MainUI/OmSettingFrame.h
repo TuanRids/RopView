@@ -158,12 +158,12 @@ private:
         group3->setFixedSize(180, 200);
         QVBoxLayout* layout3 = new QVBoxLayout(group3);
 
-        auto ascanStartInput = createSpinBox(0, 20000, static_cast<int>(omc->ascanStart), [=](int value) {
+        auto ascanStartInput = createSpinBox(0, 200000, static_cast<int>(omc->ascanStart), [=](int value) {
             omc->ascanStart = value;
             });
         addSetting(layout3, "Ascan Start", ascanStartInput);
 
-        auto ascanLengthInput = createSpinBox(0, 20000, static_cast<int>(omc->ascanLength), [=](int value) {
+        auto ascanLengthInput = createSpinBox(0, 200000, static_cast<int>(omc->ascanLength), [=](int value) {
             omc->ascanLength = value;
             });
         addSetting(layout3, "Ascan Length", ascanLengthInput);
@@ -248,7 +248,7 @@ private:
             });
         addSetting(layout2, "Exit Point (mm)", wedgeExitPointInput);
 
-        auto wedgeMaterialVelocityInput = createDoubleSpinBox(1000.0, 5000.0, scanPlan->raWedgeMaterialVelocity, [=](double value) {
+        auto wedgeMaterialVelocityInput = createDoubleSpinBox(1000.0, 20000.0, scanPlan->raWedgeMaterialVelocity, [=](double value) {
             scanPlan->raWedgeMaterialVelocity = value;
             });
         addSetting(layout2, "Material Velocity (m/s)", wedgeMaterialVelocityInput);
@@ -348,7 +348,7 @@ private:
             });
         addSettingToGrid(layout1, "Gain", gainInput, 0, 0);
 
-        auto velocityInput = createDoubleSpinBox(1000.0, 5000.0, setupConfig->phasing_velocity, [=](double value) {
+        auto velocityInput = createDoubleSpinBox(1000.0, 20000.0, setupConfig->phasing_velocity, [=](double value) {
             setupConfig->phasing_velocity = value;
             });
         addSettingToGrid(layout1, "Velocity (m/s)", velocityInput, 0, 1);
@@ -368,7 +368,7 @@ private:
         ascanDataSizeDropdown->addItem("8 Bits", QVariant::fromValue(Instrumentation::IAmplitudeSettings::AscanDataSize::EightBits));
         ascanDataSizeDropdown->addItem("12 Bits", QVariant::fromValue(Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits));
         ascanDataSizeDropdown->addItem("16 Bits", QVariant::fromValue(Instrumentation::IAmplitudeSettings::AscanDataSize::SixteenBits));
-        ascanDataSizeDropdown->setCurrentIndex(static_cast<int>(setupConfig->phasing_ascanDataSize));
+        ascanDataSizeDropdown->setCurrentIndex(static_cast<int>(Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits));
 
         connect(ascanDataSizeDropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
             setupConfig->phasing_ascanDataSize = static_cast<Instrumentation::IAmplitudeSettings::AscanDataSize>(ascanDataSizeDropdown->itemData(index).toInt());

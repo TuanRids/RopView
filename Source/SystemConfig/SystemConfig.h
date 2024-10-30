@@ -31,15 +31,15 @@ struct SystemParams {
     bool isCscanLayer = false;
     std::string tempBufferLogs ="";
     //color Palette upper | lowewr
-    int colorPalette = 2;
+    int colorPalette = 0;
     
 };
 
 struct Om_Settup_Config
 {
     // === Om Phased Array Beam Settings ===
-    static constexpr const size_t PA_BeamQty = 5;
-    static constexpr const size_t PA_ElementQty = 16;
+    static constexpr const size_t PA_BeamQty = 32;
+    static constexpr const size_t PA_ElementQty = 32;
     static constexpr const size_t PA_FirstElement = 1;
     static constexpr const double PA_BeamAngleStart = 45.;
     double PA_exitPoint[PA_BeamQty] = { 28., 27.75, 27.5, 27.25, 27. }; // mm

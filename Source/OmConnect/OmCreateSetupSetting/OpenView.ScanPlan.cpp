@@ -28,12 +28,12 @@ namespace OpenView
         // Acquisition Unit
 
         auto equipfactory = scanPlan->GetEquipmentFactory();
-        auto acqUnit = equipfactory->AddAcquisitionUnit(L"Unit 1",
-            IDeviceInfo::Platform::FocusPx, IDeviceInfo::Model::PA32x128);
+        auto acqUnit = equipfactory->AddAcquisitionUnit(L"omniScanX3",
+            IDeviceInfo::Platform::OmniScanX3, IDeviceInfo::Model::PA32x128);
 
         // Encoder
         auto encoder = equipfactory->CreateEncoder(L"Scan Encoder", 10.);
-        auto ioPort = acqUnit->FindInputOutputPort(FocusPX::PA_PORT);
+        auto ioPort = acqUnit->FindInputOutputPort(OmniScanX3::PA_PORT);
         /*auto phaseA_axis1 = ioPort->FindPin(PinSignal::PhaseA_axis1);
         auto phaseB_axis1 = ioPort->FindPin(PinSignal::PhaseB_axis1);
         encoder->SetPhaseAPin(phaseA_axis1);
@@ -102,7 +102,7 @@ namespace OpenView
         // Phased array sectorial inspection method
         auto inspFactory = scanPlan->GetInspectionMethodFactory();
         auto patch = scanPlan->GetPatches()->GetPatch(0);
-        auto sectoFormation = inspFactory->CreateSectorialFormation(45., 49., 1., 1, 16);
+        auto sectoFormation = inspFactory->CreateSectorialFormation(45., 90., 1., 1, 16);
         auto sectoMethod = inspFactory->AddPhasedArraySectorial(L"GR-2", patch, raProbe, sectoFormation);
 
         sectoMethod->GetBeamSet()->SetWaveType(WaveType::Transversal);
@@ -117,7 +117,7 @@ namespace OpenView
             (sectoMethod->GetBeamSet()->GetFormation());
 
         sectorialFormation->GetSkewAngle()->SetStart(45.);
-        sectorialFormation->GetSkewAngle()->SetStop(45.);
+        sectorialFormation->GetSkewAngle()->SetStop(90.);
         sectorialFormation->GetSkewAngle()->SetStep(1.);
     }/*GetPulsingSettings()->GetAscanAveragingFactor*/
 

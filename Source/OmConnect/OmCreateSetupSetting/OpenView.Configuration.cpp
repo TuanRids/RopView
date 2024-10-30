@@ -7,13 +7,13 @@ namespace OpenView
     {
         auto sancPlan = setup->GetScanPlan();
         auto inspConfigs = setup->GetInspectionConfigurations();
-        auto inspConfig = inspConfigs->Add(FiringTrigger::Encoder, 1000.);
+        auto inspConfig = inspConfigs->Add(FiringTrigger::Internal, 1000.);
 
-        auto encoder = sancPlan->GetPatches()->GetPatch(0)->GetScanAxis()->GetEncoder();
+        /*auto encoder = sancPlan->GetPatches()->GetPatch(0)->GetScanAxis()->GetEncoder();
         auto encoderConfig = inspConfig->GetEncoderConfigurations()->Add(encoder);
         encoderConfig->SetType(EncoderType::Quadrature);
         encoderConfig->SetFiringResolution(10.);
-        encoderConfig->SetDistanceResolution(1.);
+        encoderConfig->SetDistanceResolution(1.);*/
 
         auto acqUnits = sancPlan->GetAcquisitionUnits();
         for (size_t acqUnitIdx(0); acqUnitIdx < acqUnits->GetCount(); acqUnitIdx++)
@@ -29,8 +29,8 @@ namespace OpenView
             convDigitizerConfig->SetPulserVoltage(convVoltage);
 
             auto paDigitizerConfig = digitizerConfig->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::PhasedArray);
-            double paVoltage = paDigitizerConfig->GetPulserVoltages()->GetPulserVoltage(4);
-            paDigitizerConfig->SetPulserVoltage(paVoltage);
+            //double paVoltage = paDigitizerConfig->GetPulserVoltages()->GetPulserVoltage(4);
+            paDigitizerConfig->SetPulserVoltage(100);
 
         }
 
@@ -124,10 +124,10 @@ namespace OpenView
             for (size_t elementIdx(0); elementIdx < omSetup->PA_ElementQty; ++elementIdx)
             {
                 pulserDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->PA_FirstElement + elementIdx);
-                pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetup->PA_elementDelay[elementIdx]);
+                pulserDelays->GetElementDelay(elementIdx)->SetDelay( (beamIdx+elementIdx)*2.5 + 500 ); /*omSetup->PA_elementDelay[elementIdx]*/
 
                 receiverDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->PA_FirstElement + elementIdx);
-                receiverDelays->GetElementDelay(elementIdx)->SetDelay(omSetup->PA_elementDelay[elementIdx]);
+                receiverDelays->GetElementDelay(elementIdx)->SetDelay((beamIdx + elementIdx) * 2.5 + 1000);
             }
 
             auto gateConfig = beam->GetGateConfigurations();

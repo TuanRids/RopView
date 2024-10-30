@@ -78,7 +78,7 @@ void nObserver::RealDatProcess()
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
         double maxAmplitude = 0; Color maxColor{};
-        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
+        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();        
         for (int z = 0; z < zsize; ++z) {
             // Process Sscan Data
             double percentAmplitude = std::abs(ascanData[z]) / (32768 / 100.0);

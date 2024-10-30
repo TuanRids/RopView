@@ -28,11 +28,6 @@ void ConfigLocator::loadFromRegistry() {
 }
 
 
-
-
-
-
-
 // ========== Om_Settup_Config ==========
 std::shared_ptr<Om_Settup_Config> OmSetupL::OmSetupConf = std::make_shared<Om_Settup_Config>();
 std::shared_ptr<Om_Setup_ScanPlan> OmSetupL::OmSetupScanplan = std::make_shared<Om_Setup_ScanPlan>();

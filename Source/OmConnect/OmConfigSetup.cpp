@@ -71,6 +71,7 @@ shared_ptr<IBeamSet> AddPhasedArrayFiringBeamSet(shared_ptr<IUltrasoundConfigura
     {
         auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
         auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
+        
         auto factory = digitizer->GetBeamSetFactory();
         auto beamFormations = factory->CreateBeamFormationCollection();
 
@@ -168,6 +169,7 @@ IBeamSetPtr CreateFiringBeamSetPhasedArray(IConfigurationPtr config, shared_ptr<
     if (probePa)
     {
         portName = probePa->GetConnector()->GetConnection()->GetName();
+        
     }
     else
     {

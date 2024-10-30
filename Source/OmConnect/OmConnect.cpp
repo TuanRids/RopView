@@ -141,7 +141,7 @@ void OmConnect::ConfigureDevice()
         auto beam = beamSet->GetBeam(i);
         beam->SetAscanStart(configL->omconf->ascanStart);
         beam->SetAscanLength(configL->omconf->ascanLength);
-
+        cout << "Set Beam GateCollection Count: " << beam->GetGateCollection()->GetCount();
         auto gate = beam->GetGateCollection()->GetGate(0);
         gate->SetStart(configL->omconf->gateStart);
         gate->SetLength(configL->omconf->gateLength);

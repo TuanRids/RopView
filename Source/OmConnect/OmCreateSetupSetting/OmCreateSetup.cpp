@@ -76,60 +76,60 @@ void OmCreateSetup::ConfigurePhasedArray(IPhasedArrayConfigurationPtr config)
     double digitizingDelay[BeamQty]{ 5400., 5450., 5500., 5550., 5600. }; //ns
     double elementDelay[ElementQty]{ 374., 355., 336., 315., 294., 272., 249., 225., 200., 174., 148., 120., 91., 62., 31., 0. };
 
-    config->SetGain(25.);
+    /*config->SetGain(25.);
     config->SetVelocity(3235.);
     config->SetReferenceAmplitude(80.);
 
     auto pulsingSettings = config->GetPulsingSettings();
-    pulsingSettings->SetPulseWidth(100.);
+    pulsingSettings->SetPulseWidth(100.);*/
     
 
     auto digitizingSettings = config->GetDigitizingSettings();
     digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::EightBits);
     digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(IAmplitudeSettings::RectificationType::Full);
 
-    for (size_t beamIdx(0); beamIdx < BeamQty; ++beamIdx)
-    {
-        auto beam = config->AddBeam();
-
-        beam->SetBeamDelay(beamDelay[beamIdx]);
-        beam->SetGainOffset(2.2);
-        beam->SetDigitizingDelay(digitizingDelay[beamIdx]);
-        beam->SetDigitizingLength(2560.);
-        beam->SetExitPointPrimary(exitPoint[beamIdx]);
-        beam->SetRefractedAnglePrimary(BeamAngleStart + beamIdx);
-
-        auto beamFormation = beam->CreateBeamFormation(ElementQty, ElementQty);
-        auto pulserDelays = beamFormation->GetPulserDelayCollection();
-        auto receiverDelays = beamFormation->GetReceiverDelayCollection();
-        for (size_t elementIdx(0); elementIdx < ElementQty; ++elementIdx)
-        {
-            pulserDelays->GetElementDelay(elementIdx)->SetElementId(FirstElement + elementIdx);
-            pulserDelays->GetElementDelay(elementIdx)->SetDelay(elementDelay[elementIdx]);
-
-            receiverDelays->GetElementDelay(elementIdx)->SetElementId(FirstElement + elementIdx);
-            receiverDelays->GetElementDelay(elementIdx)->SetDelay(elementDelay[elementIdx]);
-        }
-#
-        auto gateConfig = beam->GetGateConfigurations();
-
-        auto gateI = gateConfig->Add(GATE_I);
-        gateI->SetDelay(5500.);
-        gateI->SetLength(1500.);
-        gateI->SetThreshold(60);
-
-        auto gateA = gateConfig->Add(GATE_A);
-        gateA->SetDelay(6000.);
-        gateA->SetLength(2000.);
-        gateA->SetThreshold(35);
-        gateA->ReserveCscanBuffer(true);
-
-        auto gateB = gateConfig->Add(GATE_B);
-        gateB->SetDelay(9000.);
-        gateB->SetLength(2500.);
-        gateB->SetThreshold(45);
-        gateB->ReserveCscanBuffer(true);
-    }
+//    for (size_t beamIdx(0); beamIdx < BeamQty; ++beamIdx)
+//    {
+//        auto beam = config->AddBeam();
+//        /*
+//        beam->SetBeamDelay(beamDelay[beamIdx]);
+//        beam->SetGainOffset(2.2);
+//        beam->SetDigitizingDelay(digitizingDelay[beamIdx]);
+//        beam->SetDigitizingLength(2560.);
+//        beam->SetExitPointPrimary(exitPoint[beamIdx]);
+//        beam->SetRefractedAnglePrimary(BeamAngleStart + beamIdx);
+//
+//        auto beamFormation = beam->CreateBeamFormation(ElementQty, ElementQty);
+//        auto pulserDelays = beamFormation->GetPulserDelayCollection();
+//        auto receiverDelays = beamFormation->GetReceiverDelayCollection();
+//        for (size_t elementIdx(0); elementIdx < ElementQty; ++elementIdx)
+//        {
+//            pulserDelays->GetElementDelay(elementIdx)->SetElementId(FirstElement + elementIdx);
+//            pulserDelays->GetElementDelay(elementIdx)->SetDelay(elementDelay[elementIdx]);
+//
+//            receiverDelays->GetElementDelay(elementIdx)->SetElementId(FirstElement + elementIdx);
+//            receiverDelays->GetElementDelay(elementIdx)->SetDelay(elementDelay[elementIdx]);
+//        }*/
+//#
+//        auto gateConfig = beam->GetGateConfigurations();
+//
+//        auto gateI = gateConfig->Add(GATE_I);
+//        gateI->SetDelay(5500.);
+//        gateI->SetLength(1500.);
+//        gateI->SetThreshold(60);
+//
+//        auto gateA = gateConfig->Add(GATE_A);
+//        gateA->SetDelay(6000.);
+//        gateA->SetLength(2000.);
+//        gateA->SetThreshold(35);
+//        gateA->ReserveCscanBuffer(true);
+//
+//        auto gateB = gateConfig->Add(GATE_B);
+//        gateB->SetDelay(9000.);
+//        gateB->SetLength(2500.);
+//        gateB->SetThreshold(45);
+//        gateB->ReserveCscanBuffer(true);
+//    }
 }
 void OmCreateSetup::ConfigureParameters(ISetupPtr setup)
 {
