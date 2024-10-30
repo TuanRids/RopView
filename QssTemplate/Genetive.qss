@@ -773,4 +773,3 @@ QSizeGrip
 	background-color: image("./ressources/sizegrip.png"); /*To replace*/
 
 }
-

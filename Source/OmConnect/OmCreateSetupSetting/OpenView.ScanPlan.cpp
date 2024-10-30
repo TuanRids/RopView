@@ -5,21 +5,26 @@ namespace OpenView
     void ScanPlan::Create(ISetupPtr setup)
     {
         auto scanPlan = setup->GetScanPlan();
-        auto specimen = scanPlan->CreateWeldedPipeSpecimen(1000., 300., ScanPath::ScanAround);
+        //auto specimen = scanPlan->CreateWeldedPipeSpecimen(1000., 300., ScanPath::ScanAround);
+        //// Material
+        //auto material = specimen->GetMaterial();
+        //material->SetName(L"STEEL, MILD");
+        //material->SetShearVelocity(3240.);
+        //material->SetLongitudinalVelocity(5890.);
 
-        // Material
+        //// Weld
+        //auto weld = specimen->CreateWeld(WeldBevel::V, WeldType::fl);
+        //weld->GetLandOfCrossPenetration()->SetHeight(2.);
+        //weld->GetHotPass()->SetAngle(30.);
+        //weld->GetHotPass()->SetHeight(6.5);
+        //weld->GetFills()->AddFill(6.5, 0.);
+
+        auto specimen = scanPlan->CreatePlateSpecimen(180.,45.,130.);
+        //Material
         auto material = specimen->GetMaterial();
         material->SetName(L"STEEL, MILD");
-        material->SetShearVelocity(3240.);
+        material->SetShearVelocity(6570);
         material->SetLongitudinalVelocity(5890.);
-
-        // Weld
-        auto weld = specimen->CreateWeld(WeldBevel::V, WeldType::symmetric);
-        weld->GetLandOfCrossPenetration()->SetHeight(2.);
-        weld->GetHotPass()->SetAngle(30.);
-        weld->GetHotPass()->SetHeight(6.5);
-        weld->GetFills()->AddFill(6.5, 0.);
-
         // Acquisition Unit
 
         auto equipfactory = scanPlan->GetEquipmentFactory();
@@ -28,11 +33,11 @@ namespace OpenView
 
         // Encoder
         auto encoder = equipfactory->CreateEncoder(L"Scan Encoder", 10.);
-        auto ioPort = acqUnit->FindInputOutputPort(FocusPX::GPIO_IO_PORT);
-        auto phaseA_axis1 = ioPort->FindPin(PinSignal::PhaseA_axis1);
+        auto ioPort = acqUnit->FindInputOutputPort(FocusPX::PA_PORT);
+        /*auto phaseA_axis1 = ioPort->FindPin(PinSignal::PhaseA_axis1);
         auto phaseB_axis1 = ioPort->FindPin(PinSignal::PhaseB_axis1);
         encoder->SetPhaseAPin(phaseA_axis1);
-        encoder->SetPhaseBPin(phaseB_axis1);
+        encoder->SetPhaseBPin(phaseB_axis1);*/
 
         auto patch = scanPlan->GetPatches()->GetPatch(0);
         patch->GetScanAxis()->SetEncoder(encoder);
@@ -80,31 +85,6 @@ namespace OpenView
         // In linear array, no need for skew angles (sectorial scanning), so skip setting skew angles.
     }
 
-    void ScanPlan::AddPulseEchoInspectionMethod(IScanPlanPtr scanPlan)
-    {
-        auto equipfactory = scanPlan->GetEquipmentFactory();
-
-        // Conventional probe
-        auto convTransducer = equipfactory->CreateTransducerConventionalRound(L"C551-SM", 5., 9.5);
-        auto convWedge = equipfactory->CreateWedgeConventional(L"SPE2-60S-IHC", 28.69, 31.75, 17.39, 36.1);
-        convWedge->SetMaterialVelocity(2330.);
-
-        auto convProbe = equipfactory->CreateConventionalRound(L"Conventional Probe", convTransducer, convWedge);
-        auto acqUnit = scanPlan->GetAcquisitionUnits()->GetAcquisitionUnit(0);
-        auto convPort = acqUnit->FindSinglePulserReceiverPort(FocusPX::UT_P1R1_PORT);
-        convProbe->GetConnector()->SetConnection(convPort);
-
-        // Conventional inspection method
-        auto inspFactory = scanPlan->GetInspectionMethodFactory();
-        auto patch = scanPlan->GetPatches()->GetPatch(0);
-        auto methodConv = inspFactory->AddConventionalPulseEcho(L"GR-1", patch, convProbe);
-        methodConv->GetBeam()->SetWaveType(WaveType::Transversal);
-
-        methodConv->GetProbePosition()->SetAngle(270.);
-        methodConv->GetProbePosition()->SetX(0.);
-        methodConv->GetProbePosition()->SetY(10.);
-    }
-
     void ScanPlan::AddSectorialInspectionMethod(IScanPlanPtr scanPlan)
     {
         auto equipfactory = scanPlan->GetEquipmentFactory();
@@ -140,6 +120,31 @@ namespace OpenView
         sectorialFormation->GetSkewAngle()->SetStop(45.);
         sectorialFormation->GetSkewAngle()->SetStep(1.);
     }/*GetPulsingSettings()->GetAscanAveragingFactor*/
+
+    void ScanPlan::AddPulseEchoInspectionMethod(IScanPlanPtr scanPlan)
+    {
+        auto equipfactory = scanPlan->GetEquipmentFactory();
+
+        // Conventional probe
+        auto convTransducer = equipfactory->CreateTransducerConventionalRound(L"C551-SM", 5., 9.5);
+        auto convWedge = equipfactory->CreateWedgeConventional(L"SPE2-60S-IHC", 28.69, 31.75, 17.39, 36.1);
+        convWedge->SetMaterialVelocity(2330.);
+
+        auto convProbe = equipfactory->CreateConventionalRound(L"Conventional Probe", convTransducer, convWedge);
+        auto acqUnit = scanPlan->GetAcquisitionUnits()->GetAcquisitionUnit(0);
+        auto convPort = acqUnit->FindSinglePulserReceiverPort(FocusPX::UT_P1R1_PORT);
+        convProbe->GetConnector()->SetConnection(convPort);
+
+        // Conventional inspection method
+        auto inspFactory = scanPlan->GetInspectionMethodFactory();
+        auto patch = scanPlan->GetPatches()->GetPatch(0);
+        auto methodConv = inspFactory->AddConventionalPulseEcho(L"GR-1", patch, convProbe);
+        methodConv->GetBeam()->SetWaveType(WaveType::Transversal);
+
+        methodConv->GetProbePosition()->SetAngle(270.);
+        methodConv->GetProbePosition()->SetX(0.);
+        methodConv->GetProbePosition()->SetY(10.);
+    }
 
     void ScanPlan::AddTofdInspectionMethod(IScanPlanPtr scanPlan)
     {

@@ -7,11 +7,10 @@
 #include "Frames/SviewFrame.h"
 #include "Frames/AviewFrame.h"
 #include "Frames/BviewFrame.h"
-
+#include "MainUI/OmSettingFrame.h"
 
 nmainUI::UIManager uiManager;
-nmainUI::UIFrame::UIFrame() 
-{ }
+nmainUI::UIFrame::UIFrame() {}
 
 
 
@@ -63,42 +62,52 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
 
     // create menu bar 
     QWidget* menuBarWidget = uiManager.createMenuBarFrame();
-    mainLayout->setMenuBar(static_cast<QMenuBar*>(menuBarWidget->layout()->menuBar()));
+    mainWindow->setMenuBar(static_cast<QMenuBar*>(menuBarWidget->layout()->menuBar()));
+
+    // Free Docker
+    uiManager.createLogWidget();
+    OmSettingFrame::getInstance()->show();
+
+     // Top Logs DockWidget
+    QDockWidget* connectDockWidget = new QDockWidget(mainWindow);
+        connectDockWidget->setObjectName("MAINUI_connectDockWidget");
+        connectDockWidget->setWidget(uiManager.createConnectFrames());
+        connectDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        mainWindow->addDockWidget(Qt::TopDockWidgetArea, connectDockWidget);
+
+    // Top Logs DockWidget
+    QDockWidget* logsDockWidget = new QDockWidget(mainWindow);
+        logsDockWidget->setObjectName("MAINUI_logsDockWidget");
+        logsDockWidget->setWidget(uiManager.createLogFrame());
+        logsDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        mainWindow->addDockWidget(Qt::TopDockWidgetArea, logsDockWidget);
 
     // Main splitter (Vertical)
     auto mainSplitter = new QSplitter(Qt::Vertical);
-        mainSplitter->setObjectName("mainSplitter");
+        mainSplitter->setObjectName("MAINUI_mainSplitter");
         mainSplitter->setHandleWidth(0);
-
-    // Top Logs splitter (Horizontal)
-    auto TopLogsSplitter = new QSplitter(Qt::Horizontal);
-        TopLogsSplitter->setObjectName("TopLogsSplitter");
-        TopLogsSplitter->setHandleWidth(20);
-        TopLogsSplitter->addWidget(uiManager.createLogFrame());
-        TopLogsSplitter->addWidget(uiManager.createLogSettings());
-        TopLogsSplitter->addWidget(uiManager.createLogDebug());
-        TopLogsSplitter->addWidget(uiManager.createOmSetting());
-        TopLogsSplitter->addWidget(uiManager.createSetting2());
-        mainSplitter->addWidget(TopLogsSplitter);
 
     // Main viewport splitter (Horizontal)
     auto mainViewportSplitter = new QSplitter(Qt::Horizontal);
-        mainViewportSplitter->setObjectName("mainViewportSplitter");
+        mainViewportSplitter->setObjectName("MAINUI_mainViewportSplitter");
         mainViewportSplitter->setHandleWidth(0);
 
     // Scan frame splitter ()
     auto scanFrameSplitter = new QSplitter(Qt::Horizontal);
+        scanFrameSplitter->setObjectName("MAINUI_scanFrameSplitter");
+        scanFrameSplitter->setHandleWidth(0);
+
 
     // A-scan and S-scan splitter ()
     auto BviewCview = new QSplitter(Qt::Vertical);
-        BviewCview->setObjectName("BviewCview");
+        BviewCview->setObjectName("MAINUI_BviewCviewSplitter");
         BviewCview->setHandleWidth(0);
         BviewCview->addWidget(uiManager.createCscanFrame());
         BviewCview->addWidget(uiManager.createBscanFrame());
 
     // A-scan and S-scan splitter (Horizontal)
     auto AviewSview = new QSplitter(Qt::Vertical);
-        AviewSview->setObjectName("AscanSscanSplitter");
+        AviewSview->setObjectName("MAINUI_AviewSviewSplitter");
         AviewSview->setHandleWidth(0);
         AviewSview->addWidget(uiManager.createSscanFrame());
         AviewSview->addWidget(uiManager.createAscanFrame());
@@ -110,7 +119,6 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
 
     // 3D viewport splitter (Vertical)
     auto viewport3DSplitter = new QSplitter(Qt::Vertical);
-        viewport3DSplitter->setObjectName("viewport3DSplitter");
         viewport3DSplitter->setHandleWidth(0);
         viewport3DSplitter->addWidget(uiManager.create3DFrame());
 
@@ -119,7 +127,7 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
 
     mainLayout->addWidget(mainSplitter);
 
-    mainWindow->showMaximized();
+
 
     QObject::connect(&*app, &QApplication::aboutToQuit, [&]() {
         uiManager.saveWidgetState(mainWindow);
@@ -127,6 +135,7 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
 
     uiManager.restoreWidgetState(mainWindow);
 
+    mainWindow->showMaximized();
     return app->exec();
 }
 

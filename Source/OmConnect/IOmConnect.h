@@ -4,12 +4,16 @@
 using namespace Instrumentation;
 using namespace std;
 
+enum class ConnectMode {
+    TestingMode,
+    SetupFileMode   
+};
 
 class IOmConnect
 {
 public:
+    virtual bool omConnectDevice(ConnectMode mode) = 0;
     virtual void omDisconnectDevice() = 0;
-    virtual bool omConnectDevice() = 0;
     static std::shared_ptr<IOmConnect> Create(); /*Factory Method*/
 
 protected:
@@ -23,4 +27,5 @@ protected:
     virtual void StartDevice() = 0;
     virtual void ConfigureDevice() = 0;
 };
+
 #endif

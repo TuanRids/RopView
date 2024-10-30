@@ -1,12 +1,19 @@
-#ifndef UIManager_H
+#ifndef UIManager_H.*/
 #define UIManager_H
-#include <QSettings>
-#include <QSplitter>
+#include "../pch.h"
 #include "FacObsFrames/ObserverMgr.h"
 #include "FacObsFrames/nSubject.h"
+#include "FacObsFrames/FactoryMgr.h"
 #include "PAUTFileReader/AscanProcessor.h"
-
 #include "Model3D/MainViewport.h"
+#include "Frames/CviewFrame.h"
+#include "Frames/SviewFrame.h"
+#include "Frames/BviewFrame.h"
+#include "Frames/AviewFrame.h"
+#include "SystemConfig/ConfigLocator.h"
+#include "../Data3DProcessing/Data3DProcess.h"
+#include "OmConnect/OmCreateSetupSetting/OmCreateSetup.h"
+#include "OmConnect/OmCreateSetupSetting/OmReadSetupFile.h"
 
 namespace nmainUI {
     class UIManager {
@@ -14,12 +21,9 @@ namespace nmainUI {
         UIManager();
         ~UIManager()  = default;
         QWidget* createMenuBarFrame();
-
-        QWidget* createLogFrame();
-        QWidget* createLogSettings();
-        QWidget* createSetting2();
-        QWidget* createLogDebug();
-        QWidget* createOmSetting();
+        QWidget* createLogFrame();          /* LogFrame for showing all logs*/
+        QWidget* createConnectFrames();
+        void createLogWidget();
         QWidget* createAscanFrame();
         QWidget* createSscanFrame();
         QWidget* createCscanFrame();
@@ -33,24 +37,26 @@ namespace nmainUI {
         void UISETTING();
         void saveWidgetState(QWidget* widget);
         void restoreWidgetState(QWidget* widget);
+
     protected:
         void onNewFile() {};
-        void onOpenFile() {};
+        void onOpenFile();
         void onSaveFile() {};
+        void onLoadSetup() ;
+        void onSaveSetup() ;
         void onExit() {};
         void onCut() {};
 		void onCopy() {};
 		void onPaste() {};
         void onFullScreen() {};
         void openSettingsDialog();
+
     private:
         void showRealTimeLogs();
-        void logical();
         VulkanWindow* vulkanWindow;
-        void refreshWidgets(const QList<QWidget*>& widgets);
         std::shared_ptr<nSubject> nsubject;
         nmainUI::statuslogs* sttlogs = nullptr;
-        std::unique_ptr<QSettings> settings = nullptr;
+        QSettings* settings = nullptr;
     };
 }
 

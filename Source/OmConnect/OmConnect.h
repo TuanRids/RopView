@@ -13,7 +13,8 @@ class OmConnect : public IOmConnect
 public:
     OmConnect();
     ~OmConnect() { };
-    bool omConnectDevice() override;
+
+    bool omConnectDevice(ConnectMode mode) override;
     void omDisconnectDevice() override;
 private:
     // private methods

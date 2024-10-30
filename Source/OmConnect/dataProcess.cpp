@@ -38,12 +38,13 @@ bool nDataProcess::Start()
 void nDataProcess::Stop()
 {
     m_running = false;
-    if (m_future.valid()) {
-        if (m_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready) {
+    m_acquisition->Stop();
+    /*if (m_future.valid()) {
+        if (m_future.wait_for(std::chrono::seconds(1)) != std::future_status::ready) {
             nmainUI::statuslogs::getinstance().logCritical("Forcing acquisition stop due to timeout.");
             m_acquisition->Stop();
         }
-    }
+    }*/
 
 }
 

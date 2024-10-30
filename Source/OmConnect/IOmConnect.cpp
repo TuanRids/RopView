@@ -5,11 +5,14 @@
 IOmConnect::~IOmConnect() {}
 std::shared_ptr<IOmConnect> IOmConnect::Create()
 {
-	static std::shared_ptr<OmConnect> om = std::make_shared<OmConnect>();
+	static std::shared_ptr<OmConnect> om = nullptr;
 	if (om)
 	{
+		om->omDisconnectDevice();
 		om.reset();
 		om = std::make_shared<OmConnect>();
 	}
+	else 
+		om = std::make_shared<OmConnect>();
 	return om;
 }

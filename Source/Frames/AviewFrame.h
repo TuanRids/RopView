@@ -11,8 +11,6 @@
 class AviewFrame : public nObserver {
 private:
     //************** Method
-    void OfflineProcess(); 
-    void ReZoom(); 
     void RenderFrame();
 
     //************** Properties   

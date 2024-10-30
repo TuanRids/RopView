@@ -7,9 +7,11 @@ using namespace Olympus::Inspection;
 using namespace Olympus::FileManagement;
 using namespace Olympus::FileManagement::Storage;
 
+
+
 Olympus::FileManagement::ISetupPtr OmConfigSetup::initSetup()
 { 
-    std::filesystem::path inputFile = std::filesystem::current_path() / "sample" / "Setup1.ovs";
+    std::filesystem::path inputFile = getFilePath();
     // check if input file exists
     if (std::filesystem::exists(inputFile)) 
     {
@@ -17,6 +19,8 @@ Olympus::FileManagement::ISetupPtr OmConfigSetup::initSetup()
         auto setup = setupFile->GetSetup();
         return setup;
     }
+    else 
+        throw std::exception("Input file does not exist.");
 }
 
 shared_ptr<IBeamSet> AddConventionalFiringBeamSet(shared_ptr<IUltrasoundConfiguration> ultrasoundConfig, const wstring& beamSetName, const wstring& portName)
@@ -53,7 +57,7 @@ shared_ptr<IBeamSet> AddConventionalFiringBeamSet(shared_ptr<IUltrasoundConfigur
         }
 
     }
-
+    if (!connector || !beamSet) { throw std::exception("Invalid connector or beam set."); }
     ultrasoundConfig->GetFiringBeamSetCollection()->Add(beamSet, connector);
 
     return beamSet;
@@ -104,7 +108,7 @@ IBeamSetPtr CreateFiringBeamSetConventional(IConfigurationPtr config, shared_ptr
         if (probeConv)
         {
             wstring portName = probeConv->GetConnector()->GetConnection()->GetName();
-            beamSet = AddConventionalFiringBeamSet(ultrasoundConfig, peMethod->GetName(), OmniScanX3::UT_P1_PORT);
+            beamSet = AddConventionalFiringBeamSet(ultrasoundConfig, peMethod->GetName(), portName);
         }
         else
         {

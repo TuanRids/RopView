@@ -51,6 +51,7 @@ public:
 		try
 		{
 			// _CrtDumpMemoryLeaks();
+			static float averageTimeLapse = 0;
 			if (observers[0]->bufferSize() < 1) return;
 			QElapsedTimer timer;
 			timer.start();
@@ -59,9 +60,8 @@ public:
 				object->updateRealTime();
 
 			}
-#ifndef NDEBUG
-			spdThoughout::getinstance().set_Fps(timer.elapsed());
-#endif		
+			averageTimeLapse = (averageTimeLapse+timer.nsecsElapsed()) / 2;
+			spdThoughout::getinstance().set_Fps(averageTimeLapse/1e6);
 		}
 		catch (...)
 		{ void(0); }

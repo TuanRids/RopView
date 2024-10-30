@@ -18,13 +18,9 @@ QWidget* AviewFrame::createFrame() {
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-
-
     QVBoxLayout* layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->addWidget(graphicsView.get());
-
-
 
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0); 
@@ -35,12 +31,62 @@ QWidget* AviewFrame::createFrame() {
 
 void AviewFrame::update() 
 {
+    static bool first_flag = false;
+    // ********** PARAMETER VALIDATION **********
     if (scandat.Amplitudes.empty()) {
-        if (sttlogs) { sttlogs->logWarning("No amplitude data available"); }
+        if (sttlogs) {
+            sttlogs->logWarning("No amplitude data available");
+        }
         return;
     }
-    OfflineProcess();
-    // RenderFrame();
+
+    // ********** PARAMETER PROCESSING **********
+    if (!lineSeries) RenderFrame();
+
+    uint64_t zsize = scandat.AmplitudeAxes[0].Quantity;
+    uint64_t ysize = scandat.AmplitudeAxes[1].Quantity;
+    uint64_t xsize = scandat.AmplitudeAxes[2].Quantity;
+
+    points.clear();
+    points.reserve(zsize);
+
+    double minY = std::numeric_limits<double>::max();
+    double maxY = std::numeric_limits<double>::min();
+
+    for (uint64_t z = 0; z < zsize; ++z) {
+        uint64_t index = z * (xsize * ysize) + curpt.y * xsize + curpt.x;
+
+        if (index >= scandat.Amplitudes.size()) {
+            sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(scandat.Amplitudes.size()));
+            return;
+        }
+
+        int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
+        double percentAmplitude = samplingAmplitude / (32768 / 100.0);
+
+        minY = std::min(minY, percentAmplitude);
+        maxY = std::max(maxY, percentAmplitude);
+        points.append(QPointF(percentAmplitude, z));
+    }
+    lineSeries->clear();
+    lineSeries->replace(points);
+    if (!axisX || !first_flag)
+    {
+        first_flag = true;
+        axisX->setRange(minY, 100);
+        axisY->setRange(0, zsize);
+        axisY->setReverse(true);
+    }
+
+    if (!isPanning)
+    {
+        static int lastpos[3] = { curpt.x, curpt.y, curpt.z };
+        if (curpt.x != lastpos[0] || curpt.y != lastpos[1] || curpt.z != lastpos[2])
+        {
+            lastpos[0] = curpt.x; lastpos[1] = curpt.y; lastpos[2] = curpt.z;
+            sttlogs->logInfo("Coord x: " + std::to_string(curpt.x) + " - Coord y: " + std::to_string(curpt.y) + " Coord z: " + std::to_string(curpt.z) + ".");
+        }
+    }
 }
 
 void AviewFrame::updateRealTime()
@@ -76,62 +122,6 @@ void AviewFrame::updateRealTime()
     { std::cout << "ESCAN ERROR: " << e.what() << std::endl; return; }
 }
 
-void AviewFrame::OfflineProcess()
-{
-    // ********** PARAMETER VALIDATION **********
-    if (scandat.Amplitudes.empty()) {
-        if (sttlogs) {
-            sttlogs->logWarning("No amplitude data available");
-        }
-        return;
-    }
-
-    // ********** PARAMETER PROCESSING **********
-    if (!lineSeries) RenderFrame();
-    lineSeries->clear();
-    uint64_t zsize = scandat.AmplitudeAxes[0].Quantity;
-    uint64_t ysize = scandat.AmplitudeAxes[1].Quantity;
-    uint64_t xsize = scandat.AmplitudeAxes[2].Quantity;
-
-
-    points.reserve(zsize);
-
-    double minY = std::numeric_limits<double>::max();
-    double maxY = std::numeric_limits<double>::min();
-
-    for (uint64_t z = 0; z < zsize; ++z) {
-        uint64_t index = z * (xsize * ysize) + curpt.y * xsize + curpt.x;
-
-        if (index >= scandat.Amplitudes.size()) {
-            sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(scandat.Amplitudes.size()));
-            return;
-        }
-
-        int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
-        double percentAmplitude = samplingAmplitude / (32768 / 100.0);
-
-        minY = std::min(minY, percentAmplitude);
-        maxY = std::max(maxY, percentAmplitude);
-        points.append(QPointF(percentAmplitude, z));
-    }
-
-    lineSeries->replace(points);
-
-    axisX->setRange(minY, 100);
-    axisY->setRange(0, zsize);
-
-    axisY->setReverse(true);
-    // Logging coordinates
-    if (!isPanning)
-    {
-        static int lastpos[3] = { curpt.x, curpt.y, curpt.z };
-        if (curpt.x != lastpos[0] || curpt.y != lastpos[1] || curpt.z != lastpos[2])
-        {
-			lastpos[0] = curpt.x; lastpos[1] = curpt.y; lastpos[2] = curpt.z;
-            sttlogs->logInfo("Coord x: " + std::to_string(curpt.x) + " - Coord y: " + std::to_string(curpt.y) + " Coord z: " + std::to_string(curpt.z) + ".");
-        }
-    }
-}
 
 void AviewFrame::RenderFrame()
 {

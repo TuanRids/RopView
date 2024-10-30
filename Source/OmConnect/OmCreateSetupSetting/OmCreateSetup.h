@@ -9,7 +9,6 @@ using namespace Olympus::Inspection;
 using namespace Olympus::PartDefinition;
 using namespace Olympus::FileManagement;
 
-const std::filesystem::path outputFile = std::filesystem::current_path() / "sample" / "Setup1.ovs";
 
 class OmCreateSetup
 {

@@ -1,5 +1,6 @@
 #include "OpenView.Configuration.h"
-
+#include "SystemConfig/ConfigLocator.h"
+static auto omSetup = OmSetupL::getInstance().OmSetupConf;
 namespace OpenView
 {
     void Configuration::Create(ISetupPtr setup)
@@ -19,7 +20,7 @@ namespace OpenView
         {
             auto acqUnit = acqUnits->GetAcquisitionUnit(acqUnitIdx);
             auto acqUnitConfig = inspConfig->GetAcquisitionUnitConfigurations()->Add(acqUnit);
-            acqUnitConfig->SetSerialNumber("QC-000000");
+            acqUnitConfig->SetSerialNumber(omSetup->acquisition_deviceSerialNumber);
 
             auto digitizerConfig = acqUnitConfig->GetUltrasoundDigitizerConfiguration();
 
@@ -30,7 +31,6 @@ namespace OpenView
             auto paDigitizerConfig = digitizerConfig->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::PhasedArray);
             double paVoltage = paDigitizerConfig->GetPulserVoltages()->GetPulserVoltage(4);
             paDigitizerConfig->SetPulserVoltage(paVoltage);
-
 
         }
 
@@ -95,72 +95,63 @@ namespace OpenView
         std::string applicationJsonStr = "{\"pipeWizard\": {\"Zone\": \"Volumetric\",\"Type\": \"ABC\",\"Stream\": \"Upstream\",\"GateAStart\": -3.0,\"GateALength\": 6.0,\"GateBStart\": -3.0,\"GateBLength\": 6.0,\"GateAThreshold\": 20.0,\"GateBThreshold\": 20.0,\"GateOffset\": 0.0,\"CorrectionFactor\": 0.0,\"ReflectorSize\": 1.0}}";
         config->SetApplicationSettings(applicationJsonStr);
 
-        constexpr const size_t BeamQty = 5;
-        constexpr const size_t ElementQty = 16;
-        constexpr const size_t FirstElement = 1;
-        constexpr const double BeamAngleStart = 45.;
-        double exitPoint[BeamQty]{ 28., 27.75, 27.5, 27.25, 27. }; //mm
-        double beamDelay[BeamQty]{ 19000., 19100., 19200., 19300., 19400. }; //ns
-        double digitizingDelay[BeamQty]{ 5400., 5450., 5500., 5550., 5600. }; //ns
-        double elementDelay[ElementQty]{ 374., 355., 336., 315., 294., 272., 249., 225., 200., 174., 148., 120., 91., 62., 31., 0. };
-
-        config->SetGain(25.);
-        config->SetVelocity(3235.);
-        config->SetReferenceAmplitude(80.);
+        config->SetGain(omSetup->phasing_gain);
+        config->SetVelocity(omSetup->phasing_velocity);
+        config->SetReferenceAmplitude(omSetup->phasing_referenceAmplitude);
 
         auto pulsingSettings = config->GetPulsingSettings();
-        pulsingSettings->SetPulseWidth(100.);
+        pulsingSettings->SetPulseWidth(omSetup->phasing_pulseWidth);
 
         auto digitizingSettings = config->GetDigitizingSettings();
-        digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
-        digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(IAmplitudeSettings::RectificationType::Full);
+        digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetup->phasing_ascanDataSize);
+        digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetup->phasing_rectification);
 
-        for (size_t beamIdx(0); beamIdx < BeamQty; ++beamIdx)
+        for (size_t beamIdx(0); beamIdx < omSetup->PA_BeamQty; ++beamIdx)
         {
             auto beam = config->AddBeam();
 
-            beam->SetBeamDelay(beamDelay[beamIdx]);
+            beam->SetBeamDelay(omSetup->PA_beamDelay[beamIdx] );
             beam->SetGainOffset(2.2);
-            beam->SetDigitizingDelay(digitizingDelay[beamIdx]);
+            beam->SetDigitizingDelay(omSetup->PA_digitizingDelay[beamIdx]);
             beam->SetDigitizingLength(163840.);
-            beam->SetExitPointPrimary(exitPoint[beamIdx]);
-            beam->SetRefractedAnglePrimary(BeamAngleStart + beamIdx);
+            beam->SetExitPointPrimary(omSetup->PA_exitPoint[beamIdx] );
+            beam->SetRefractedAnglePrimary(omSetup->PA_BeamAngleStart+ beamIdx);
             beam->SetSkewAngle(33);
 
-            auto beamFormation = beam->CreateBeamFormation(ElementQty, ElementQty);
+            auto beamFormation = beam->CreateBeamFormation(omSetup->PA_ElementQty, omSetup->PA_ElementQty);
             auto pulserDelays = beamFormation->GetPulserDelayCollection();
             auto receiverDelays = beamFormation->GetReceiverDelayCollection();
-            for (size_t elementIdx(0); elementIdx < ElementQty; ++elementIdx)
+            for (size_t elementIdx(0); elementIdx < omSetup->PA_ElementQty; ++elementIdx)
             {
-                pulserDelays->GetElementDelay(elementIdx)->SetElementId(FirstElement + elementIdx);
-                pulserDelays->GetElementDelay(elementIdx)->SetDelay(elementDelay[elementIdx]);
+                pulserDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->PA_FirstElement + elementIdx);
+                pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetup->PA_elementDelay[elementIdx]);
 
-                receiverDelays->GetElementDelay(elementIdx)->SetElementId(FirstElement + elementIdx);
-                receiverDelays->GetElementDelay(elementIdx)->SetDelay(elementDelay[elementIdx]);
+                receiverDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->PA_FirstElement + elementIdx);
+                receiverDelays->GetElementDelay(elementIdx)->SetDelay(omSetup->PA_elementDelay[elementIdx]);
             }
 
             auto gateConfig = beam->GetGateConfigurations();
 
             auto gateI = gateConfig->Add(GATE_I);
-            gateI->SetDelay(5500.);
-            gateI->SetLength(1500.);
-            gateI->SetThreshold(60);
-            gateI->SetCscanSamplingResolution(10.);
+            gateI->SetDelay(omSetup->gate_gateIDelay);
+            gateI->SetLength(omSetup->gate_gateILength);
+            gateI->SetThreshold(omSetup->gate_gateIThreshold);
+            gateI->SetCscanSamplingResolution(omSetup->gate_gateASamplingResolution);
 
             auto gateA = gateConfig->Add(GATE_A);
-            gateA->SetDelay(6000.);
-            gateA->SetLength(2000.);
-            gateA->SetThreshold(35);
-            gateA->ReserveCscanBuffer(true);
-            gateA->SetCscanSamplingResolution(10.);
-            gateA->SetPlacement(GatePlacement::SoundPath);
+            gateA->SetDelay(omSetup->gate_gateADelay);
+            gateA->SetLength(omSetup->gate_gateALength);
+            gateA->SetThreshold(omSetup->gate_gateAThreshold);
+            gateA->ReserveCscanBuffer(omSetup->gate_gateAReserveBuffer);
+            gateA->SetCscanSamplingResolution(omSetup->gate_gateASamplingResolution);
+            gateA->SetPlacement(omSetup->gate_gateAPlacement);
 
             auto gateB = gateConfig->Add(GATE_B);
-            gateB->SetDelay(9000.);
-            gateB->SetLength(2500.);
-            gateB->SetThreshold(45);
-            gateB->ReserveCscanBuffer(true);
-            gateB->SetCscanSamplingResolution(10.);
+            gateB->SetDelay(omSetup->gate_gateBDelay);
+            gateB->SetLength(omSetup->gate_gateBLength);
+            gateB->SetThreshold(omSetup->gate_gateBThreshold);
+            gateB->ReserveCscanBuffer(omSetup->gate_gateBReserveBuffer);
+            gateB->SetCscanSamplingResolution(omSetup->gate_gateBSamplingResolution);
         }
     }
 

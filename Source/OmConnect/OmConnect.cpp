@@ -13,31 +13,43 @@ OmConnect::OmConnect() : sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr
     if (!configL) configL = &ConfigLocator::getInstance();
 }
 
-bool OmConnect::omConnectDevice()
+bool OmConnect::omConnectDevice(ConnectMode mode)
 {
     
     if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance();
     ipAddress = ConfigLocator::getInstance().settingconf->ipAddress;
     try
     {
+        Olympus::FileManagement::ISetupPtr getsetup;
+        if (mode == ConnectMode::SetupFileMode)
+        {
+            getsetup = OmConfigSetup::initSetup();
+        }
         if (!device)
         {
-            sttlogs->logNotify("Trying to Connnect to IP: " + ipAddress);
+            sttlogs->logInfo("Trying to Connnect to IP: " + ipAddress);
             device = DiscoverDevice();
             StartDevice();
+        }
+        if (mode == ConnectMode::TestingMode)
+        {
             acquisition = IAcquisition::CreateEx(device);
-
-            //ConfigureDevice();
-
-            auto getsetup = OmConfigSetup::initSetup();
-            auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
-            sttlogs->logNotify("Configuration Device From Setup: " + adjusted ? "Completed" : "Failed");
-            OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
-            sttlogs->logNotify("Configuration Acquisition From Setup: " + adjusted ? "Completed" : "Failed");
-
+            ConfigureDevice();
             acquisition->SetRate(configL->omconf->Rate);
             acquisition->ApplyConfiguration();
         }
+        else if (mode == ConnectMode::SetupFileMode)
+        {
+            acquisition = IAcquisition::CreateEx(device);
+            auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
+            sttlogs->logInfo (adjusted ? "Configuration Device From SetupFile: Completed" : "Configuration Device From SetupFile: Failed");
+            OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
+            sttlogs->logInfo(adjusted ? "Configuration Acquisition From Setup: Completed" : "Configuration Acquisition From Setup: Failed");
+
+        }
+        acquisition->SetRate(configL->omconf->Rate);
+        acquisition->ApplyConfiguration();
+        
         if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);    
         if (!datProcess->Start())
         {
@@ -48,6 +60,7 @@ bool OmConnect::omConnectDevice()
     }
     catch (const std::exception& e)
     {
+        omDisconnectDevice();
         sttlogs->logCritical(e.what());
         return false;
     }
@@ -56,7 +69,7 @@ bool OmConnect::omConnectDevice()
 
 void OmConnect::omDisconnectDevice()
 {
-    if (datProcess) datProcess->Stop();
+    if (datProcess) datProcess->Stop(); datProcess = nullptr;    
 }
 
 shared_ptr<IDevice> OmConnect::DiscoverDevice()
@@ -68,7 +81,7 @@ shared_ptr<IDevice> OmConnect::DiscoverDevice()
 
     if (result.status != DiscoverResult::DeviceFound)
         throw std::runtime_error("# Error IP: No device were found.");
-    sttlogs->logNotify("Found Device w Serial: " + result.device->GetInfo()->GetSerialNumber());
+    sttlogs->logInfo("Found Device w Serial: " + result.device->GetInfo()->GetSerialNumber());
     return result.device;
 }
 
@@ -82,7 +95,7 @@ void OmConnect::StartDevice()
         if (packages->GetFirmwarePackage(packageIndex)->GetName().find(packageName) != string::npos)
         {
             package = packages->GetFirmwarePackage(packageIndex);
-            sttlogs->logNotify("Package: " + wstostring(packages->GetFirmwarePackage(packageIndex)->GetName()));
+            sttlogs->logInfo("Package: " + wstostring(packages->GetFirmwarePackage(packageIndex)->GetName()));
         }
     }
     if (package == nullptr)
@@ -93,11 +106,11 @@ void OmConnect::StartDevice()
     {
         HINSTANCE handle = OpenView::Libraries::LoadInstrumentation();
         auto version = Instrumentation::GetLibraryVersionEx();
-        sttlogs->logNotify("Instrumentation Version: " + wstostring(version));
+        sttlogs->logInfo("Instrumentation Version: " + wstostring(version));
         OpenView::Libraries::UnLoad(handle);
         handle = OpenView::Libraries::LoadStorage();
         version = Olympus::FileManagement::Storage::GetLibraryVersion();
-        sttlogs->logNotify("Storage Version: " + wstostring(version));
+        sttlogs->logInfo("Storage Version: " + wstostring(version));
         OpenView::Libraries::UnLoad(handle);
     }
 }

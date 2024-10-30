@@ -19,7 +19,7 @@ bool OmCreateSetup::SaveSetup()
         signature->SetCompanyName(L"Company X");
         signature->SetSoftwareName(L"App Y");
         signature->SetSoftwareVersion(L"1.2.3");
-
+        auto outputFile = getFilePath();
         SaveSetupFile(outputFile, setup);
 
         OpenView::Libraries::UnLoad(handle);
@@ -45,10 +45,7 @@ void OmCreateSetup::ConfigureConventional(IConventionalConfigurationPtr config)
 
     auto pulsingSettings = config->GetPulsingSettings();
     pulsingSettings->SetPulseWidth(100.);
-    if (pulsingSettings->SetAscanAveragingFactor(IPulsingSettings::AveragingFactor::Four))
-    {
-        std::cout << "SetAscanAveragingFactor failed" << std::endl;
-    }
+
     auto digitizingSettings = config->GetDigitizingSettings();
     digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
     digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(IAmplitudeSettings::RectificationType::None);
@@ -85,10 +82,7 @@ void OmCreateSetup::ConfigurePhasedArray(IPhasedArrayConfigurationPtr config)
 
     auto pulsingSettings = config->GetPulsingSettings();
     pulsingSettings->SetPulseWidth(100.);
-    if (pulsingSettings->SetAscanAveragingFactor(IPulsingSettings::AveragingFactor::Four))
-    {
-        std::cout << "SetAscanAveragingFactor failed" << std::endl;
-    }
+    
 
     auto digitizingSettings = config->GetDigitizingSettings();
     digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::EightBits);

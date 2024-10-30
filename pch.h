@@ -113,6 +113,25 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h> 
+
+inline std::filesystem::path getFilePath()
+{
+    QSettings settings("Ohlabs", "RobView");
+    QString lastPath = settings.value("lastUsedPath", QDir::homePath()).toString();
+    QString filePath = QFileDialog::getOpenFileName(nullptr, "Open File", lastPath);
+    if (!filePath.isEmpty()) {
+        settings.setValue("lastUsedPath", QFileInfo(filePath).absolutePath());
+        return std::filesystem::path(filePath.toStdString());
+    }
+    return std::filesystem::path();
+}
+inline QMainWindow* getMainWindow() {
+    foreach(QWidget * widget, QApplication::topLevelWidgets()) {
+        if (QMainWindow* mainWindow = qobject_cast<QMainWindow*>(widget)) {
+            return mainWindow;
+        }
+    }
+    return nullptr;
+}
+
 #endif // PCH_H
-
-
