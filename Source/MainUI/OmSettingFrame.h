@@ -198,29 +198,29 @@ private:
         QGroupBox* group1 = new QGroupBox("Scan Plan");
         QVBoxLayout* layout1 = new QVBoxLayout(group1);
 
-        auto transducerFrequencyInput = createDoubleSpinBox(1.0, 15.0, scanPlan->raTransducerFrequency, [=](double value) {
-            scanPlan->raTransducerFrequency = value;
+        auto transducerFrequencyInput = createDoubleSpinBox(1.0, 15.0, scanPlan->raProbeFre, [=](double value) {
+            scanPlan->raProbeFre = value;
             });
         addSetting(layout1, "Transducer Frequency", transducerFrequencyInput);
 
-        auto elementQtyInput = createSpinBox(1, 128, scanPlan->raTransducerElementQty, [=](int value) {
-            scanPlan->raTransducerElementQty = value;
+        auto elementQtyInput = createSpinBox(1, 128, scanPlan->raProbeElem, [=](int value) {
+            scanPlan->raProbeElem = value;
             });
         addSetting(layout1, "Element Quantity", elementQtyInput);
 
-        auto rowQtyInput = createSpinBox(1, 10, scanPlan->raTransducerRowQty, [=](int value) {
-            scanPlan->raTransducerRowQty = value;
+        auto rowQtyInput = createSpinBox(1, 10, scanPlan->raProbeRows, [=](int value) {
+            scanPlan->raProbeRows = value;
             });
 
         addSetting(layout1, "Row Quantity", rowQtyInput);
 
-        auto widthInput = createDoubleSpinBox(0.1, 5.0, scanPlan->raTransducerWidth, [=](double value) {
-            scanPlan->raTransducerWidth = value;
+        auto widthInput = createDoubleSpinBox(0.1, 5.0, scanPlan->raProbeWidth, [=](double value) {
+            scanPlan->raProbeWidth = value;
             });
         addSetting(layout1, "Width (mm)", widthInput);
 
-        auto heightInput = createDoubleSpinBox(1.0, 20.0, scanPlan->raTransducerHeight, [=](double value) {
-            scanPlan->raTransducerHeight = value;
+        auto heightInput = createDoubleSpinBox(1.0, 20.0, scanPlan->raProbeHeight, [=](double value) {
+            scanPlan->raProbeHeight = value;
             });
         addSetting(layout1, "Height (mm)", heightInput);
 
@@ -257,23 +257,23 @@ private:
         QGroupBox* group3 = new QGroupBox("Linear Formation");
         QVBoxLayout* layout3 = new QVBoxLayout(group3);
 
-        auto elementStepInput = createDoubleSpinBox(0.1, 5.0, scanPlan->linearFormationElementStep, [=](double value) {
-            scanPlan->linearFormationElementStep = value;
+        auto elementStepInput = createSpinBox(1, 32, scanPlan->LinearElemStep, [=](double value) {
+            scanPlan->LinearElemStep = value;
             });
         addSetting(layout3, "Element Step", elementStepInput);
 
-        auto activeElementsInput = createSpinBox(1, 128, scanPlan->linearFormationActiveElements, [=](int value) {
-            scanPlan->linearFormationActiveElements = value;
+        auto activeElementsInput = createSpinBox(1, 32, scanPlan->LinearElemActive, [=](int value) {
+            scanPlan->LinearElemActive = value;
             });
         addSetting(layout3, "Active Elements", activeElementsInput);
 
-        auto startElementInput = createSpinBox(1, 128, scanPlan->linearFormationStartElement, [=](int value) {
-            scanPlan->linearFormationStartElement = value;
+        auto startElementInput = createSpinBox(1, 32, scanPlan->LinearElemStart, [=](int value) {
+            scanPlan->LinearElemStart = value;
             });
         addSetting(layout3, "Start Element", startElementInput);
 
-        auto maxElementsInput = createSpinBox(1, 128, scanPlan->linearFormationMaxElements, [=](int value) {
-            scanPlan->linearFormationMaxElements = value;
+        auto maxElementsInput = createSpinBox(1, 64, scanPlan->LinearElemMax, [=](int value) {
+            scanPlan->LinearElemMax = value;
             });
         addSetting(layout3, "Max Elements", maxElementsInput);
 
@@ -343,7 +343,7 @@ private:
         QGridLayout* layout1 = new QGridLayout(group1);
 
 
-        auto gainInput = createDoubleSpinBox(0.0, 50.0, setupConfig->phasing_gain, [=](double value) {
+        auto gainInput = createDoubleSpinBox(0.0, 200., setupConfig->phasing_gain, [=](double value) {
             setupConfig->phasing_gain = value;
             });
         addSettingToGrid(layout1, "Gain", gainInput, 0, 0);
@@ -421,6 +421,15 @@ private:
         QGroupBox* group3 = new QGroupBox("Phasing Acquisition Settings");
         //group3->setFixedSize(180, 200);
         QVBoxLayout* layout3 = new QVBoxLayout(group3);
+        auto paDigitizingLength = createDoubleSpinBox(0.0, 2000000., setupConfig->PA_DigitizingLength, [=](double value) {
+            setupConfig->PA_DigitizingLength = value;
+            });
+        addSetting(layout3, "Pulser Voltage", paDigitizingLength);
+
+        auto paBeamNumberInput = createDoubleSpinBox(0.0, 2048. , setupConfig->beamNumber, [=](double value) {
+            setupConfig->beamNumber = value;
+            });
+        addSetting(layout3, "Pulser Voltage", paBeamNumberInput);
 
         auto paVoltageInput = createDoubleSpinBox(0.0, 10.0, setupConfig->acquisition_paVoltage, [=](double value) {
             setupConfig->acquisition_paVoltage = value;

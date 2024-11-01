@@ -2,7 +2,6 @@
 #define DATAPROCESS_H
 #include "..\pch.h"
 #include <instrumentation/Instrumentation.h>
-#include "CircularBuffer.h"
 #include "SystemConfig/ConfigLocator.h"
 using namespace std;
 using namespace Instrumentation;

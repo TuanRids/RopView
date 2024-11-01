@@ -98,7 +98,9 @@ void SviewFrame::updateRealTime()
         }
 
         scaledImage = std::make_unique<cv::Mat>();
-        cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width(), graphicsView->height()), 0, 0, cv::INTER_NEAREST);
+        cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width() * 2, graphicsView->height() * 2), 0, 0, cv::INTER_NEAREST);
+        cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(5, 5), 0.5);
+
         auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
 
         *qImage = qImage->rgbSwapped();  
@@ -164,7 +166,7 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
             else
             {
                 int newy;
-                std::tie(newy, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
+                //std::tie(newy, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
                 if (!scaledImage) return;                
                 QString tooltipText = QString("X: %1\nY: %2\nZ: %3")
                     .arg("...")

@@ -1,7 +1,7 @@
 #ifndef OPENVIEW_SCANPLAN_H
 #define OPENVIEW_SCANPLAN_H
 #include "../pch.h"
-
+#include "SystemConfig/ConfigLocator.h"
 using namespace std;
 using namespace Olympus::FileManagement;
 using namespace Olympus::PartDefinition;
@@ -28,6 +28,7 @@ namespace OpenView
         static void ReadInspectionMethod(IScanPlanPtr scanPlan);
         static void ReadProbeConventional(IProbeConventionalPtr probe);
         static void ReadProbeRectangularArray(IProbePtr probe);
+        static std::shared_ptr<Om_Setup_ScanPlan> omSetup;
     };
 }
 

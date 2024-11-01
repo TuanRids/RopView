@@ -1,26 +1,25 @@
 #include "OpenView.Configuration.h"
-#include "SystemConfig/ConfigLocator.h"
-static auto omSetup = OmSetupL::getInstance().OmSetupConf;
+std::shared_ptr<Om_Settup_Config> OpenView::Configuration::omSetCof = nullptr;
+std::shared_ptr<Om_Setup_ScanPlan> OpenView::Configuration::omSetup = nullptr;
+
 namespace OpenView
 {
     void Configuration::Create(ISetupPtr setup)
     {
+        if (!omSetCof)
+            omSetCof = OmSetupL::getInstance().OmSetupConf;
+        if (!omSetup)
+            omSetup = OmSetupL::getInstance().OmSetupScanplan;
         auto sancPlan = setup->GetScanPlan();
         auto inspConfigs = setup->GetInspectionConfigurations();
         auto inspConfig = inspConfigs->Add(FiringTrigger::Internal, 1000.);
-
-        /*auto encoder = sancPlan->GetPatches()->GetPatch(0)->GetScanAxis()->GetEncoder();
-        auto encoderConfig = inspConfig->GetEncoderConfigurations()->Add(encoder);
-        encoderConfig->SetType(EncoderType::Quadrature);
-        encoderConfig->SetFiringResolution(10.);
-        encoderConfig->SetDistanceResolution(1.);*/
 
         auto acqUnits = sancPlan->GetAcquisitionUnits();
         for (size_t acqUnitIdx(0); acqUnitIdx < acqUnits->GetCount(); acqUnitIdx++)
         {
             auto acqUnit = acqUnits->GetAcquisitionUnit(acqUnitIdx);
             auto acqUnitConfig = inspConfig->GetAcquisitionUnitConfigurations()->Add(acqUnit);
-            acqUnitConfig->SetSerialNumber(omSetup->acquisition_deviceSerialNumber);
+            acqUnitConfig->SetSerialNumber(omSetCof->acquisition_deviceSerialNumber);
 
             auto digitizerConfig = acqUnitConfig->GetUltrasoundDigitizerConfiguration();
 
@@ -95,274 +94,75 @@ namespace OpenView
         std::string applicationJsonStr = "{\"pipeWizard\": {\"Zone\": \"Volumetric\",\"Type\": \"ABC\",\"Stream\": \"Upstream\",\"GateAStart\": -3.0,\"GateALength\": 6.0,\"GateBStart\": -3.0,\"GateBLength\": 6.0,\"GateAThreshold\": 20.0,\"GateBThreshold\": 20.0,\"GateOffset\": 0.0,\"CorrectionFactor\": 0.0,\"ReflectorSize\": 1.0}}";
         config->SetApplicationSettings(applicationJsonStr);
 
-        config->SetGain(omSetup->phasing_gain);
-        config->SetVelocity(omSetup->phasing_velocity);
-        config->SetReferenceAmplitude(omSetup->phasing_referenceAmplitude);
+        constexpr const size_t BeamQty = 5;
+        constexpr const size_t ElementQty = 16;
+        constexpr const size_t FirstElement = 1;
+        constexpr const double BeamAngleStart = 45.;
+        double exitPoint[BeamQty]{ 28., 27.75, 27.5, 27.25, 27. }; //mm
+        double beamDelay[BeamQty]{ 19000., 19100., 19200., 19300., 19400. }; //ns
+        double digitizingDelay[BeamQty]{ 5400., 5450., 5500., 5550., 5600. }; //ns
+        double elementDelay[ElementQty]{ 374., 355., 336., 315., 294., 272., 249., 225., 200., 174., 148., 120., 91., 62., 31., 0. };
+
+        config->SetGain(omSetCof->phasing_gain);
+        config->SetVelocity(omSetCof->phasing_velocity);
+        config->SetReferenceAmplitude(omSetCof->phasing_referenceAmplitude);
 
         auto pulsingSettings = config->GetPulsingSettings();
-        pulsingSettings->SetPulseWidth(omSetup->phasing_pulseWidth);
+        pulsingSettings->SetPulseWidth(omSetCof->phasing_pulseWidth);
 
         auto digitizingSettings = config->GetDigitizingSettings();
-        digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetup->phasing_ascanDataSize);
-        digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetup->phasing_rectification);
-
-        for (size_t beamIdx(0); beamIdx < omSetup->PA_BeamQty; ++beamIdx)
+        digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetCof->phasing_ascanDataSize);
+        digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetCof->phasing_rectification);
+        for (size_t beamIdx(0); beamIdx < omSetCof->beamNumber; ++beamIdx)
         {
             auto beam = config->AddBeam();
 
-            beam->SetBeamDelay(omSetup->PA_beamDelay[beamIdx] );
+            beam->SetBeamDelay(omSetCof->PA_beamDelay );
             beam->SetGainOffset(2.2);
-            beam->SetDigitizingDelay(omSetup->PA_digitizingDelay[beamIdx]);
-            beam->SetDigitizingLength(163840.);
-            beam->SetExitPointPrimary(omSetup->PA_exitPoint[beamIdx] );
-            beam->SetRefractedAnglePrimary(omSetup->PA_BeamAngleStart+ beamIdx);
+            beam->SetDigitizingDelay(omSetCof->PA_digitizingDelay);
+            beam->SetDigitizingLength(omSetCof->PA_DigitizingLength);
+            beam->SetExitPointPrimary(omSetCof->PA_exitPoint );
+            beam->SetRefractedAnglePrimary(0);
             beam->SetSkewAngle(33);
 
-            auto beamFormation = beam->CreateBeamFormation(omSetup->PA_ElementQty, omSetup->PA_ElementQty);
+            auto beamFormation = beam->CreateBeamFormation(omSetup->LinearElemActive, omSetup->LinearElemActive);            
             auto pulserDelays = beamFormation->GetPulserDelayCollection();
             auto receiverDelays = beamFormation->GetReceiverDelayCollection();
-            for (size_t elementIdx(0); elementIdx < omSetup->PA_ElementQty; ++elementIdx)
-            {
-                pulserDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->PA_FirstElement + elementIdx);
-                pulserDelays->GetElementDelay(elementIdx)->SetDelay( (beamIdx+elementIdx)*2.5 + 500 ); /*omSetup->PA_elementDelay[elementIdx]*/
 
-                receiverDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->PA_FirstElement + elementIdx);
-                receiverDelays->GetElementDelay(elementIdx)->SetDelay((beamIdx + elementIdx) * 2.5 + 1000);
+            for (size_t elementIdx(0); elementIdx < omSetup->LinearElemActive; elementIdx+= omSetup->LinearElemStep)
+            {
+                pulserDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->LinearElemStart + elementIdx);
+                pulserDelays->GetElementDelay(elementIdx)->SetDelay( (beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay); /*omSetCof->PA_elementDelay[elementIdx]*/
+
+                receiverDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->LinearElemStart + elementIdx);
+                receiverDelays->GetElementDelay(elementIdx)->SetDelay( (beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay * 2 );
             }
 
             auto gateConfig = beam->GetGateConfigurations();
 
             auto gateI = gateConfig->Add(GATE_I);
-            gateI->SetDelay(omSetup->gate_gateIDelay);
-            gateI->SetLength(omSetup->gate_gateILength);
-            gateI->SetThreshold(omSetup->gate_gateIThreshold);
-            gateI->SetCscanSamplingResolution(omSetup->gate_gateASamplingResolution);
+            gateI->SetDelay(omSetCof->gate_gateIDelay);
+            gateI->SetLength(omSetCof->gate_gateILength);
+            gateI->SetThreshold(omSetCof->gate_gateIThreshold);
+            gateI->SetCscanSamplingResolution(omSetCof->gate_gateASamplingResolution);
 
             auto gateA = gateConfig->Add(GATE_A);
-            gateA->SetDelay(omSetup->gate_gateADelay);
-            gateA->SetLength(omSetup->gate_gateALength);
-            gateA->SetThreshold(omSetup->gate_gateAThreshold);
-            gateA->ReserveCscanBuffer(omSetup->gate_gateAReserveBuffer);
-            gateA->SetCscanSamplingResolution(omSetup->gate_gateASamplingResolution);
-            gateA->SetPlacement(omSetup->gate_gateAPlacement);
+            gateA->SetDelay(omSetCof->gate_gateADelay);
+            gateA->SetLength(omSetCof->gate_gateALength);
+            gateA->SetThreshold(omSetCof->gate_gateAThreshold);
+            gateA->ReserveCscanBuffer(omSetCof->gate_gateAReserveBuffer);
+            gateA->SetCscanSamplingResolution(omSetCof->gate_gateASamplingResolution);
+            gateA->SetPlacement(omSetCof->gate_gateAPlacement);
 
             auto gateB = gateConfig->Add(GATE_B);
-            gateB->SetDelay(omSetup->gate_gateBDelay);
-            gateB->SetLength(omSetup->gate_gateBLength);
-            gateB->SetThreshold(omSetup->gate_gateBThreshold);
-            gateB->ReserveCscanBuffer(omSetup->gate_gateBReserveBuffer);
-            gateB->SetCscanSamplingResolution(omSetup->gate_gateBSamplingResolution);
+            gateB->SetDelay(omSetCof->gate_gateBDelay);
+            gateB->SetLength(omSetCof->gate_gateBLength);
+            gateB->SetThreshold(omSetCof->gate_gateBThreshold);
+            gateB->ReserveCscanBuffer(omSetCof->gate_gateBReserveBuffer);
+            gateB->SetCscanSamplingResolution(omSetCof->gate_gateBSamplingResolution);
         }
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////
-
-    void Configuration::Read(ISetupPtr setup)
-    {
-        ReadInspectionConfigs(setup->GetInspectionConfigurations());
-        ReadConfigurations(setup->GetInspectionConfigurations());
-    }
-
-    void Configuration::ReadInspectionConfigs(IInspectionConfigurationCollectionConstPtr inspConfigs)
-    {
-        for (size_t inspConfigIdx(0); inspConfigIdx < inspConfigs->GetCount(); ++inspConfigIdx)
-        {
-            auto inpsConfig = inspConfigs->GetConfiguration(inspConfigIdx);
-            double acqRate = inpsConfig->GetRate();
-            auto firingTrigger = inpsConfig->GetFiringTrigger();
-
-            for (size_t encoderIdx(0); encoderIdx < inpsConfig->GetEncoderConfigurations()->GetCount(); ++encoderIdx)
-            {
-                auto encoder = inpsConfig->GetEncoderConfigurations()->GetEncoderConfiguration(encoderIdx);
-                wstring name = encoder->GetName();
-                bool inverted = encoder->IsInverted();
-                auto encoderType = encoder->GetType();
-                size_t presetValue = encoder->GetPresetValue();
-                double distanceResolution = encoder->GetDistanceResolution();
-                double paceResolution = encoder->GetFiringResolution();
-            }
-
-            for (size_t acqUnitidx(0); acqUnitidx < inpsConfig->GetAcquisitionUnitConfigurations()->GetCount(); ++acqUnitidx)
-            {
-                auto acqUnitConfig = inpsConfig->GetAcquisitionUnitConfigurations()->GetConfiguration(acqUnitidx);
-                wstring deviceName = acqUnitConfig->GetName();
-                auto platform = acqUnitConfig->GetPlatform();
-                auto model = acqUnitConfig->GetModel();
-
-                auto digitizer = acqUnitConfig->GetUltrasoundDigitizerConfiguration();
-
-                double pulserVoltage{};
-                auto convDigitizer = digitizer->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::Conventional);
-                for (size_t pulserVoltageIdx(0); pulserVoltageIdx < convDigitizer->GetPulserVoltages()->GetCount(); ++pulserVoltageIdx)
-                    pulserVoltage = convDigitizer->GetPulserVoltages()->GetPulserVoltage(pulserVoltageIdx);
-
-                double convPulserVoltage = convDigitizer->GetPulserVoltage();
-
-                auto paDigitizer = digitizer->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::PhasedArray);
-                for (size_t pulserVoltageIdx(0); pulserVoltageIdx < paDigitizer->GetPulserVoltages()->GetCount(); ++pulserVoltageIdx)
-                    pulserVoltage = paDigitizer->GetPulserVoltages()->GetPulserVoltage(pulserVoltageIdx);
-
-                double paPulserVoltage = paDigitizer->GetPulserVoltage();
-            }
-        }
-    }
-
-    void Configuration::ReadConfigurations(IInspectionConfigurationCollectionConstPtr inspConfigs)
-    {
-        for (size_t inspConfigIdx(0); inspConfigIdx < inspConfigs->GetCount(); ++inspConfigIdx)
-        {
-            auto inpsConfig = inspConfigs->GetConfiguration(inspConfigIdx);
-            auto configs = inpsConfig->GetConfigurations();
-
-            for (size_t configIdx(0); configIdx < configs->GetCount(); ++configIdx)
-            {
-                auto config = configs->GetConfiguration(configIdx);
-                if (auto convConfig = dynamic_pointer_cast<const IConventionalConfiguration>(config))
-                {
-                    auto jsonString = convConfig->GetApplicationSettings("MyApplication");
-
-                    IInspectionMethodPitchCatchPtr paMethodPitchCatch = std::dynamic_pointer_cast<IInspectionMethodPitchCatch>(convConfig->GetInspectionMethod());
-                    IInspectionMethodPulseEchoPtr paMethodPulseEcho = std::dynamic_pointer_cast<IInspectionMethodPulseEcho>(convConfig->GetInspectionMethod());
-                    IInspectionMethodTofdPtr paMethodTofd = std::dynamic_pointer_cast<IInspectionMethodTofd>(convConfig->GetInspectionMethod());
-                    wstring usage = L"";
-                    if (paMethodPitchCatch != nullptr)
-                    {
-                        usage = paMethodPitchCatch->GetUsage();
-                    }
-                    else if (paMethodPulseEcho != nullptr)
-                    {
-                        usage = paMethodPulseEcho->GetUsage();
-                    }
-                    else if (paMethodTofd != nullptr)
-                    {
-                        usage = paMethodTofd->GetUsage();
-                    }
-
-                    wstring beamName = convConfig->GetInspectionMethod()->GetName();
-
-                    double gain = convConfig->GetGain();
-                    double analysisGain = convConfig->GetAnalysisGain();
-
-                    double refGain{};
-                    if (convConfig->HasReferenceGain())
-                        refGain = convConfig->GetReferenceGain();
-
-                    double wedgeDelay = convConfig->GetWedgeDelay();
-                    double digitizingDelay = convConfig->GetDigitizingDelay();
-                    double digitizingLength = convConfig->GetDigitizingLength();
-
-                    auto digitizingSettings = convConfig->GetDigitizingSettings();
-                    int compressionFactor = digitizingSettings->GetTimeSettings()->GetAscanCompressionFactor();
-
-                    auto filterSettings = digitizingSettings->GetFilterSettings();
-                    bool smoothingEnabled = filterSettings->IsSmoothingFilterEnabled();
-                    double smoothingFilter = filterSettings->GetSmoothingFilter();
-
-                    ReadThicknessSettings(convConfig->GetThicknessSettings());
-
-                    auto gateConfigs = convConfig->GetGateConfigurations();
-                    for (size_t gateIdx{}; gateIdx < gateConfigs->GetCount(); gateIdx++)
-                    {
-                        auto gateConfig = gateConfigs->GetGateConfiguration(gateIdx);
-                        wstring name = gateConfig->GetName();
-                        double samplingResol = gateConfig->GetCscanSamplingResolution();
-                        bool inCycleData = gateConfig->InCycleData();
-                        bool isReserveBuffer = gateConfig->IsReserveCscanBuffer();
-                        GatePlacement placement = gateConfig->GetPlacement();
-                    }
-                }
-                else if (auto paConfig = dynamic_pointer_cast<const IPhasedArrayConfiguration>(config))
-                {
-                    auto jsonString = paConfig->GetApplicationSettings("MyApplication");
-
-                    IInspectionMethodPhasedArrayPtr paMethod = std::dynamic_pointer_cast<IInspectionMethodPhasedArray>(paConfig->GetInspectionMethod());
-                    wstring usage = paMethod->GetUsage();
-                    wstring beamSetName = paConfig->GetInspectionMethod()->GetName();
-
-                    double velocity = paConfig->GetVelocity();
-
-                    double gain = paConfig->GetGain();
-                    double analysisGain = paConfig->GetAnalysisGain();
-
-                    double refGain{};
-                    if (paConfig->HasReferenceGain())
-                        refGain = paConfig->GetReferenceGain();
-
-                    auto digitizingSettings = paConfig->GetDigitizingSettings();
-                    auto timeSettings = digitizingSettings->GetTimeSettings();
-
-                    ITimeSettings::AscanSynchroMode ascanSynchroMode = timeSettings->GetAscanSynchroMode();
-
-                    double wedgeDelay = paConfig->GetWedgeDelay();
-
-                    int compressionFactor = digitizingSettings->GetTimeSettings()->GetAscanCompressionFactor();
-
-                    auto filterSettings = digitizingSettings->GetFilterSettings();
-                    bool smoothingEnabled = filterSettings->IsSmoothingFilterEnabled();
-                    double smoothingFilter = filterSettings->GetSmoothingFilter();
-
-                    ReadThicknessSettings(paConfig->GetThicknessSettings());
-
-                    size_t beamQty = paConfig->GetBeamCount();
-                    for (size_t beamIdx(0); beamIdx < paConfig->GetBeamCount(); ++beamIdx)
-                    {
-                        auto beam = paConfig->GetBeam(beamIdx);
-                        double digitizingDelay = beam->GetDigitizingDelay();
-                        double digitizingLength = beam->GetDigitizingLength();
-                        double exitPointPrimary = beam->GetExitPointPrimary();
-                        double skew = beam->GetSkewAngle();
-
-                        auto gateConfigs = beam->GetGateConfigurations();
-                        for (size_t gateIdx{}; gateIdx < gateConfigs->GetCount(); gateIdx++)
-                        {
-                            auto gateConfig = gateConfigs->GetGateConfiguration(gateIdx);
-                            wstring name = gateConfig->GetName();
-                            double samplingResol = gateConfig->GetCscanSamplingResolution();
-                            bool inCycleData = gateConfig->InCycleData();
-                            bool isReserveBuffer = gateConfig->IsReserveCscanBuffer();
-                            GatePlacement placement = gateConfig->GetPlacement();
-                        }
-                    }
-                }
-                else if (auto tfmConfig = dynamic_pointer_cast<const ITotalFocusingMethodConfiguration>(config))
-                {
-                    auto jsonString = tfmConfig->GetApplicationSettings("MyApplication");
-
-                    IInspectionMethodTotalFocusingPtr tfmMethod = std::dynamic_pointer_cast<IInspectionMethodTotalFocusing>(tfmConfig->GetInspectionMethod());
-                    wstring usage = tfmMethod->GetUsage();
-                    wstring configName = tfmConfig->GetInspectionMethod()->GetName();
-
-                    double analysisGain = tfmConfig->GetAnalysisGain();
-                }
-                else {
-                    throw bad_cast{};
-                }
-            }
-        }
-    }
-
-    void Configuration::ReadThicknessSettings(IThicknessSettingsPtr thicknessSettings)
-    {
-        double thicknessMin = thicknessSettings->GetThicknessMin();
-        double thicknessMax = thicknessSettings->GetThicknessMax();
-
-        if (thicknessSettings->HasOneGateThicknessSource() || thicknessSettings->HasTwoGateThicknessSource())
-        {
-            auto thicknessSource = thicknessSettings->GetThicknessSource();
-            auto gateSource = thicknessSource->GetFirstGate();
-            wstring name = gateSource->GetGateName();
-            EventType eventType = gateSource->GetEventType();
-            AmplitudeType AmpType = gateSource->GetAmplitudeType();
-        }
-
-        if (thicknessSettings->HasTwoGateThicknessSource())
-        {
-            auto thicknessSource = thicknessSettings->GetThicknessSource();
-            auto gateSource = thicknessSource->GetSecondGate();
-            wstring name = gateSource->GetGateName();
-            EventType eventType = gateSource->GetEventType();
-            AmplitudeType AmpType = gateSource->GetAmplitudeType();
-        }
-    }
 
 }

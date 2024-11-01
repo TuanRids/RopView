@@ -91,6 +91,7 @@ void AviewFrame::update()
 
 void AviewFrame::updateRealTime()
 {
+
     static bool first_flag = false;
     try {
         if (nAscanCollection.empty()) return;
@@ -104,10 +105,7 @@ void AviewFrame::updateRealTime()
         {
             first_flag = true;
             axisY->setRange(0, static_cast<int>(dataSize));
-            axisX->setRange(
-                std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
-                std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x()
-            );
+            axisX->setRange(0,100);
         }
         axisY->setReverse(true);
         static size_t lastpos = curpt.y;

@@ -1,4 +1,4 @@
-#ifndef UIManager_H.*/
+#ifndef UIManager_H
 #define UIManager_H
 #include "../pch.h"
 #include "FacObsFrames/ObserverMgr.h"

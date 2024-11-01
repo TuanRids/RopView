@@ -38,15 +38,16 @@ struct SystemParams {
 struct Om_Settup_Config
 {
     // === Om Phased Array Beam Settings ===
-    static constexpr const size_t PA_BeamQty = 32;
-    static constexpr const size_t PA_ElementQty = 32;
-    static constexpr const size_t PA_FirstElement = 1;
-    static constexpr const double PA_BeamAngleStart = 45.;
-    double PA_exitPoint[PA_BeamQty] = { 28., 27.75, 27.5, 27.25, 27. }; // mm
-    double PA_beamDelay[PA_BeamQty] = { 19000., 19100., 19200., 19300., 19400. }; // ns
-    double PA_digitizingDelay[PA_BeamQty] = { 5400., 5450., 5500., 5550., 5600. }; // ns
-    double PA_elementDelay[PA_ElementQty] = { 374., 355., 336., 315., 294., 272., 249., 225., 200., 174., 148., 120., 91., 62., 31., 0. };
+    double PA_exitPoint = 28; // mm
+    double PA_beamDelay = 19000; // ns
+    double PA_digitizingDelay = 5400; // 5400 ns
+    double PA_elementDelay = 500; //Element Delay; 500
     double PA_skewAngle = 33.0;
+    double PA_DigitizingLength = 20840.; // Digitizing Length; 163840 ns
+            // === Om Phasing Acquisition Settings ===
+    double acquisition_paVoltage = 4.0; // Pulser voltage
+    std::string acquisition_deviceSerialNumber = "QC-0036707";
+    unsigned int beamNumber = 256;
 
     // === Om Phasing Settings ===
     double phasing_gain = 25.0;
@@ -75,21 +76,19 @@ struct Om_Settup_Config
     bool gate_gateBReserveBuffer = true;
     double gate_gateBSamplingResolution = 10.0;
 
-    // === Om Phasing Acquisition Settings ===
-    double acquisition_paVoltage = 4.0; // Pulser voltage
-    std::string acquisition_deviceSerialNumber = "QC-0036707";
+
 };
 
 struct Om_Setup_ScanPlan
 {
     // Phased Array Transducer Settings
-    double raTransducerFrequency = 5.0;  // MHz
-    size_t raTransducerElementQty = 32;  // Number of elements
-    size_t raTransducerRowQty = 1;       // Number of rows
-    double raTransducerWidth = 0.6;      // Element width (mm)
-    double raTransducerHeight = 10.0;    // Element height (mm)
+    double raProbeFre = 5.0;  // MHz
+    unsigned int raProbeElem = 64;  // Number of elements
+    unsigned int raProbeRows = 1;       // Number of rows
+    double raProbeWidth = 0.6;      // Element width (mm)
+    double raProbeHeight = 10.0;    // Element height (mm)
 
-    // Phased Array Wedge Settings
+    // Phased Array Wedge Settings 
     double raWedgeLength = 48.58;       // Wedge length (mm)
     double raWedgeWidth = 30.0;         // Wedge width (mm)
     double raWedgeHeight = 32.26;       // Wedge height (mm)
@@ -97,17 +96,18 @@ struct Om_Setup_ScanPlan
     double raWedgeMaterialVelocity = 2330.0;  // Material velocity (m/s)
 
     // Phased Array Linear Formation
-    double linearFormationElementStep = 1.0; // Element step size
-    size_t linearFormationActiveElements = 32; // Active elements
-    size_t linearFormationStartElement = 1;    // Starting element
-    size_t linearFormationMaxElements = 64;    // Maximum number of elements
+    double LinearElemStep = 1.0; // Element step size
+    unsigned int LinearElemActive = 32; // Active elements
+    unsigned int LinearElemStart = 1;    // Starting element
+    unsigned int LinearElemMax = 64;    // Maximum number of elements
+    Olympus::Inspection::WaveType LineaerWaveType = Olympus::Inspection::WaveType::Longitudinal; // wavetype
 
     // Phased Array Beam Settings
     double beamFocusingDepth = 50.0;   // Focusing distance (mm)
     double beamRefractedAngle = 45.0;  // Starting refracted angle (degrees)
-    double probePositionAngle = 90.0;  // Probe position angle (degrees)
+    double probePositionAngle = 0;  // Probe position angle (degrees)
     double probePositionX = 0.0;       // X position of probe
-    double probePositionY = -20.0;     // Y position of probe
+    double probePositionY = 0.0;     // Y position of probe
     double skewStart = 45.0;           // Skew angle start (degrees)
     double skewStop = 45.0;            // Skew angle stop (degrees)
     double skewStep = 1.0;             // Skew angle step (degrees)

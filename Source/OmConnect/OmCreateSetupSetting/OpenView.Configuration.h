@@ -1,7 +1,7 @@
 #ifndef OPENVIEW_CONFIGURATION_H
 #define OPENVIEW_CONFIGURATION_H
 #include "../pch.h"
-
+#include "SystemConfig/ConfigLocator.h"
 using namespace std;
 using namespace Olympus::FileManagement;
 using namespace Olympus::Inspection;
@@ -24,6 +24,9 @@ namespace OpenView
         static void ReadConfigurations(IInspectionConfigurationCollectionConstPtr inspConfigs);
         static void ReadConfiguration(IConfigurationConstPtr config);
         static void ReadThicknessSettings(IThicknessSettingsPtr thicknessSettings);
+        static std::shared_ptr<Om_Settup_Config> omSetCof;
+        static std::shared_ptr<Om_Setup_ScanPlan> omSetup;
+
     };
 }
 

@@ -57,7 +57,6 @@ void nDataProcess::Run()
     {
         do
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(4));
             auto waitForDataResult = m_acquisition->WaitForDataEx();
             if (m_acquisition->WaitForDataEx().status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {

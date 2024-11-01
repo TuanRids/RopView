@@ -23,47 +23,12 @@ Olympus::FileManagement::ISetupPtr OmConfigSetup::initSetup()
         throw std::exception("Input file does not exist.");
 }
 
-shared_ptr<IBeamSet> AddConventionalFiringBeamSet(shared_ptr<IUltrasoundConfiguration> ultrasoundConfig, const wstring& beamSetName, const wstring& portName)
+bool IsAdjusted(IAdjustedParameterCollectionPtr adjParams)
 {
-    shared_ptr<IBeamSet> beamSet;
-    shared_ptr<IConnector> connector;
-
-    if (portName == OmniScanX3::PA_PORT)
-    {
-        auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
-        beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetConventional(beamSetName);
-        connector = digitizer->GetConnectorCollection()->GetConnector(0);
-    }
-    else
-    {
-        auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::Conventional);
-        beamSet = digitizer->GetBeamSetFactory()->CreateBeamSetConventional(beamSetName);
-
-        if (portName == OmniScanX3::UT_P1_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(0);
-        }
-        else if (portName == OmniScanX3::UT_R1_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(1);
-        }
-        else if (portName == OmniScanX3::UT_P2_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(2);
-        }
-        else if (portName == OmniScanX3::UT_R2_PORT)
-        {
-            connector = digitizer->GetConnectorCollection()->GetConnector(3);
-        }
-
-    }
-    if (!connector || !beamSet) { throw std::exception("Invalid connector or beam set."); }
-    ultrasoundConfig->GetFiringBeamSetCollection()->Add(beamSet, connector);
-
-    return beamSet;
+    return adjParams->GetCount() > 0;
 }
-
-shared_ptr<IBeamSet> AddPhasedArrayFiringBeamSet(shared_ptr<IUltrasoundConfiguration> ultrasoundConfig, IConfigurationPtr config, const wstring& portName)
+// Firing Beamset Phased Array
+shared_ptr<IBeamSet> Set_AddPhasedArrayFiringBeamSet(shared_ptr<IUltrasoundConfiguration> ultrasoundConfig, IConfigurationPtr config, const wstring& portName)
 {
     shared_ptr<IBeamSet> beamSet;
 
@@ -93,73 +58,7 @@ shared_ptr<IBeamSet> AddPhasedArrayFiringBeamSet(shared_ptr<IUltrasoundConfigura
 
     return beamSet;
 }
-
-bool IsAdjusted(IAdjustedParameterCollectionPtr adjParams)
-{
-    return adjParams->GetCount() > 0;
-}
-
-IBeamSetPtr CreateFiringBeamSetConventional(IConfigurationPtr config, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
-{
-    IBeamSetPtr beamSet;
-    auto peMethod = dynamic_pointer_cast<IInspectionMethodPulseEcho>(config->GetInspectionMethod());
-    if (peMethod)
-    {
-        auto probeConv = dynamic_pointer_cast<IProbeConventional>(peMethod->GetProbe());
-        if (probeConv)
-        {
-            wstring portName = probeConv->GetConnector()->GetConnection()->GetName();
-            beamSet = AddConventionalFiringBeamSet(ultrasoundConfig, peMethod->GetName(), portName);
-        }
-        else
-        {
-            auto probePa = dynamic_pointer_cast<IProbeRectangularArray>(peMethod->GetProbe());
-            if (probePa)
-            {
-                wstring portName = probePa->GetConnector()->GetConnection()->GetName();
-                beamSet = AddConventionalFiringBeamSet(ultrasoundConfig, peMethod->GetName(), portName);
-            }
-            else
-                throw bad_cast{};
-        }
-    }
-    else
-    {
-        auto pcMethod = dynamic_pointer_cast<IInspectionMethodPitchCatch>(config->GetInspectionMethod());
-        if (pcMethod)
-        {
-            auto pProbe = dynamic_pointer_cast<IProbeConventional>(pcMethod->GetProbePulsing());
-            auto rProbe = dynamic_pointer_cast<IProbeConventional>(pcMethod->GetProbeReceiving());
-            if (pProbe && rProbe)
-            {
-                //TODO
-            }
-            else
-                throw bad_cast{};
-        }
-        else
-        {
-            auto tofdMethod = dynamic_pointer_cast<IInspectionMethodTofd>(config->GetInspectionMethod());
-            if (tofdMethod)
-            {
-                auto pProbe = dynamic_pointer_cast<IProbeConventional>(tofdMethod->GetProbePulsing());
-                auto rProbe = dynamic_pointer_cast<IProbeConventional>(tofdMethod->GetProbeReceiving());
-                if (pProbe && rProbe)
-                {
-                    //TODO
-                }
-                else
-                    throw bad_cast{};
-            }
-            else
-                throw bad_cast{};
-        }
-    }
-
-    return beamSet;
-}
-
-IBeamSetPtr CreateFiringBeamSetPhasedArray(IConfigurationPtr config, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
+IBeamSetPtr Set_CreateFiringBeamSetPhasedArray(IConfigurationPtr config, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
 {
     wstring portName;
     IBeamSetPtr beamSet;
@@ -182,26 +81,11 @@ IBeamSetPtr CreateFiringBeamSetPhasedArray(IConfigurationPtr config, shared_ptr<
             throw bad_cast{};
     }
 
-    return AddPhasedArrayFiringBeamSet(ultrasoundConfig, config, portName);
+    return Set_AddPhasedArrayFiringBeamSet(ultrasoundConfig, config, portName);
 }
 
-IConventionalConfigurationPtr GetConventionalConfig(ISetupPtr setup, const wstring& beamSetName)
-{
-    IConfigurationPtr config;
-    auto inspConfigs = setup->GetInspectionConfigurations();
-    for (size_t inspConfigIdx(0); inspConfigIdx < inspConfigs->GetCount(); ++inspConfigIdx)
-    {
-        auto inspConfig = inspConfigs->GetConfiguration(inspConfigIdx);
-        auto configs = inspConfig->GetConfigurations();
-        for (size_t configIdx(0); configIdx < configs->GetCount() && config == nullptr; ++configIdx)
-        {
-            config = configs->FindConfiguration(beamSetName);
-        }
-    }
-
-    return dynamic_pointer_cast<IConventionalConfiguration>(config);;
-}
-bool CopyDigitizingSettings(shared_ptr<IDigitizingSettings> digitizingSettings, shared_ptr<IDigitizingSettings> digitizingSettingsConfig)
+// Config Beamset Phased Array
+bool Set_CopyDigitizingSettings(shared_ptr<IDigitizingSettings> digitizingSettings, shared_ptr<IDigitizingSettings> digitizingSettingsConfig, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
 {
     bool adjusted(false);
 
@@ -218,20 +102,21 @@ bool CopyDigitizingSettings(shared_ptr<IDigitizingSettings> digitizingSettings, 
     adjusted |= IsAdjusted(ampSettings->SetAscanRectification(ampSettingsConfig->GetAscanRectification()));
     ampSettings->SetScalingType(ampSettingsConfig->GetScalingType());
 
-    /*auto filterSettings = digitizingSettings->GetFilterSettings();
-    auto filterSettingsConfig = digitizingSettingsConfig->GetFilterSettings();
-    filterSettings->SetDigitalBandPassFilter(filterSettingsConfig->GetDigitalBandPassFilter());
+    auto filterSettings = digitizingSettings->GetFilterSettings();
+    digitizingSettings->GetFilterSettings()->EnableSmoothingFilter(true);
+    auto digitizerTechnology = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
 
-    if (filterSettingsConfig->IsSmoothingFilterEnabled())
-    {
-      filterSettings->EnableSmoothingFilter(true);
-      filterSettings->SetSmoothingFilter(filterSettingsConfig->GetSmoothingFilter());
-    }*/
+    auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
+    auto smoothingFilterCollection = digitizer->GetSmoothingFilterCollection();
+
+    double probeFrequency = 5.0; 
+    
+    filterSettings->EnableSmoothingFilter(true);
+    filterSettings->SetSmoothingFilter(smoothingFilterCollection->GetSmoothingFilter(probeFrequency));
 
     return adjusted;
 }
-
-bool CopyGateSettings(shared_ptr<IGateCollection> gates, shared_ptr<IGateConfigurationCollection> gatesConfigs, double wedgeDelay)
+bool Set_CopyGateSettings(shared_ptr<IGateCollection> gates, shared_ptr<IGateConfigurationCollection> gatesConfigs, double wedgeDelay)
 {
     bool adjusted(false);
 
@@ -251,8 +136,7 @@ bool CopyGateSettings(shared_ptr<IGateCollection> gates, shared_ptr<IGateConfigu
 
     return adjusted;
 }
-
-bool CopTcgSettings(shared_ptr<ITcg> tcg, shared_ptr<ITcg> tcgConfig, double wedgeDelay)
+bool Set_CopTcgSettings(shared_ptr<ITcg> tcg, shared_ptr<ITcg> tcgConfig, double wedgeDelay)
 {
     bool adjusted(false);
 
@@ -273,28 +157,7 @@ bool CopTcgSettings(shared_ptr<ITcg> tcg, shared_ptr<ITcg> tcgConfig, double wed
 
     return adjusted;
 }
-bool ConfigBeamSetConventional(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config)
-{
-    bool adjusted(false);
-
-    auto convConfig = dynamic_pointer_cast<IConventionalConfiguration>(config);
-    beamSet->GetPulsingSettings()->Enable(convConfig->GetPulsingSettings()->IsEnabled());
-    adjusted |= beamSet->GetPulsingSettings()->SetAscanAveragingFactor(convConfig->GetPulsingSettings()->GetAscanAveragingFactor());
-    adjusted |= beamSet->GetPulsingSettings()->SetPulseWidth(convConfig->GetPulsingSettings()->GetPulseWidth());
-    adjusted |= CopyDigitizingSettings(beamSet->GetDigitizingSettings(), convConfig->GetDigitizingSettings());
-
-    auto beam = beamSet->GetBeam(0);
-    adjusted |= IsAdjusted(beam->SetGainEx(convConfig->GetGain()));
-    adjusted |= IsAdjusted(beam->SetAscanStart(convConfig->GetWedgeDelay() + convConfig->GetDigitizingDelay()));
-    adjusted |= IsAdjusted(beam->SetAscanLength(convConfig->GetDigitizingLength()));
-    adjusted |= IsAdjusted(beam->SetRecurrence(convConfig->GetRecurrence()));
-
-    adjusted |= CopyGateSettings(beam->GetGateCollection(), convConfig->GetGateConfigurations(), convConfig->GetWedgeDelay());
-    adjusted |= CopTcgSettings(beam->GetTcg(), convConfig->GetTcg(), convConfig->GetWedgeDelay());
-
-    return adjusted;
-}
-bool ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config)
+bool Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
 {
     bool adjusted(false);
     auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
@@ -304,7 +167,7 @@ bool ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr co
         std::cout << paConfig->GetPulsingSettings()->GetPulseWidth() << std::endl;
     adjusted |= beamSet->GetPulsingSettings()->SetAscanAveragingFactor(paConfig->GetPulsingSettings()->GetAscanAveragingFactor());
     adjusted |= beamSet->GetPulsingSettings()->SetPulseWidth(100);
-    adjusted |= CopyDigitizingSettings(beamSet->GetDigitizingSettings(), paConfig->GetDigitizingSettings());
+    adjusted |= Set_CopyDigitizingSettings(beamSet->GetDigitizingSettings(), paConfig->GetDigitizingSettings(), ultrasoundConfig);
 
     for (size_t beamIdx(0); beamIdx < beamSet->GetBeamCount(); ++beamIdx)
     {
@@ -319,13 +182,13 @@ bool ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr co
         adjusted |= IsAdjusted(beam->SetSumGain(beamConfig->GetSumGain()));
 
         double wedgeDelay = paConfig->GetWedgeDelay() + beamConfig->GetBeamDelay();
-        adjusted |= CopyGateSettings(beam->GetGateCollection(), beamConfig->GetGateConfigurations(), wedgeDelay);
-        adjusted |= CopTcgSettings(beam->GetTcg(), beamConfig->GetTcg(), wedgeDelay);
+        adjusted |= Set_CopyGateSettings(beam->GetGateCollection(), beamConfig->GetGateConfigurations(), wedgeDelay);
+        adjusted |= Set_CopTcgSettings(beam->GetTcg(), beamConfig->GetTcg(), wedgeDelay);
 
         auto pulsers = beam->GetBeamFormation()->GetPulserDelayCollection();
         auto pulsersConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetPulserDelayCollection();
 
-        for (size_t elementIdx(0); elementIdx < pulsers->GetCount(); ++elementIdx)
+        for (size_t elementIdx(0); elementIdx < pulsers->GetCount(); elementIdx += 2 )
         {
             auto element = pulsers->GetElementDelay(elementIdx);
             auto elementConfig = pulsersConfig->GetElementDelay(elementIdx);
@@ -336,7 +199,7 @@ bool ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr co
         auto receivers = beam->GetBeamFormation()->GetReceiverDelayCollection();
         auto receiversConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetReceiverDelayCollection();
 
-        for (size_t elementIdx(0); elementIdx < receivers->GetCount(); ++elementIdx)
+        for (size_t elementIdx(0); elementIdx < receivers->GetCount(); elementIdx += 2)
         {
             auto element = receivers->GetElementDelay(elementIdx);
             auto elementConfig = receiversConfig->GetElementDelay(elementIdx);
@@ -347,6 +210,7 @@ bool ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr co
 
     return adjusted;
 }
+
 
 bool OmConfigSetup::ConfigAcquisitionFromSetup(IAcquisitionPtr nacquisition, Olympus::FileManagement::ISetupPtr setup)
 {
@@ -389,10 +253,8 @@ bool OmConfigSetup::ConfigAcquisitionFromSetup(IAcquisitionPtr nacquisition, Oly
                 encoder->SetEncoderType(IEncoder::Type::Quadrature);
         }
     }
-
     return adjusted;
 }
-
 bool OmConfigSetup::ConfigDeviceFromSetup(IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup)
 {
     bool adjusted(false);
@@ -409,20 +271,14 @@ bool OmConfigSetup::ConfigDeviceFromSetup(IDevicePtr ndevice, Olympus::FileManag
             auto config = configs->GetConfiguration(configIdx);
             auto inspMethod = config->GetInspectionMethod();
             auto convMethod = dynamic_pointer_cast<IInspectionMethodConventional>(inspMethod);
-            if (convMethod)
-            {
-                auto beamSet = CreateFiringBeamSetConventional(config, ultrasoundConfig);
-                adjusted |= ConfigBeamSetConventional(beamSet, config);
-            }
-            else
+            if (!convMethod)
             {
                 auto paMethod = dynamic_pointer_cast<IInspectionMethodPhasedArray>(inspMethod);
                 if (paMethod)
                 {
-                    auto beamSet = CreateFiringBeamSetPhasedArray(config, ultrasoundConfig);
-                    if (!beamSet) /* throw print */
-                        throw bad_cast{};
-                    adjusted |= ConfigBeamSetPhasedArray(beamSet, config);
+                    auto beamSet = Set_CreateFiringBeamSetPhasedArray(config, ultrasoundConfig);
+                    adjusted |= Set_ConfigBeamSetPhasedArray(beamSet, config, ultrasoundConfig);
+
                 }
                 else
                     throw bad_cast{};

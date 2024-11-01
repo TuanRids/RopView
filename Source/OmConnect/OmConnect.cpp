@@ -6,7 +6,8 @@ std::string wstostring(const std::wstring& wstr) {
     return std::string(wstr.begin(), wstr.end());
 }
 
-
+#include "OmConnect/OmCreateSetupSetting/OpenView.Configuration.h"
+#include "OmConnect/OmCreateSetupSetting/OpenView.ScanPlan.h"
 
 OmConnect::OmConnect() : sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr), datProcess(nullptr)
 {
@@ -20,32 +21,34 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
     ipAddress = ConfigLocator::getInstance().settingconf->ipAddress;
     try
     {
-        Olympus::FileManagement::ISetupPtr getsetup;
+        /*Olympus::FileManagement::ISetupPtr getsetup;
         if (mode == ConnectMode::SetupFileMode)
         {
             getsetup = OmConfigSetup::initSetup();
-        }
+        }*/
         if (!device)
         {
             sttlogs->logInfo("Trying to Connnect to IP: " + ipAddress);
             device = DiscoverDevice();
             StartDevice();
+        }        
+        if (mode == ConnectMode::SetupFileMode)
+        {
+            auto setup = Storage::CreateSetup();
+            OpenView::ScanPlan::Create(setup);
+            OpenView::Configuration::Create(setup);
+
+            acquisition = IAcquisition::CreateEx(device);
+            auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, setup);
+            sttlogs->logInfo (adjusted ? "Configuration Device From SetupFile: Completed" : "Configuration Device From SetupFile: Failed");
+            OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, setup);
+            sttlogs->logInfo(adjusted ? "Configuration Acquisition From Setup: Completed" : "Configuration Acquisition From Setup: Failed");
+
         }
-        if (mode == ConnectMode::TestingMode)
+        else if (mode == ConnectMode::TestingMode)
         {
             acquisition = IAcquisition::CreateEx(device);
             ConfigureDevice();
-            acquisition->SetRate(configL->omconf->Rate);
-            acquisition->ApplyConfiguration();
-        }
-        else if (mode == ConnectMode::SetupFileMode)
-        {
-            acquisition = IAcquisition::CreateEx(device);
-            auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, getsetup);
-            sttlogs->logInfo (adjusted ? "Configuration Device From SetupFile: Completed" : "Configuration Device From SetupFile: Failed");
-            OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, getsetup);
-            sttlogs->logInfo(adjusted ? "Configuration Acquisition From Setup: Completed" : "Configuration Acquisition From Setup: Failed");
-
         }
         acquisition->SetRate(configL->omconf->Rate);
         acquisition->ApplyConfiguration();
@@ -56,7 +59,6 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
             acquisition.reset();
             acquisition = nullptr; ConfigureDevice();
         }
-
     }
     catch (const std::exception& e)
     {

@@ -14,7 +14,6 @@ bool OmCreateSetup::SaveSetup()
         OpenView::ScanPlan::Create(setup);
         OpenView::Configuration::Create(setup);
 
-        ConfigureParameters(setup);
         auto signature = setup->GetSignature();
         signature->SetCompanyName(L"Company X");
         signature->SetSoftwareName(L"App Y");
@@ -33,38 +32,6 @@ bool OmCreateSetup::SaveSetup()
     return true;
 
 }
-void OmCreateSetup::ConfigureConventional(IConventionalConfigurationPtr config)
-{
-    config->SetGain(23.4);
-    config->SetVelocity(3245.);
-    config->SetWedgeDelay(9000.);
-    config->SetExitPoint(13.9);
-    config->SetReferenceAmplitude(80.);
-    config->SetDigitizingDelay(1000.);
-    config->SetDigitizingLength(40960.);
-
-    auto pulsingSettings = config->GetPulsingSettings();
-    pulsingSettings->SetPulseWidth(100.);
-
-    auto digitizingSettings = config->GetDigitizingSettings();
-    digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
-    digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(IAmplitudeSettings::RectificationType::None);
-
-    auto gateConfig = config->GetGateConfigurations();
-    auto gateA = gateConfig->Add(GATE_A);
-    gateA->SetDelay(10100.);
-    gateA->SetLength(1000.);
-    gateA->SetThreshold(30);
-    gateA->ReserveCscanBuffer(true);
-
-    auto tcg = config->GetTcg();
-    tcg->SetTcgType(ITcg::Type::Digital);
-    auto tcgPoints = tcg->GetTcgPointCollection();
-    tcgPoints->AddTcgPointEx(11000., 15.);
-    tcgPoints->AddTcgPointEx(12000., 12.5);
-    tcgPoints->AddTcgPointEx(14000., 5.);
-}
-
 void OmCreateSetup::ConfigurePhasedArray(IPhasedArrayConfigurationPtr config)
 {
     constexpr const size_t BeamQty = 5;
@@ -84,9 +51,9 @@ void OmCreateSetup::ConfigurePhasedArray(IPhasedArrayConfigurationPtr config)
     pulsingSettings->SetPulseWidth(100.);*/
     
 
-    auto digitizingSettings = config->GetDigitizingSettings();
-    digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::EightBits);
-    digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(IAmplitudeSettings::RectificationType::Full);
+    //auto digitizingSettings = config->GetDigitizingSettings();
+    //digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::EightBits);
+    //digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(IAmplitudeSettings::RectificationType::Full);
 
 //    for (size_t beamIdx(0); beamIdx < BeamQty; ++beamIdx)
 //    {
@@ -138,11 +105,7 @@ void OmCreateSetup::ConfigureParameters(ISetupPtr setup)
     {
         auto config = configs->GetConfiguration(configIdx);
         auto configUT = dynamic_pointer_cast<IConventionalConfiguration>(config);
-        if (configUT)
-        {
-            ConfigureConventional(configUT);
-        }
-        else
+        if (!configUT)
         {
             auto configPA = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
             if (configPA)
