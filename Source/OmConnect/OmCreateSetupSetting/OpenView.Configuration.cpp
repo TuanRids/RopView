@@ -28,7 +28,6 @@ namespace OpenView
             convDigitizerConfig->SetPulserVoltage(convVoltage);
 
             auto paDigitizerConfig = digitizerConfig->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::PhasedArray);
-            //double paVoltage = paDigitizerConfig->GetPulserVoltages()->GetPulserVoltage(4);
             paDigitizerConfig->SetPulserVoltage(100);
 
         }
@@ -93,15 +92,6 @@ namespace OpenView
     {
         std::string applicationJsonStr = "{\"pipeWizard\": {\"Zone\": \"Volumetric\",\"Type\": \"ABC\",\"Stream\": \"Upstream\",\"GateAStart\": -3.0,\"GateALength\": 6.0,\"GateBStart\": -3.0,\"GateBLength\": 6.0,\"GateAThreshold\": 20.0,\"GateBThreshold\": 20.0,\"GateOffset\": 0.0,\"CorrectionFactor\": 0.0,\"ReflectorSize\": 1.0}}";
         config->SetApplicationSettings(applicationJsonStr);
-
-        constexpr const size_t BeamQty = 5;
-        constexpr const size_t ElementQty = 16;
-        constexpr const size_t FirstElement = 1;
-        constexpr const double BeamAngleStart = 45.;
-        double exitPoint[BeamQty]{ 28., 27.75, 27.5, 27.25, 27. }; //mm
-        double beamDelay[BeamQty]{ 19000., 19100., 19200., 19300., 19400. }; //ns
-        double digitizingDelay[BeamQty]{ 5400., 5450., 5500., 5550., 5600. }; //ns
-        double elementDelay[ElementQty]{ 374., 355., 336., 315., 294., 272., 249., 225., 200., 174., 148., 120., 91., 62., 31., 0. };
 
         config->SetGain(omSetCof->phasing_gain);
         config->SetVelocity(omSetCof->phasing_velocity);

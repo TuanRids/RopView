@@ -1,176 +1,138 @@
 #include "OmConfigSetup.h"
 
-using namespace std::experimental::filesystem;
-using namespace Instrumentation;
-using namespace Olympus::Equipment;
-using namespace Olympus::Inspection;
-using namespace Olympus::FileManagement;
-using namespace Olympus::FileManagement::Storage;
+Instrumentation::IUltrasoundConfigurationPtr OmConfigSetup::ultrasoundConfig = nullptr;
+Olympus::FileManagement::ISetupPtr OmConfigSetup::SetupConfig = nullptr;
+std::shared_ptr<Om_Settup_Config> OmConfigSetup::omSetCof = nullptr;
+std::shared_ptr<Om_Setup_ScanPlan> OmConfigSetup::omSetup = nullptr;
 
-
-
-Olympus::FileManagement::ISetupPtr OmConfigSetup::initSetup()
-{ 
-    std::filesystem::path inputFile = getFilePath();
-    // check if input file exists
-    if (std::filesystem::exists(inputFile)) 
-    {
-        auto setupFile = Olympus::FileManagement::OpenSetupFile(inputFile);
-        auto setup = setupFile->GetSetup();
-        return setup;
-    }
-    else 
-        throw std::exception("Input file does not exist.");
-}
-
+// Configure Device from Setup
 bool IsAdjusted(IAdjustedParameterCollectionPtr adjParams)
 {
     return adjParams->GetCount() > 0;
 }
-// Firing Beamset Phased Array
-shared_ptr<IBeamSet> Set_AddPhasedArrayFiringBeamSet(shared_ptr<IUltrasoundConfiguration> ultrasoundConfig, IConfigurationPtr config, const wstring& portName)
-{
-    shared_ptr<IBeamSet> beamSet;
+bool OmConfigSetup::ConfigDeviceFromSetup(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup) {
+    SetupConfig = setup;
+    bool adjusted = false;
+    auto inspConfig = setup->GetInspectionConfigurations()->GetConfiguration(0);
 
-    if (portName == L"PA")
-    {
-        auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
-        auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
-        
-        auto factory = digitizer->GetBeamSetFactory();
-        auto beamFormations = factory->CreateBeamFormationCollection();
+    nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Internal);
 
-        for (size_t beamIdx(0); beamIdx < paConfig->GetBeamCount(); ++beamIdx)
-        {
-            auto pulsers = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetPulserDelayCollection();
-            auto receivers = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetReceiverDelayCollection();
-
-            auto beamFormation = factory->CreateBeamFormation(pulsers->GetCount(), receivers->GetCount());
-            beamFormations->Add(beamFormation);
-        }
-
-        wstring beamSetName = paConfig->GetInspectionMethod()->GetName();
-        beamSet = factory->CreateBeamSetPhasedArray(beamSetName, beamFormations);
-
-        auto connector = digitizer->GetConnectorCollection()->GetConnector(0);
-        ultrasoundConfig->GetFiringBeamSetCollection()->Add(beamSet, connector);
+    // Set firing trigger
+    switch (inspConfig->GetFiringTrigger()) {
+    case FiringTrigger::Internal:
+        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Internal);
+        break;
+    case FiringTrigger::Encoder:
+        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Encoder);
+        break;
+    case FiringTrigger::External:
+        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::External);
+        break;
     }
 
-    return beamSet;
-}
-IBeamSetPtr Set_CreateFiringBeamSetPhasedArray(IConfigurationPtr config, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
-{
-    wstring portName;
-    IBeamSetPtr beamSet;
+    // Configure encoders
+    /*auto encoders = nacquisition->GetEncoders();
+    auto encodersConfig = inspConfig->GetEncoderConfigurations();
 
-    auto paMethod = dynamic_pointer_cast<IInspectionMethodPhasedArray>(config->GetInspectionMethod());
+    for (size_t encoderIdx = 0; encoderIdx < encoders->GetCount(); ++encoderIdx) {
+        if (encodersConfig->GetCount() > encoderIdx) {
+            auto encoder = encoders->GetEncoder(encoderIdx);
+            auto encoderConfig = encodersConfig->GetEncoderConfiguration(encoderIdx);
+
+            encoder->Enable(true);
+            encoder->SetName(encoderConfig->GetName());
+            encoder->SetResolution(static_cast<size_t>(encoderConfig->GetFiringResolution()));
+            encoder->SetPresetValue(encoderConfig->GetPresetValue());
+
+            switch (encoderConfig->GetType()) {
+            case EncoderType::ClockDir:
+                encoder->SetEncoderType(IEncoder::Type::ClockDir);
+                break;
+            case EncoderType::PulseDown:
+                encoder->SetEncoderType(IEncoder::Type::PulseDown);
+                break;
+            case EncoderType::PulseUp:
+                encoder->SetEncoderType(IEncoder::Type::PulseUp);
+                break;
+            case EncoderType::Quadrature:
+                encoder->SetEncoderType(IEncoder::Type::Quadrature);
+                break;
+            }
+        }
+    }*/
+    // Configure ultrasound settings
+    ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
+    auto inspConfigs = setup->GetInspectionConfigurations();
+    for (size_t inspConfigIdx = 0; inspConfigIdx < inspConfigs->GetCount(); ++inspConfigIdx) {
+        auto inspConfig = inspConfigs->GetConfiguration(inspConfigIdx);
+        auto configs = inspConfig->GetConfigurations();
+
+        for (size_t configIdx = 0; configIdx < configs->GetCount(); ++configIdx) {
+            auto config = configs->GetConfiguration(configIdx);
+            auto paMethod = dynamic_pointer_cast<IInspectionMethodPhasedArray>(config->GetInspectionMethod());
+            if (paMethod) {
+                auto beamSet = Set_CreateFiringBeamSetPhasedArray(config);
+                adjusted |= Set_ConfigBeamSetPhasedArray(beamSet, config);
+            }
+        }
+    }
+    return adjusted;
+}
+IBeamSetPtr OmConfigSetup::Set_CreateFiringBeamSetPhasedArray(IConfigurationPtr config) {
+    /*auto paMethod = dynamic_pointer_cast<IInspectionMethodPhasedArray>(config->GetInspectionMethod());
     auto probePa = dynamic_pointer_cast<IProbeRectangularArray>(paMethod->GetProbe());
-    if (probePa)
-    {
-        portName = probePa->GetConnector()->GetConnection()->GetName();
-        
-    }
-    else
-    {
-        auto probeDualPa = dynamic_pointer_cast<IProbeDualRectangularArray>(paMethod->GetProbe());
-        if (probeDualPa)
-        {
-            portName = probeDualPa->GetConnector()->GetConnection()->GetName();
-        }
-        else
-            throw bad_cast{};
-    }
+    auto probeDualPa = probePa ? nullptr : dynamic_pointer_cast<IProbeDualRectangularArray>(paMethod->GetProbe());
+    std::wstring portName;
+    if (probePa) portName = probePa->GetConnector()->GetConnection()->GetName();
+    else if (probeDualPa) portName = probeDualPa->GetConnector()->GetConnection()->GetName();
+    else throw bad_cast{};
 
-    return Set_AddPhasedArrayFiringBeamSet(ultrasoundConfig, config, portName);
-}
-
-// Config Beamset Phased Array
-bool Set_CopyDigitizingSettings(shared_ptr<IDigitizingSettings> digitizingSettings, shared_ptr<IDigitizingSettings> digitizingSettingsConfig, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
-{
-    bool adjusted(false);
-
-    auto timeSettings = digitizingSettings->GetTimeSettings();
-    auto timeSettingsConfig = digitizingSettingsConfig->GetTimeSettings();
-    adjusted |= IsAdjusted(timeSettings->SetAscanCompressionFactor(timeSettingsConfig->GetAscanCompressionFactor()));
-    adjusted |= IsAdjusted(timeSettings->SetAscanSynchroMode(timeSettingsConfig->GetAscanSynchroMode()));
-    adjusted |= IsAdjusted(timeSettings->SetSamplingDecimationFactor(timeSettingsConfig->GetSamplingDecimationFactor()));
-    adjusted |= IsAdjusted(timeSettings->SetTCGSynchroMode(timeSettingsConfig->GetTCGSynchroMode()));
-
-    auto ampSettings = digitizingSettings->GetAmplitudeSettings();
-    auto ampSettingsConfig = digitizingSettingsConfig->GetAmplitudeSettings();
-    adjusted |= IsAdjusted(ampSettings->SetAscanDataSize(ampSettingsConfig->GetAscanDataSize()));
-    adjusted |= IsAdjusted(ampSettings->SetAscanRectification(ampSettingsConfig->GetAscanRectification()));
-    ampSettings->SetScalingType(ampSettingsConfig->GetScalingType());
-
-    auto filterSettings = digitizingSettings->GetFilterSettings();
-    digitizingSettings->GetFilterSettings()->EnableSmoothingFilter(true);
-    auto digitizerTechnology = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
-
-    auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
-    auto smoothingFilterCollection = digitizer->GetSmoothingFilterCollection();
-
-    double probeFrequency = 5.0; 
-    
-    filterSettings->EnableSmoothingFilter(true);
-    filterSettings->SetSmoothingFilter(smoothingFilterCollection->GetSmoothingFilter(probeFrequency));
-
-    return adjusted;
-}
-bool Set_CopyGateSettings(shared_ptr<IGateCollection> gates, shared_ptr<IGateConfigurationCollection> gatesConfigs, double wedgeDelay)
-{
-    bool adjusted(false);
-
-    for (size_t gateIdx(0); gateIdx < gates->GetCount(); ++gateIdx)
-    {
-        auto gate = gates->GetGate(gateIdx);
-        auto gateConfig = gatesConfigs->GetGateConfiguration(gateIdx);
-        if (gateConfig->GetName() == L"Gate Synchro")
-        {
-            gate->InCycleData(gateConfig->InCycleData());
-            gate->SetAbsoluteMode(gateConfig->GetAbsoluteMode());
-            gate->SetStart(wedgeDelay + gateConfig->GetDelay());
-            gate->SetLength(gateConfig->GetLength());
-            gate->SetThreshold(gateConfig->GetThreshold());
-        }
-    }
-
-    return adjusted;
-}
-bool Set_CopTcgSettings(shared_ptr<ITcg> tcg, shared_ptr<ITcg> tcgConfig, double wedgeDelay)
-{
-    bool adjusted(false);
-
-    if (tcgConfig->IsEnabled())
-    {
-        tcg->Enable(true);
-        adjusted |= IsAdjusted(tcg->SetTcgType(tcgConfig->GetTcgType()));
-
-        auto tcgPoints = tcg->GetTcgPointCollection();
-        auto tcgPointsConfig = tcgConfig->GetTcgPointCollection();
-
-        for (size_t tcgIdx(0); tcgIdx < tcgPointsConfig->GetCount(); ++tcgIdx)
-        {
-            auto tcgPointConfig = tcgPointsConfig->GetTcgPoint(tcgIdx);
-            tcgPoints->AddTcgPointEx(wedgeDelay + tcgPointConfig->GetPosition(), tcgPointConfig->GetGain());
-        }
-    }
-
-    return adjusted;
-}
-bool Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config, shared_ptr<IUltrasoundConfiguration> ultrasoundConfig)
-{
-    bool adjusted(false);
+    if (portName == L"PA") {*/
     auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
-    if (!(paConfig->GetPulsingSettings()->GetPulseWidth()))
+    auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
+    auto factory = digitizer->GetBeamSetFactory();
+    auto beamFormations = factory->CreateBeamFormationCollection();
+
+    for (size_t beamIdx = 0; beamIdx < paConfig->GetBeamCount(); ++beamIdx) {
+        auto beamFormation = factory->CreateBeamFormation(
+            paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetPulserDelayCollection()->GetCount(),
+            paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetReceiverDelayCollection()->GetCount()
+        );
+        beamFormations->Add(beamFormation);
+    }
+    auto beamSet = factory->CreateBeamSetPhasedArray(paConfig->GetInspectionMethod()->GetName(), beamFormations);
+    ultrasoundConfig->GetFiringBeamSetCollection()->Add(beamSet, digitizer->GetConnectorCollection()->GetConnector(0));
+    return beamSet;
+    /*}
+    return nullptr;*/
+}
+bool OmConfigSetup::Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config) {
+    bool adjusted = false;
+    auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
+
+    if (!paConfig->GetPulsingSettings()->GetPulseWidth()) {
         throw bad_cast{};
-    else
-        std::cout << paConfig->GetPulsingSettings()->GetPulseWidth() << std::endl;
+    }
+
     adjusted |= beamSet->GetPulsingSettings()->SetAscanAveragingFactor(paConfig->GetPulsingSettings()->GetAscanAveragingFactor());
     adjusted |= beamSet->GetPulsingSettings()->SetPulseWidth(100);
-    adjusted |= Set_CopyDigitizingSettings(beamSet->GetDigitizingSettings(), paConfig->GetDigitizingSettings(), ultrasoundConfig);
 
-    for (size_t beamIdx(0); beamIdx < beamSet->GetBeamCount(); ++beamIdx)
-    {
+    // Digitizing Setting
+    auto digitizingSettings = beamSet->GetDigitizingSettings();
+    adjusted |= IsAdjusted(digitizingSettings->GetTimeSettings()->SetAscanCompressionFactor(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetAscanCompressionFactor()));
+    adjusted |= IsAdjusted(digitizingSettings->GetTimeSettings()->SetAscanSynchroMode(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetAscanSynchroMode()));
+    adjusted |= IsAdjusted(digitizingSettings->GetTimeSettings()->SetSamplingDecimationFactor(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetSamplingDecimationFactor()));
+    adjusted |= IsAdjusted(digitizingSettings->GetTimeSettings()->SetTCGSynchroMode(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetTCGSynchroMode()));
+
+    adjusted |= IsAdjusted(digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(paConfig->GetDigitizingSettings()->GetAmplitudeSettings()->GetAscanDataSize()));
+    adjusted |= IsAdjusted(digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(paConfig->GetDigitizingSettings()->GetAmplitudeSettings()->GetAscanRectification()));
+    digitizingSettings->GetAmplitudeSettings()->SetScalingType(paConfig->GetDigitizingSettings()->GetAmplitudeSettings()->GetScalingType());
+
+    digitizingSettings->GetFilterSettings()->EnableSmoothingFilter(true);
+    digitizingSettings->GetFilterSettings()->SetSmoothingFilter(ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray)->GetSmoothingFilterCollection()->GetSmoothingFilter(5.0));
+
+    // Beam Setting
+    for (size_t beamIdx = 0; beamIdx < beamSet->GetBeamCount(); ++beamIdx) {
         auto beam = beamSet->GetBeam(beamIdx);
         auto beamConfig = paConfig->GetBeam(beamIdx);
 
@@ -182,14 +144,38 @@ bool Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPt
         adjusted |= IsAdjusted(beam->SetSumGain(beamConfig->GetSumGain()));
 
         double wedgeDelay = paConfig->GetWedgeDelay() + beamConfig->GetBeamDelay();
-        adjusted |= Set_CopyGateSettings(beam->GetGateCollection(), beamConfig->GetGateConfigurations(), wedgeDelay);
-        adjusted |= Set_CopTcgSettings(beam->GetTcg(), beamConfig->GetTcg(), wedgeDelay);
 
+        // Gate Setting
+        for (size_t gateIdx = 0; gateIdx < beam->GetGateCollection()->GetCount(); ++gateIdx) {
+            auto gate = beam->GetGateCollection()->GetGate(gateIdx);
+            auto gateConfig = beamConfig->GetGateConfigurations()->GetGateConfiguration(gateIdx);
+            if (gateConfig->GetName() == L"Gate Synchro") {
+                gate->InCycleData(gateConfig->InCycleData());
+                gate->SetAbsoluteMode(gateConfig->GetAbsoluteMode());
+                gate->SetStart(wedgeDelay + gateConfig->GetDelay());
+                gate->SetLength(gateConfig->GetLength());
+                gate->SetThreshold(gateConfig->GetThreshold());
+            }
+        }
+
+        // TCG Setting
+        if (beamConfig->GetTcg()->IsEnabled()) {
+            auto tcg = beam->GetTcg();
+            tcg->Enable(true);
+            adjusted |= IsAdjusted(tcg->SetTcgType(beamConfig->GetTcg()->GetTcgType()));
+
+            auto tcgPoints = tcg->GetTcgPointCollection();
+            for (size_t tcgIdx = 0; tcgIdx < beamConfig->GetTcg()->GetTcgPointCollection()->GetCount(); ++tcgIdx) {
+                auto tcgPointConfig = beamConfig->GetTcg()->GetTcgPointCollection()->GetTcgPoint(tcgIdx);
+                tcgPoints->AddTcgPointEx(wedgeDelay + tcgPointConfig->GetPosition(), tcgPointConfig->GetGain());
+            }
+        }
+
+        // Pulser and Receiver Delay Configurations
         auto pulsers = beam->GetBeamFormation()->GetPulserDelayCollection();
         auto pulsersConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetPulserDelayCollection();
 
-        for (size_t elementIdx(0); elementIdx < pulsers->GetCount(); elementIdx += 2 )
-        {
+        for (size_t elementIdx = 0; elementIdx < pulsers->GetCount(); elementIdx += 2) {
             auto element = pulsers->GetElementDelay(elementIdx);
             auto elementConfig = pulsersConfig->GetElementDelay(elementIdx);
             element->SetElementId(elementConfig->GetElementId());
@@ -199,92 +185,144 @@ bool Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPt
         auto receivers = beam->GetBeamFormation()->GetReceiverDelayCollection();
         auto receiversConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetReceiverDelayCollection();
 
-        for (size_t elementIdx(0); elementIdx < receivers->GetCount(); elementIdx += 2)
-        {
+        for (size_t elementIdx = 0; elementIdx < receivers->GetCount(); elementIdx += 2) {
             auto element = receivers->GetElementDelay(elementIdx);
             auto elementConfig = receiversConfig->GetElementDelay(elementIdx);
             element->SetElementId(elementConfig->GetElementId());
             adjusted |= element->SetDelay(elementConfig->GetDelay());
         }
     }
-
     return adjusted;
 }
 
 
-bool OmConfigSetup::ConfigAcquisitionFromSetup(IAcquisitionPtr nacquisition, Olympus::FileManagement::ISetupPtr setup)
-{
-    bool adjusted(false);
 
-    auto inspConfigs = setup->GetInspectionConfigurations();
-    auto inspConfig = inspConfigs->GetConfiguration(0);
+// Configure Directly
+bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
+    if (!omSetCof)
+        omSetCof = OmSetupL::getInstance().OmSetupConf;
+    if (!omSetup)
+        omSetup = OmSetupL::getInstance().OmSetupScanplan;
+    // Scan Plan Configuration
+    auto sancPlan = SetupConfig->GetScanPlan();
+    auto inspConfigs = SetupConfig->GetInspectionConfigurations();
+    auto inspConfig = inspConfigs->Add(FiringTrigger::Internal, 1000.);
 
-    if (inspConfig->GetFiringTrigger() == FiringTrigger::Internal)
-        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Internal);
-    else if (inspConfig->GetFiringTrigger() == FiringTrigger::Encoder)
-        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Encoder);
-    else if (inspConfig->GetFiringTrigger() == FiringTrigger::External)
-        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::External);
+    // Acquisition Unit Configuration
+    auto acqUnits = sancPlan->GetAcquisitionUnits();
+    for (size_t acqUnitIdx(0); acqUnitIdx < acqUnits->GetCount(); acqUnitIdx++) {
+        auto acqUnit = acqUnits->GetAcquisitionUnit(acqUnitIdx);
+        auto acqUnitConfig = inspConfig->GetAcquisitionUnitConfigurations()->Add(acqUnit);
 
-    adjusted |= nacquisition->SetRate(inspConfig->GetRate());
+        // Digitizer Configuration
+        auto digitizerConfig = acqUnitConfig->GetUltrasoundDigitizerConfiguration();
 
-    auto encoders = nacquisition->GetEncoders();
-    auto encodersConfig = inspConfig->GetEncoderConfigurations();
+        // Conventional Ultrasound Technology Configuration
+        auto convDigitizerConfig = digitizerConfig->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::Conventional);
+        double convVoltage = convDigitizerConfig->GetPulserVoltages()->GetPulserVoltage(2);
+        convDigitizerConfig->SetPulserVoltage(convVoltage);
 
-    for (size_t encoderIdx(0); encoderIdx < encoders->GetCount(); ++encoderIdx)
-    {
-        if (encodersConfig->GetCount() >= encoderIdx + 1)
-        {
-            auto encoder = encoders->GetEncoder(encoderIdx);
-            auto encoderConfig = encodersConfig->GetEncoderConfiguration(encoderIdx);
-
-            encoder->Enable(true);
-            encoder->SetName(encoderConfig->GetName());
-            encoder->SetResolution(static_cast<size_t>(encoderConfig->GetFiringResolution()));
-            encoder->SetPresetValue(encoderConfig->GetPresetValue());
-
-            if (encoderConfig->GetType() == EncoderType::ClockDir)
-                encoder->SetEncoderType(IEncoder::Type::ClockDir);
-            else if (encoderConfig->GetType() == EncoderType::PulseDown)
-                encoder->SetEncoderType(IEncoder::Type::PulseDown);
-            else if (encoderConfig->GetType() == EncoderType::PulseUp)
-                encoder->SetEncoderType(IEncoder::Type::PulseUp);
-            else if (encoderConfig->GetType() == EncoderType::Quadrature)
-                encoder->SetEncoderType(IEncoder::Type::Quadrature);
-        }
-    }
-    return adjusted;
-}
-bool OmConfigSetup::ConfigDeviceFromSetup(IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup)
-{
-    bool adjusted(false);
-    auto ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
-
-    auto inspConfigs = setup->GetInspectionConfigurations();
-    for (size_t inspConfigIdx(0); inspConfigIdx < inspConfigs->GetCount(); ++inspConfigIdx)
-    {
-        auto inspConfig = inspConfigs->GetConfiguration(inspConfigIdx);
-        auto configs = inspConfig->GetConfigurations();
-
-        for (size_t configIdx(0); configIdx < configs->GetCount(); ++configIdx)
-        {
-            auto config = configs->GetConfiguration(configIdx);
-            auto inspMethod = config->GetInspectionMethod();
-            auto convMethod = dynamic_pointer_cast<IInspectionMethodConventional>(inspMethod);
-            if (!convMethod)
-            {
-                auto paMethod = dynamic_pointer_cast<IInspectionMethodPhasedArray>(inspMethod);
-                if (paMethod)
-                {
-                    auto beamSet = Set_CreateFiringBeamSetPhasedArray(config, ultrasoundConfig);
-                    adjusted |= Set_ConfigBeamSetPhasedArray(beamSet, config, ultrasoundConfig);
-
-                }
-                else
-                    throw bad_cast{};
-            }
-        }
+        // Phased Array Ultrasound Technology Configuration
+        auto paDigitizerConfig = digitizerConfig->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::PhasedArray);
+        paDigitizerConfig->SetPulserVoltage(100);
     }
 
+    // Inspection Method Configuration
+    auto inspMethod = sancPlan->GetInspectionMethodCollection()->GetInspectionMethod(0);
+    auto config = inspConfig->GetConfigurations()->AddPhasedArray(dynamic_pointer_cast<IInspectionMethodPhasedArray>(inspMethod));
+
+    // Application Settings
+    std::string applicationJsonStr = "{\"pipeWizard\": {\"Zone\": \"Volumetric\",\"Type\": \"ABC\",\"Stream\": \"Upstream\",\"GateAStart\": -3.0,\"GateALength\": 6.0,\"GateBStart\": -3.0,\"GateBLength\": 6.0,\"GateAThreshold\": 20.0,\"GateBThreshold\": 20.0,\"GateOffset\": 0.0,\"CorrectionFactor\": 0.0,\"ReflectorSize\": 1.0}}";
+    config->SetApplicationSettings(applicationJsonStr);
+    config->SetVelocity(omSetCof->phasing_velocity);
+    config->SetReferenceAmplitude(omSetCof->phasing_referenceAmplitude);
+
+    // Phased Array Configuration
+    auto PAConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
+    auto pulsingSettings = config->GetPulsingSettings();
+    pulsingSettings->SetPulseWidth(omSetCof->phasing_pulseWidth);
+
+    // Beam Formation Configuration
+    auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
+    auto factory = digitizer->GetBeamSetFactory();
+    auto beamFormations = factory->CreateBeamFormationCollection();
+
+    for (size_t beamIdx(0); beamIdx < omSetCof->beamNumber; ++beamIdx) {
+        auto beamFormation = factory->CreateBeamFormation(omSetup->LinearElemActive, omSetup->LinearElemActive);
+        beamFormations->Add(beamFormation);
+    }
+
+    // Firing Beam Set Creation
+    auto beamSet = factory->CreateBeamSetPhasedArray(L"LinearPhasedArray", beamFormations);
+    ultrasoundConfig->GetFiringBeamSetCollection()->Add(beamSet, digitizer->GetConnectorCollection()->GetConnector(0));
+
+    bool adjusted = false;
+    auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
+
+    // Validation Check
+    if (!paConfig->GetPulsingSettings()->GetPulseWidth()) {
+        throw bad_cast{};
+    }
+
+    // Pulsing Settings
+    adjusted |= beamSet->GetPulsingSettings()->SetAscanAveragingFactor(paConfig->GetPulsingSettings()->GetAscanAveragingFactor());
+    adjusted |= beamSet->GetPulsingSettings()->SetPulseWidth(100);
+
+    // Digitizing Settings
+    auto digitizingSettings = beamSet->GetDigitizingSettings();
+    digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetCof->phasing_ascanDataSize);
+    digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetCof->phasing_rectification);
+    digitizingSettings->GetTimeSettings()->SetAscanCompressionFactor(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetAscanCompressionFactor());
+    digitizingSettings->GetTimeSettings()->SetAscanSynchroMode(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetAscanSynchroMode());
+    digitizingSettings->GetTimeSettings()->SetSamplingDecimationFactor(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetSamplingDecimationFactor());
+    digitizingSettings->GetTimeSettings()->SetTCGSynchroMode(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetTCGSynchroMode());
+    digitizingSettings->GetAmplitudeSettings()->SetScalingType(paConfig->GetDigitizingSettings()->GetAmplitudeSettings()->GetScalingType());
+    digitizingSettings->GetFilterSettings()->EnableSmoothingFilter(true);
+    digitizingSettings->GetFilterSettings()->SetSmoothingFilter(ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray)->GetSmoothingFilterCollection()->GetSmoothingFilter(5.0));
+
+    // Beam Settings
+    cout << "GAIN: " << omSetCof->phasing_gain << endl;
+    for (size_t beamIdx = 0; beamIdx < beamSet->GetBeamCount(); ++beamIdx) {
+        auto beam = beamSet->GetBeam(beamIdx);
+        auto beamConfig = paConfig->AddBeam();
+
+        // Configure beam parameters
+        beam->SetGainEx(omSetCof->phasing_gain + 2.2); // 2.2 is the offset
+        beam->SetAscanStart(paConfig->GetWedgeDelay() + omSetCof->PA_beamDelay + omSetCof->PA_digitizingDelay);
+        beam->SetAscanLength(omSetCof->PA_DigitizingLength);
+        beam->SetRecurrence(beamConfig->GetRecurrence());
+        beam->SetSumGainMode(beamConfig->GetSumGainMode());
+        beam->SetSumGain(beamConfig->GetSumGain());
+
+        double wedgeDelay = paConfig->GetWedgeDelay() + beamConfig->GetBeamDelay();
+
+        // Pulser and Receiver Delay Configurations
+        auto pulsers = beam->GetBeamFormation()->GetPulserDelayCollection();
+        auto pulsersConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetPulserDelayCollection();
+
+        for (size_t elementIdx = 0; elementIdx < pulsers->GetCount(); elementIdx += 2) {
+            auto element = pulsers->GetElementDelay(elementIdx);
+            element->SetElementId(omSetup->LinearElemStart + elementIdx);
+            element->SetDelay((beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay);
+        }
+
+        auto receivers = beam->GetBeamFormation()->GetReceiverDelayCollection();
+        auto receiversConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetReceiverDelayCollection();
+
+        for (size_t elementIdx = 0; elementIdx < receivers->GetCount(); elementIdx += 2) {
+            auto element = receivers->GetElementDelay(elementIdx);
+            element->SetElementId(omSetup->LinearElemStart + elementIdx);
+            element->SetDelay((beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay * 2);
+        }
+    }
+
     return adjusted;
 }
+bool OmConfigSetup::ConfigDeviceSetting(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup)
+{
+    SetupConfig = setup;
+    ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
+    auto beamSet = CreateFiringBeamSetPhasedArray();
+    return true;
+}
+

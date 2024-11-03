@@ -35,6 +35,7 @@ private:
         auto nmainwd = getMainWindow();
         QDockWidget* dockWidget = new QDockWidget(nmainwd);
         dockWidget->setWindowTitle("Settings");
+        dockWidget->setObjectName("SettingsUIManagerDockWidget");
         dockWidget->setMaximumHeight(250);
 
         // Create the first tab widget (Test Mode)

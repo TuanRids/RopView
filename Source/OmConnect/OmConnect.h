@@ -21,7 +21,6 @@ private:
     shared_ptr<IDevice> DiscoverDevice() override;
     void StartDevice() override;
     void ConfigureDevice() override;
-    void newThread();
     shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
 
 

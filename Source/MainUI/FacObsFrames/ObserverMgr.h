@@ -25,6 +25,8 @@ public:
 	void setScandat(const AscanData& dataa) { scandat = dataa; }
 	void clearScandat() { scandat = AscanData(); }
 	void popFront() {};
+
+	void clearBuffer() { nAscanCollection.clear(); }
 	void RealDatProcess();
 	size_t bufferSize() { return nAscanCollection.size(); }
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {

@@ -21,11 +21,6 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
     ipAddress = ConfigLocator::getInstance().settingconf->ipAddress;
     try
     {
-        /*Olympus::FileManagement::ISetupPtr getsetup;
-        if (mode == ConnectMode::SetupFileMode)
-        {
-            getsetup = OmConfigSetup::initSetup();
-        }*/
         if (!device)
         {
             sttlogs->logInfo("Trying to Connnect to IP: " + ipAddress);
@@ -34,15 +29,17 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
         }        
         if (mode == ConnectMode::SetupFileMode)
         {
+            
             auto setup = Storage::CreateSetup();
             OpenView::ScanPlan::Create(setup);
-            OpenView::Configuration::Create(setup);
+            // OpenView::Configuration::Create(setup);
+            //acquisition = IAcquisition::CreateEx(device);            
+            //auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(acquisition, device, setup);
 
-            acquisition = IAcquisition::CreateEx(device);
-            auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(device, setup);
+            acquisition = IAcquisition::CreateEx(device);            
+            auto adjusted = OmConfigSetup::ConfigDeviceSetting(acquisition, device, setup);
+
             sttlogs->logInfo (adjusted ? "Configuration Device From SetupFile: Completed" : "Configuration Device From SetupFile: Failed");
-            OmConfigSetup::ConfigAcquisitionFromSetup(acquisition, setup);
-            sttlogs->logInfo(adjusted ? "Configuration Acquisition From Setup: Completed" : "Configuration Acquisition From Setup: Failed");
 
         }
         else if (mode == ConnectMode::TestingMode)
@@ -50,19 +47,16 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
             acquisition = IAcquisition::CreateEx(device);
             ConfigureDevice();
         }
+
         acquisition->SetRate(configL->omconf->Rate);
         acquisition->ApplyConfiguration();
         
         if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);    
-        if (!datProcess->Start())
-        {
-            acquisition.reset();
-            acquisition = nullptr; ConfigureDevice();
-        }
+        datProcess->Start();
     }
     catch (const std::exception& e)
     {
-        omDisconnectDevice();
+         omDisconnectDevice();
         sttlogs->logCritical(e.what());
         return false;
     }
@@ -71,7 +65,7 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
 
 void OmConnect::omDisconnectDevice()
 {
-    if (datProcess) datProcess->Stop(); datProcess = nullptr;    
+    if (datProcess) datProcess->Stop(); datProcess = nullptr; 
 }
 
 shared_ptr<IDevice> OmConnect::DiscoverDevice()
@@ -159,7 +153,6 @@ void OmConnect::ConfigureDevice()
     auto connector = digitizer->GetConnectorCollection()->GetPulseAndReceiveConnector();
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
 }
-
 shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory)
 {
     auto beamFormations = factory->CreateBeamFormationCollection();
@@ -185,9 +178,4 @@ shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_pt
     }
 
     return beamFormations;
-}
-
-void OmConnect::newThread()
-{
-    
 }
