@@ -1,19 +1,4 @@
 #include "../pch.h"
-struct OmniConfig {
-    /*Testing Realtime Setting*/
-    size_t BeamPosition = 0;          // Beam position
-    size_t Rate = 120;                // Hz. Cycle rate that collects data per second
-    size_t beamLimit = 32;            // Number of beams
-    size_t elementAperture = 32;      // Element aperture size
-    double delayResolution = 2.5;     // Delay resolution in nanoseconds
-    double pulserBaseDelay = 500;     // Base delay for pulsers
-    double receiverBaseDelay = 1000;  // Base delay for receivers
-    int ascanStart = 5000;            // Ascan start position
-    int ascanLength = 20000;          // Ascan length
-    int gateStart = 1500;             // Gate start position
-    int gateLength = 300;             // Gate length
-    int gateThreshold = 15;           // Gate threshold value
-};
 
 struct SettingConfig {
     bool bhighResBscan = true;
@@ -42,12 +27,12 @@ struct Om_Settup_Config
     double PA_beamDelay = 19000; // ns
     double PA_digitizingDelay = 5400; // 5400 ns
     double PA_elementDelay = 500; //Element Delay; 500
-    double PA_skewAngle = 33.0;
-    double PA_DigitizingLength = 20840.; // Digitizing Length; 163840 ns
+    double PA_skewAngle = 0;
+    double PA_AscanStart = 2000; // start; 2000
+    double PA_DigitizingLength = 16840.; // Digitizing Length; 163840 ns
             // === Om Phasing Acquisition Settings ===
     double acquisition_paVoltage = 4.0; // Pulser voltage
     std::string acquisition_deviceSerialNumber = "QC-0036707";
-    unsigned int beamNumber = 256;
 
     // === Om Phasing Settings ===
     double phasing_gain = 25.0;
@@ -77,16 +62,14 @@ struct Om_Settup_Config
     double gate_gateBSamplingResolution = 10.0;
 
 
-};
+    int Rate = 120; // 120 Hz screen
 
-struct Om_Setup_ScanPlan
-{
     // Phased Array Transducer Settings
-    double raProbeFre = 5.0;  // MHz
-    unsigned int raProbeElem = 64;  // Number of elements
-    unsigned int raProbeRows = 1;       // Number of rows
-    double raProbeWidth = 0.6;      // Element width (mm)
-    double raProbeHeight = 10.0;    // Element height (mm)
+        double raProbeFre = 5.0;  // MHz
+        unsigned int raProbeElem = 64;  // Number of elements
+        unsigned int raProbeRows = 1;       // Number of rows
+        double raProbeWidth = 0.6;      // Element width (mm)
+        double raProbeHeight = 10.0;    // Element height (mm)
 
     // Phased Array Wedge Settings 
     double raWedgeLength = 48.58;       // Wedge length (mm)
@@ -96,10 +79,11 @@ struct Om_Setup_ScanPlan
     double raWedgeMaterialVelocity = 2330.0;  // Material velocity (m/s)
 
     // Phased Array Linear Formation
-    double LinearElemStep = 1.0; // Element step size
-    unsigned int LinearElemActive = 32; // Active elements
-    unsigned int LinearElemStart = 1;    // Starting element
-    unsigned int LinearElemMax = 64;    // Maximum number of elements
+    unsigned int beamNumber     = 64;
+    unsigned int EleStep        = 3; // Element step size
+    unsigned int EleQuantity    = 16; // Active elements
+    unsigned int EleFirst       = 1;    // Starting element
+    unsigned int EleLast        = 64;    // Maximum number of elements
     Olympus::Inspection::WaveType LineaerWaveType = Olympus::Inspection::WaveType::Longitudinal; // wavetype
 
     // Phased Array Beam Settings
@@ -111,8 +95,8 @@ struct Om_Setup_ScanPlan
     double skewStart = 45.0;           // Skew angle start (degrees)
     double skewStop = 45.0;            // Skew angle stop (degrees)
     double skewStep = 1.0;             // Skew angle step (degrees)
+    int beamCurrentID = 0;             // Current ID
 
-    // Phased Array Acquisition Port
-    std::string paPort = "PA_PORT";   // Acquisition unit port for phased array
+
 };
     

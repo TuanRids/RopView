@@ -1,7 +1,6 @@
 #include "ConfigLocator.h"
 
 // ========== ConFigLocator ==========
-std::shared_ptr<OmniConfig> ConfigLocator::omconf = nullptr;
 std::shared_ptr<SettingConfig> ConfigLocator::settingconf = nullptr;
 std::shared_ptr<SystemParams> ConfigLocator::sysParams = nullptr;
 
@@ -29,5 +28,4 @@ void ConfigLocator::loadFromRegistry() {
 
 
 // ========== Om_Settup_Config ==========
-std::shared_ptr<Om_Settup_Config> OmSetupL::OmSetupConf = std::make_shared<Om_Settup_Config>();
-std::shared_ptr<Om_Setup_ScanPlan> OmSetupL::OmSetupScanplan = std::make_shared<Om_Setup_ScanPlan>();
+std::shared_ptr<Om_Settup_Config> OmSetupL::OMS = std::make_shared<Om_Settup_Config>();

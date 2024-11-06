@@ -10,70 +10,43 @@ public:
         static OmSettingFrame Instance;
         static bool isInit = false;
         if (!isInit) {
-			Instance.InitSettingFrames();
+			Instance.initSettingFrames();
 			isInit = true;
 		}
 		return &Instance;
-	}
-  
-    void switchTabs() {
-        isreal = !isreal;
-
-        if (!isreal) {
-            TestModeWidget->setVisible(true);
-            SettingModeWidget->setVisible(false);
-        }
-        else {
-            TestModeWidget->setVisible(false);
-            SettingModeWidget->setVisible(true);
-        }
-    }
+	}      
 
 private:
-    void InitSettingFrames() {
+    void initSettingFrames() {
         isreal = true;
-        auto nmainwd = getMainWindow();
-        QDockWidget* dockWidget = new QDockWidget(nmainwd);
+        auto mainWindow = getMainWindow();
+        QDockWidget* dockWidget = new QDockWidget(mainWindow);
         dockWidget->setWindowTitle("Settings");
         dockWidget->setObjectName("SettingsUIManagerDockWidget");
         dockWidget->setMaximumHeight(250);
 
-        // Create the first tab widget (Test Mode)
-        TestModeWidget = new QTabWidget();
-        //TestModeWidget->tabBar()->setVisible(false);
-        QWidget* tab1 = new QWidget();
-        QHBoxLayout* tab1Layout = new QHBoxLayout(tab1);
-        tab1Layout->setContentsMargins(0, 0, 0, 0);
-        switchTab1(tab1Layout);
-        TestModeWidget->addTab(tab1, "Settings Tab 1");
-
-        // Create the second tab widget (Setting Mode)
-        SettingModeWidget = new QTabWidget();
-        //SettingModeWidget->tabBar()->setVisible(false);
+        settingModeWidget = new QTabWidget();
 
         QWidget* scanPlanTab = new QWidget();
         QHBoxLayout* scanPlanLayout = new QHBoxLayout(scanPlanTab);
         scanPlanLayout->setContentsMargins(0, 0, 0, 0);
-        switchTab2ScanPlan(scanPlanLayout);
-        SettingModeWidget->addTab(scanPlanTab, "ScanPlan");
+        setupScanPlanTab(scanPlanLayout);
+        settingModeWidget->addTab(scanPlanTab, "ScanPlan");
 
         QWidget* setupConfigTab = new QWidget();
         QHBoxLayout* setupConfigLayout = new QHBoxLayout(setupConfigTab);
         setupConfigLayout->setContentsMargins(0, 0, 0, 0);
-        switchTab2SetupConfig(setupConfigLayout);
-        SettingModeWidget->addTab(setupConfigTab, "Config");
+        setupConfigTabContent(setupConfigLayout);
+        settingModeWidget->addTab(setupConfigTab, "Config");
 
-        // Add widgets to main layout
         QVBoxLayout* mainLayout = new QVBoxLayout(this);
-        mainLayout->addWidget(TestModeWidget);
-        mainLayout->addWidget(SettingModeWidget);
+        mainLayout->addWidget(settingModeWidget);
 
-        TestModeWidget->setVisible(false); 
-        SettingModeWidget->setVisible(true); 
+        settingModeWidget->setVisible(true);
 
         dockWidget->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::TopDockWidgetArea);
         dockWidget->setWidget(this);
-        nmainwd->addDockWidget(Qt::TopDockWidgetArea, dockWidget);
+        mainWindow->addDockWidget(Qt::TopDockWidgetArea, dockWidget);
         dockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     }
     unsigned int cwidth = 220;
@@ -101,99 +74,11 @@ private:
         return doubleSpinBox;
     }
 
-    QTabWidget* TestModeWidget;
-    QTabWidget* SettingModeWidget;
+    QTabWidget* settingModeWidget;
     bool isreal;
-
-    void switchTab1(QHBoxLayout* layout) {
-        auto omc = ConfigLocator::getInstance().omconf;
-
-        // Group 1 - Beam Settings
-        QGroupBox* group1 = new QGroupBox("Beam");
-        group1->setFixedSize(180, 200);
-        group1->setFixedSize(180, 200);
-        QVBoxLayout* layout1 = new QVBoxLayout(group1);
-
-        auto beamPositionInput = createSpinBox(0, 100, static_cast<int>(omc->BeamPosition), [=](int value) {
-            omc->BeamPosition = value;
-            });
-        addSetting(layout1, "Beam Pos.", beamPositionInput);
-
-        auto rateInput = createSpinBox(10, 1000, static_cast<int>(omc->Rate), [=](int value) {
-            omc->Rate = value;
-            });
-        addSetting(layout1, "Rate", rateInput);
-
-        auto beamLimitInput = createSpinBox(1, 512, static_cast<int>(omc->beamLimit), [=](int value) {
-            omc->beamLimit = value;
-            });
-        addSetting(layout1, "Beam Limit", beamLimitInput);
-
-        auto apertureInput = createSpinBox(1, 64, static_cast<int>(omc->elementAperture), [=](int value) {
-            omc->elementAperture = value;
-            });
-        addSetting(layout1, "Elem. Aperture", apertureInput);
-
-        // Group 2 - Delay Settings
-        QGroupBox* group2 = new QGroupBox("Pulser & Receiver");
-        group2->setFixedSize(180, 200);
-        QVBoxLayout* layout2 = new QVBoxLayout(group2);
-
-        auto delayResolutionInput = createDoubleSpinBox(0.1, 20.0, omc->delayResolution, [=](double value) {
-            omc->delayResolution = value;
-            });
-        addSetting(layout2, "Delay Res", delayResolutionInput);
-
-        auto pulserDelayInput = createDoubleSpinBox(0, 2000, omc->pulserBaseDelay, [=](double value) {
-            omc->pulserBaseDelay = value;
-            });
-        addSetting(layout2, "Pulser Delay", pulserDelayInput);
-
-        auto receiverDelayInput = createDoubleSpinBox(0, 2000, omc->receiverBaseDelay, [=](double value) {
-            omc->receiverBaseDelay = value;
-            });
-        addSetting(layout2, "Receiver Delay", receiverDelayInput);
-
-        // Group 3 - Gate & Ascan Settings
-        QGroupBox* group3 = new QGroupBox("Gate & Ascan");
-        group3->setFixedSize(180, 200);
-        QVBoxLayout* layout3 = new QVBoxLayout(group3);
-
-        auto ascanStartInput = createSpinBox(0, 200000, static_cast<int>(omc->ascanStart), [=](int value) {
-            omc->ascanStart = value;
-            });
-        addSetting(layout3, "Ascan Start", ascanStartInput);
-
-        auto ascanLengthInput = createSpinBox(0, 200000, static_cast<int>(omc->ascanLength), [=](int value) {
-            omc->ascanLength = value;
-            });
-        addSetting(layout3, "Ascan Length", ascanLengthInput);
-
-        auto gateStartInput = createSpinBox(0, 20000, static_cast<int>(omc->gateStart), [=](int value) {
-            omc->gateStart = value;
-            });
-        addSetting(layout3, "Gate Start", gateStartInput);
-
-        auto gateLengthInput = createSpinBox(0, 20000, static_cast<int>(omc->gateLength), [=](int value) {
-            omc->gateLength = value;
-            });
-        addSetting(layout3, "Gate Length", gateLengthInput);
-
-        auto gateThresholdInput = createSpinBox(0, 500, static_cast<int>(omc->gateThreshold), [=](int value) {
-            omc->gateThreshold = value;
-            });
-        addSetting(layout3, "Gate Threshold", gateThresholdInput);
-        QFrame* separator = new QFrame();
-        separator->setFrameShape(QFrame::HLine);
-        separator->setFrameShadow(QFrame::Sunken);
-
-        layout->addWidget(group1);
-        layout->addWidget(group2);
-        layout->addWidget(group3);
-        layout->addWidget(separator);
-    }
-    void switchTab2ScanPlan(QHBoxLayout* layout) {
-        auto scanPlan = OmSetupL::getInstance().OmSetupScanplan;
+        
+    void setupScanPlanTab(QHBoxLayout* layout) {
+        auto scanPlan = OmSetupL::getInstance().OMS;
         
         // Group for Phased Array Transducer Settings
         QGroupBox* group1 = new QGroupBox("Scan Plan");
@@ -258,25 +143,25 @@ private:
         QGroupBox* group3 = new QGroupBox("Linear Formation");
         QVBoxLayout* layout3 = new QVBoxLayout(group3);
 
-        auto elementStepInput = createSpinBox(1, 32, scanPlan->LinearElemStep, [=](double value) {
-            scanPlan->LinearElemStep = value;
+        auto elementStepInput = createSpinBox(1, 32, scanPlan->EleStep, [=](double value) {
+            scanPlan->EleStep = value;
             });
-        addSetting(layout3, "Element Step", elementStepInput);
+        addSetting(layout3, "Step", elementStepInput);
 
-        auto activeElementsInput = createSpinBox(1, 32, scanPlan->LinearElemActive, [=](int value) {
-            scanPlan->LinearElemActive = value;
+        auto activeElementsInput = createSpinBox(1, 32, scanPlan->EleQuantity, [=](int value) {
+            scanPlan->EleQuantity = value;
             });
-        addSetting(layout3, "Active Elements", activeElementsInput);
+        addSetting(layout3, "Quantity", activeElementsInput);
 
-        auto startElementInput = createSpinBox(1, 32, scanPlan->LinearElemStart, [=](int value) {
-            scanPlan->LinearElemStart = value;
+        auto startElementInput = createSpinBox(1, 32, scanPlan->EleFirst, [=](int value) {
+            scanPlan->EleFirst = value;
             });
-        addSetting(layout3, "Start Element", startElementInput);
+        addSetting(layout3, "First", startElementInput);
 
-        auto maxElementsInput = createSpinBox(1, 64, scanPlan->LinearElemMax, [=](int value) {
-            scanPlan->LinearElemMax = value;
+        auto maxElementsInput = createSpinBox(1, 64, scanPlan->EleLast, [=](int value) {
+            scanPlan->EleLast = value;
             });
-        addSetting(layout3, "Max Elements", maxElementsInput);
+        addSetting(layout3, "Last", maxElementsInput);
 
         // Group 4 - Phased Array Beam Settings
         QGroupBox* group4 = new QGroupBox("Beam Settings");
@@ -336,8 +221,8 @@ private:
         layout->addWidget(group4);
         layout->addWidget(separator);
     }
-    void switchTab2SetupConfig(QHBoxLayout* layout) {
-        auto setupConfig = OmSetupL::getInstance().OmSetupConf;
+    void setupConfigTabContent(QHBoxLayout* layout) {
+        auto setupConfig = OmSetupL::getInstance().OMS;
 
         // Group for Phasing Settings
         QGroupBox* group1 = new QGroupBox("Phasing Settings");

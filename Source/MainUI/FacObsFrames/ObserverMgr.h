@@ -36,6 +36,7 @@ public:
 
 protected:
 	ConfigLocator ConfigL = ConfigLocator::getInstance();
+	OmSetupL oms = OmSetupL::getInstance();
 	static bool isPanning;
 	static curpt3d curpt;
 	static AscanData scandat;

@@ -32,7 +32,7 @@ void SviewFrame::update() {
     orgimage = std::make_unique<cv::Mat>(zsize, ysize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    auto everyColors = CreateColorPalette(ConfigL.sysParams->colorPalette);
+    auto everyColors = CreateColorPalette(ConfigLocator::getInstance().sysParams->colorPalette);
 #pragma omp parallel for
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {
@@ -53,7 +53,7 @@ void SviewFrame::update() {
     int newWidth = (frameRatio > imageRatio) ? static_cast<int>(orgimage->rows * frameRatio) : orgimage->cols;
     int newHeight = (frameRatio > imageRatio) ? orgimage->rows : static_cast<int>(orgimage->cols / frameRatio);
 
-    int scaleFactor = (!isPanning || ConfigL.settingconf->bhighResBscan) ? ConfigL.sysParams->resolution : 1;
+    int scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? ConfigLocator::getInstance().sysParams->resolution : 1;
     cv::resize(*orgimage, *scaledImage, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), 0);
@@ -125,7 +125,7 @@ void SviewFrame::addPoints(bool Cviewlink, int x, int y)
         pixelZ = (Cviewlink) ? static_cast<double>(curpt.z) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     else {
-        pixelY = (Cviewlink) ? static_cast<double>(ConfigL.omconf->BeamPosition) * scaledImage->cols / ysize : static_cast<double>(x);
+        pixelY = (Cviewlink) ? static_cast<double>(oms.OMS->beamCurrentID) * scaledImage->cols / ysize : static_cast<double>(x);
         pixelZ = (Cviewlink) ? static_cast<double>(curpt.z) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     if (overlay) overlay->updatePoints(pixelY, pixelZ, Qt::red, Qt::color0);
@@ -145,7 +145,8 @@ std::pair<int, int> SviewFrame::calculateOriginalPos(int scaled_y, int scaled_z)
     else
     {
 		original_y = static_cast<int>(scaled_y * static_cast<double>(orgimage->cols) / scaledImage->cols);
-        if (original_y < 0 || original_y > ConfigL.omconf->beamLimit) original_y = 0;
+        if (original_y < 0 || original_y > oms.OMS->beamNumber)
+            original_y = 0;
 		//int original_z = static_cast<int>(scaled_z * static_cast<double>(orgimage->rows) / scaledImage->rows);
         original_z = scaled_z;
     }
@@ -192,7 +193,7 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
             }
             else
             {
-                std::tie(ConfigL.omconf->BeamPosition, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
+                std::tie(oms.OMS->beamCurrentID, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
                 isPanning = false;
                 addPoints(false, scaled_y, scaled_z);
             }

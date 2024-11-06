@@ -24,12 +24,12 @@ private:
     shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
 
 
-    ConfigLocator* configL;
     nmainUI::statuslogs* sttlogs;
     std::shared_ptr<IBeamSet> beamSet;
     std::shared_ptr<IAcquisition> acquisition;
     std::mutex bufferMutex;
     std::shared_ptr<nDataProcess> datProcess;
+    std::shared_ptr<Om_Settup_Config> omSetCof;
 };
 
 

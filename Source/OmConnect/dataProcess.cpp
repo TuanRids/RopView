@@ -47,12 +47,18 @@ void nDataProcess::Run()
 {
     
     m_acquisition->Start();
-    static auto setthoughout = &spdThoughout::getinstance();
+    static auto setthoughout = &recordReadingPAUT::getinstance();
     try
     {
         do
         {
+            static std::deque<float> timeLapses;
+            const int maxSamples = 10;
+            QElapsedTimer timer;
+            timer.start();
+
             auto waitForDataResult = m_acquisition->WaitForDataEx();
+
             if (m_acquisition->WaitForDataEx().status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
                 m_acquisition->Stop();
@@ -73,6 +79,11 @@ void nDataProcess::Run()
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             }
+
+            float elapsedTime = timer.nsecsElapsed() / 1e6f;          
+
+            recordReadingPAUT::getinstance().set_Fps(elapsedTime);
+
         } while ((m_running));
 
     }

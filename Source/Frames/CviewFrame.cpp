@@ -59,10 +59,11 @@ void CviewFrame::updateRealTime()
     scaledImage = std::make_unique<cv::Mat>();
 
     int originalWidth = orgimage->cols;
+    int newWidth = graphicsView->size().width();
 
     int newHeight = graphicsView->size().height();
 
-    cv::resize(*orgimage, *scaledImage, cv::Size(originalWidth, newHeight), 0, 0, cv::INTER_NEAREST);
+    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_NEAREST);
 
     auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
     *qImage = qImage->rgbSwapped();

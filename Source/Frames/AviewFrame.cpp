@@ -91,7 +91,6 @@ void AviewFrame::update()
 
 void AviewFrame::updateRealTime()
 {
-
     static bool first_flag = false;
     try {
         if (nAscanCollection.empty()) return;
@@ -109,9 +108,9 @@ void AviewFrame::updateRealTime()
         }
         axisY->setReverse(true);
         static size_t lastpos = curpt.y;
-        if (ConfigLocator::getInstance().omconf->BeamPosition != lastpos)
+        if (oms.OMS->beamCurrentID != lastpos)
         {
-            lastpos = ConfigLocator::getInstance().omconf->BeamPosition;
+            lastpos = oms.OMS->beamCurrentID;
             if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
             sttlogs->logInfo("Beam Position: " + std::to_string(lastpos));
         }
@@ -178,10 +177,7 @@ void AviewFrame::RenderFrame()
         QObject::connect(shortcut, &QShortcut::activated, [this]() {
             size_t dataSize = points.size();
             axisY->setRange(0, static_cast<int>(dataSize));
-            axisX->setRange(
-                std::min_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x(),
-                std::max_element(points.begin(), points.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); })->x()
-            );
+            axisX->setRange(0,100);
             int viewWidth = graphicsView->width() * 1.0;
             int viewHeight = graphicsView->height() * 1.0;
             double aspectRatio = static_cast<double>(viewWidth) / static_cast<double>(viewHeight);

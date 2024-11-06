@@ -28,7 +28,7 @@ namespace OpenView
         static void ReadInspectionMethod(IScanPlanPtr scanPlan);
         static void ReadProbeConventional(IProbeConventionalPtr probe);
         static void ReadProbeRectangularArray(IProbePtr probe);
-        static std::shared_ptr<Om_Setup_ScanPlan> omSetup;
+        static std::shared_ptr<Om_Settup_Config> omSetCof;
     };
 }
 

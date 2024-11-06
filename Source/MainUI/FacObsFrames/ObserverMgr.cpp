@@ -23,7 +23,7 @@ void nObserver::RealDatProcess()
     static auto logger = spdlog::get("file_logger");
     if (logger) { logger->info("--->Starting RealDatProcess"); }
      
-    static auto everyColors = CreateColorPalette(ConfigL.sysParams->colorPalette);
+    static auto everyColors = CreateColorPalette(ConfigLocator::getInstance().sysParams->colorPalette);
     std::lock_guard<std::mutex> lock(collectionMutex);
     while (nAscanCollection.size() > 5) { nAscanCollection.pop_front(); }
 
@@ -51,7 +51,8 @@ void nObserver::RealDatProcess()
         ArtScan->AViewBuf->clear();
         if (ArtScan->CViewBuf->empty()) {
             ArtScan->CViewBuf->create(ysize, 500, CV_8UC3);
-            newMat.create(ysize, 500, CV_8UC3);
+            newMat.create(ysize, 500, CV_8UC3);    
+            ArtScan->CViewBuf->setTo(cv::Scalar(0, 0, 0));
             logger->info("Created new CViewBuf & newMat ({}, {})", ysize, 500);
         }
         else {
@@ -73,13 +74,15 @@ void nObserver::RealDatProcess()
         double maxAmplitudeSampling = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
         double maxAmplitudeUsable = RawAsanDat->GetAscan(beamID)->GetAmplitudeDataRange()->GetFloatingMax();
 
+#pragma omp simd reduction(max:maxAmplitudeCscan)
         for (int z = 0; z < zsize; ++z) {
 
             double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / maxAmplitudeSampling * maxAmplitudeUsable;
+            // double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / 32.768;
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
 
             ArtScan->SViewBuf->at<cv::Vec3b>(z, beamID) = cv::Vec3b(color.B, color.G, color.R);
-            if (ConfigLocator::getInstance().omconf->BeamPosition == beamID) {
+            if (    oms.OMS->beamCurrentID == beamID    ) {
                 points[z] = QPointF(percentAmplitude, static_cast<double>(z)); }
 
             if (percentAmplitude > maxAmplitudeCscan) { maxColor = color; maxAmplitudeCscan = percentAmplitude; }
@@ -97,6 +100,14 @@ void nObserver::RealDatProcess()
 
 std::vector<Color> nObserver::CreateColorPalette(int gainFactor = 0)
 {
+    /*
+    static auto setup = Olympus::FileManagement::Storage::CreateSetup();
+    auto palette = setup->GetViewProperties()->GetPalettes()->Add(L"LinearScanning");
+
+    for (size_t colorIdx{}; colorIdx < 256; colorIdx++) {
+        palette->GetColors()->Add("#FF0000");
+    }
+    */
     std::vector<Color> colors;
     std::vector<Color> everyColors;
     colors.emplace_back(Color{ 255, 255, 255 });

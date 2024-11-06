@@ -25,7 +25,6 @@ namespace OpenView
         static void ReadConfiguration(IConfigurationConstPtr config);
         static void ReadThicknessSettings(IThicknessSettingsPtr thicknessSettings);
         static std::shared_ptr<Om_Settup_Config> omSetCof;
-        static std::shared_ptr<Om_Setup_ScanPlan> omSetup;
 
     };
 }

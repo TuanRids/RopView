@@ -1,14 +1,14 @@
 #include "OpenView.ScanPlan.h"
-std::shared_ptr<Om_Setup_ScanPlan> OpenView::ScanPlan::omSetup = nullptr;
+std::shared_ptr<Om_Settup_Config> OpenView::ScanPlan::omSetCof = nullptr;
 
 namespace OpenView
 {
     void ScanPlan::Create(ISetupPtr setup)
     {
-        if (!omSetup)
-            omSetup = OmSetupL::getInstance().OmSetupScanplan;
+        if (!omSetCof)
+            omSetCof = OmSetupL::getInstance().OMS;
 
-        auto scanPlan = setup->GetScanPlan();
+        Olympus::PartDefinition::IScanPlanPtr scanPlan = setup->GetScanPlan();
         auto specimen = scanPlan->CreatePlateSpecimen(180.,45.,130.);
         //Material
         auto material = specimen->GetMaterial();
@@ -37,8 +37,8 @@ namespace OpenView
     {
         // PROBES
         auto equipfactory = scanPlan->GetEquipmentFactory();        
-        auto raTransducer = equipfactory->CreateTransducerRectangularArray(L"5L32-A31", omSetup->raProbeFre,
-            omSetup->raProbeElem, omSetup->raProbeRows, omSetup->raProbeWidth, omSetup->raProbeHeight);  // 64 elements, 1 row (Linear array)
+        auto raTransducer = equipfactory->CreateTransducerRectangularArray(L"5L64-A2", omSetCof->raProbeFre,
+            omSetCof->raProbeElem, omSetCof->raProbeRows, omSetCof->raProbeWidth, omSetCof->raProbeHeight);  // 64 elements, 1 row (Linear array)
         // auto raWedge = equipfactory->CreateWedgeRectangularArray(L"SA31-N55S", 48.58, 30., 32.26, 36.1);
         // raWedge->SetMaterialVelocity(2330.);
 
@@ -49,21 +49,20 @@ namespace OpenView
 
         // Phased array linear inspection method
         auto inspFactory = scanPlan->GetInspectionMethodFactory();
-        auto patch = scanPlan->GetPatches()->GetPatch(0);
-
-        // Create linear formation
-        auto linearFormation = inspFactory->CreateLinearFormation(0., 64, omSetup->LinearElemStart, omSetup->LinearElemMax, omSetup->LinearElemStep);  // Linear formation 
+        auto patch = scanPlan->GetPatches()->GetPatch(0);          
+        auto linearFormation = inspFactory->CreateLinearFormation(0., omSetCof->EleQuantity, omSetCof->EleFirst, omSetCof->EleLast, omSetCof->EleStep);  // Linear formation 
         auto linearMethod = inspFactory->AddPhasedArrayLinear(L"GR-2", patch, raProbe, linearFormation);
 
-        linearMethod->GetBeamSet()->SetWaveType(omSetup->LineaerWaveType);
+        linearMethod->GetBeamSet()->SetWaveType(omSetCof->LineaerWaveType);
         linearMethod->GetBeamSet()->GetFocusing()->SetDepthFocusing(DepthFocusing::TrueDepth);
-        linearMethod->GetBeamSet()->GetFocusing()->SetDistance(omSetup->beamFocusingDepth);
+        linearMethod->GetBeamSet()->GetFocusing()->SetDistance(omSetCof->beamFocusingDepth);
 
-        linearMethod->GetProbePosition()->SetAngle(90);
+        linearMethod->GetProbePosition()->SetAngle(0);
         linearMethod->GetProbePosition()->SetX(0.);
         linearMethod->GetProbePosition()->SetY(0.);
 
         auto linearFormationPtr = dynamic_pointer_cast<IFormationLinear>(linearMethod->GetBeamSet()->GetFormation());
+
 
         // In linear array, no need for skew angles (sectorial scanning), so skip setting skew angles.
     }

@@ -329,7 +329,7 @@ namespace nmainUI {
         // Connect checkbox state change to button visibility
         QObject::connect(testModeCheckBox, &QCheckBox::stateChanged, [=](int state) {
             bool isChecked = (state == Qt::Checked);
-            OmSettingFrame::getInstance()->switchTabs();
+            //OmSettingFrame::getInstance()->switchTabs();
             startTestButton->setVisible(isChecked);
             startSetupButton->setVisible(!isChecked);
             });
@@ -354,6 +354,7 @@ namespace nmainUI {
             }
             else {
                 IOmConnect::Create()->omDisconnectDevice();
+                sttlogs->logWarning("Release Device! Check your configuration.");
             }
             nsubject->startRealtimeUpdate(45);
             });
@@ -385,6 +386,11 @@ namespace nmainUI {
         logOutput1->setReadOnly(true);
         logOutput1->setFixedHeight(25);  
 
+        QTextEdit* logOutput11 = new QTextEdit();
+        logOutput11->setLineWrapMode(QTextEdit::NoWrap);
+        logOutput11->setReadOnly(true);
+        logOutput11->setFixedHeight(25);
+
         QTextEdit* logOutput2 = new QTextEdit();
         logOutput2->setLineWrapMode(QTextEdit::NoWrap);
         logOutput2->setReadOnly(true);
@@ -403,14 +409,16 @@ namespace nmainUI {
         logOutput3->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
         layout->addWidget(logOutput1);
+        layout->addWidget(logOutput11);
         layout->addWidget(logOutput2);
         layout->addWidget(logOutput3);
 
         logWidget->setWidget(logContainer);
 
         QTimer* timer = new QTimer(logWidget);
-        QObject::connect(timer, &QTimer::timeout, [logOutput1, logOutput2, logOutput3]() {
-            static auto setthroughout = &spdThoughout::getinstance();
+        QObject::connect(timer, &QTimer::timeout, [logOutput1, logOutput11, logOutput2, logOutput3]() {
+            static auto readPAUTstatus = &recordReadingPAUT::getinstance();
+            static auto processdataStatus = &recordProcessingData::getinstance();
             size_t buffer = std::make_shared<upFrame>()->bufferSize();
 
             logOutput1->clear();
@@ -418,12 +426,17 @@ namespace nmainUI {
             logOutput1->append(text1);
 
             logOutput2->clear();
-            QString text2 = QString("Throughput Mbs: %1").arg(setthroughout->get(), 0, 'f', 2);
+            QString text2 = QString("Throughput Mbs: %1").arg(readPAUTstatus->get(), 0, 'f', 2);
             logOutput2->append(text2);
 
+            logOutput11->clear();
+            QString text11 = QString("Read FPS Size: %1").arg(readPAUTstatus->get_FPS(), 0, 'f', 2);
+            logOutput11->append(text11);
+
             logOutput3->clear();
-            QString text3 = QString("Frame Time ms: %1").arg(setthroughout->get_FPS(), 0, 'f', 2);
+            QString text3 = QString("Frame Time ms: %1").arg(processdataStatus->get_FPS(), 0, 'f', 2);
             logOutput3->append(text3);
+
             });
 
         timer->start(100);

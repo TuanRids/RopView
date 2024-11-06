@@ -11,12 +11,12 @@ std::string wstostring(const std::wstring& wstr) {
 
 OmConnect::OmConnect() : sttlogs(nullptr), acquisition(nullptr), beamSet(nullptr), datProcess(nullptr)
 {
-    if (!configL) configL = &ConfigLocator::getInstance();
+    if (!omSetCof)
+        omSetCof = OmSetupL::getInstance().OMS;
 }
-
 bool OmConnect::omConnectDevice(ConnectMode mode)
 {
-    
+    Instrumentation::EnableLogger();
     if (!sttlogs) sttlogs = &nmainUI::statuslogs::getinstance();
     ipAddress = ConfigLocator::getInstance().settingconf->ipAddress;
     try
@@ -48,26 +48,45 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
             ConfigureDevice();
         }
 
-        acquisition->SetRate(configL->omconf->Rate);
+        auto setrate = acquisition->SetRate(omSetCof->Rate);
+        cout << "rate set: " << setrate << endl;
         acquisition->ApplyConfiguration();
         
         if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);    
         datProcess->Start();
     }
-    catch (const std::exception& e)
-    {
-         omDisconnectDevice();
-        sttlogs->logCritical(e.what());
+    catch (Instrumentation::ApplicationException& e) {
+        omDisconnectDevice();
+        sttlogs->logCritical("ApplicationException: " + std::string(e.what()));
+        return false;
+    }
+    catch (Instrumentation::ArgumentException& e) {
+        omDisconnectDevice();
+        sttlogs->logCritical("ArgumentException: " + std::string(e.what()) + ", Argument: " + e.which());
+        return false;
+    }
+    catch (Instrumentation::UnknownException& e) {
+        omDisconnectDevice();
+        sttlogs->logCritical("UnknownException: " + std::string(e.what()));
+        return false;
+    }
+    catch (const std::exception& e) {
+        omDisconnectDevice();
+        sttlogs->logDebug( device->GetDriverConfiguration());        
+        sttlogs->logCritical("Standard exception: " + std::string(e.what()));
+        return false;
+    }
+    catch (...) {
+        omDisconnectDevice();
+        sttlogs->logCritical("Unexpected exception thrown.");
         return false;
     }
     return true;
 }
-
 void OmConnect::omDisconnectDevice()
 {
     if (datProcess) datProcess->Stop(); datProcess = nullptr; 
 }
-
 shared_ptr<IDevice> OmConnect::DiscoverDevice()
 {
     
@@ -80,7 +99,6 @@ shared_ptr<IDevice> OmConnect::DiscoverDevice()
     sttlogs->logInfo("Found Device w Serial: " + result.device->GetInfo()->GetSerialNumber());
     return result.device;
 }
-
 void OmConnect::StartDevice()
 {
     wstring packageName(L"FocusPxPackage");
@@ -135,13 +153,13 @@ void OmConnect::ConfigureDevice()
     for (size_t i = 0; i < beamSet->GetBeamCount(); ++i)
     {
         auto beam = beamSet->GetBeam(i);
-        beam->SetAscanStart(configL->omconf->ascanStart);
-        beam->SetAscanLength(configL->omconf->ascanLength);
+        beam->SetAscanStart(omSetCof->PA_AscanStart);
+        beam->SetAscanLength(omSetCof->PA_DigitizingLength);
         cout << "Set Beam GateCollection Count: " << beam->GetGateCollection()->GetCount();
         auto gate = beam->GetGateCollection()->GetGate(0);
-        gate->SetStart(configL->omconf->gateStart);
-        gate->SetLength(configL->omconf->gateLength);
-        gate->SetThreshold(configL->omconf->gateThreshold);
+        gate->SetStart(0);
+        gate->SetLength(300);
+        gate->SetThreshold(15);
         gate->InCycleData(true);
     }
 
@@ -156,22 +174,22 @@ void OmConnect::ConfigureDevice()
 shared_ptr<IBeamFormationCollection> OmConnect::GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory)
 {
     auto beamFormations = factory->CreateBeamFormationCollection();
-    for (size_t beam = 0; beam < configL->omconf->beamLimit; ++beam)
+    for (size_t beam = 0; beam < 32; ++beam)
     {
-        auto beamFormation = factory->CreateBeamFormation(configL->omconf->elementAperture, configL->omconf->elementAperture);
+        auto beamFormation = factory->CreateBeamFormation(32, 32);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
 
-        for (size_t pulser = 0; pulser < configL->omconf->elementAperture; ++pulser)
+        for (size_t pulser = 0; pulser < 32; ++pulser)
         {
             pulserDelays->GetElementDelay(pulser)->SetElementId(pulser + 1);
-            pulserDelays->GetElementDelay(pulser)->SetDelay(((beam + pulser) * configL->omconf->delayResolution) + configL->omconf->pulserBaseDelay);
+            pulserDelays->GetElementDelay(pulser)->SetDelay(((beam + pulser) * 2.5) + 500);
         }
 
-        for (size_t receiver = 0; receiver < configL->omconf->elementAperture; ++receiver)
+        for (size_t receiver = 0; receiver < 32; ++receiver)
         {
             receiverDelays->GetElementDelay(receiver)->SetElementId(receiver + 1);
-            receiverDelays->GetElementDelay(receiver)->SetDelay(((beam + receiver) * configL->omconf->delayResolution) + configL->omconf->receiverBaseDelay);
+            receiverDelays->GetElementDelay(receiver)->SetDelay(((beam + receiver) * 2.5) + 1000);
         }
 
         beamFormations->Add(beamFormation);

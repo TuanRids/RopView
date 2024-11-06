@@ -3,7 +3,6 @@
 Instrumentation::IUltrasoundConfigurationPtr OmConfigSetup::ultrasoundConfig = nullptr;
 Olympus::FileManagement::ISetupPtr OmConfigSetup::SetupConfig = nullptr;
 std::shared_ptr<Om_Settup_Config> OmConfigSetup::omSetCof = nullptr;
-std::shared_ptr<Om_Setup_ScanPlan> OmConfigSetup::omSetup = nullptr;
 
 // Configure Device from Setup
 bool IsAdjusted(IAdjustedParameterCollectionPtr adjParams)
@@ -200,39 +199,33 @@ bool OmConfigSetup::Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, I
 // Configure Directly
 bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     if (!omSetCof)
-        omSetCof = OmSetupL::getInstance().OmSetupConf;
-    if (!omSetup)
-        omSetup = OmSetupL::getInstance().OmSetupScanplan;
+        omSetCof = OmSetupL::getInstance().OMS;
+
     // Scan Plan Configuration
-    auto sancPlan = SetupConfig->GetScanPlan();
+    //========================== Acquisition Unit Configuration
+    auto scanPlan = SetupConfig->GetScanPlan();
     auto inspConfigs = SetupConfig->GetInspectionConfigurations();
     auto inspConfig = inspConfigs->Add(FiringTrigger::Internal, 1000.);
 
-    // Acquisition Unit Configuration
-    auto acqUnits = sancPlan->GetAcquisitionUnits();
+    auto acqUnits = scanPlan->GetAcquisitionUnits();
     for (size_t acqUnitIdx(0); acqUnitIdx < acqUnits->GetCount(); acqUnitIdx++) {
         auto acqUnit = acqUnits->GetAcquisitionUnit(acqUnitIdx);
         auto acqUnitConfig = inspConfig->GetAcquisitionUnitConfigurations()->Add(acqUnit);
 
         // Digitizer Configuration
         auto digitizerConfig = acqUnitConfig->GetUltrasoundDigitizerConfiguration();
-
-        // Conventional Ultrasound Technology Configuration
-        auto convDigitizerConfig = digitizerConfig->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::Conventional);
-        double convVoltage = convDigitizerConfig->GetPulserVoltages()->GetPulserVoltage(2);
-        convDigitizerConfig->SetPulserVoltage(convVoltage);
-
-        // Phased Array Ultrasound Technology Configuration
         auto paDigitizerConfig = digitizerConfig->GetDigitizerTechnologyConfiguration(UltrasoundTechnology::PhasedArray);
         paDigitizerConfig->SetPulserVoltage(100);
     }
 
-    // Inspection Method Configuration
-    auto inspMethod = sancPlan->GetInspectionMethodCollection()->GetInspectionMethod(0);
+    //========================== Inspection Method Configuration
+    auto inspMethod = scanPlan->GetInspectionMethodCollection()->GetInspectionMethod(0);
+    wcout << L"Inspec name " << inspMethod->GetName() << endl;
     auto config = inspConfig->GetConfigurations()->AddPhasedArray(dynamic_pointer_cast<IInspectionMethodPhasedArray>(inspMethod));
 
     // Application Settings
     std::string applicationJsonStr = "{\"pipeWizard\": {\"Zone\": \"Volumetric\",\"Type\": \"ABC\",\"Stream\": \"Upstream\",\"GateAStart\": -3.0,\"GateALength\": 6.0,\"GateBStart\": -3.0,\"GateBLength\": 6.0,\"GateAThreshold\": 20.0,\"GateBThreshold\": 20.0,\"GateOffset\": 0.0,\"CorrectionFactor\": 0.0,\"ReflectorSize\": 1.0}}";
+    
     config->SetApplicationSettings(applicationJsonStr);
     config->SetVelocity(omSetCof->phasing_velocity);
     config->SetReferenceAmplitude(omSetCof->phasing_referenceAmplitude);
@@ -246,9 +239,8 @@ bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     auto digitizer = ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray);
     auto factory = digitizer->GetBeamSetFactory();
     auto beamFormations = factory->CreateBeamFormationCollection();
-
     for (size_t beamIdx(0); beamIdx < omSetCof->beamNumber; ++beamIdx) {
-        auto beamFormation = factory->CreateBeamFormation(omSetup->LinearElemActive, omSetup->LinearElemActive);
+        auto beamFormation = factory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);  // This device only support 32 element beams
         beamFormations->Add(beamFormation);
     }
 
@@ -257,14 +249,9 @@ bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     ultrasoundConfig->GetFiringBeamSetCollection()->Add(beamSet, digitizer->GetConnectorCollection()->GetConnector(0));
 
     bool adjusted = false;
-    auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
-
-    // Validation Check
-    if (!paConfig->GetPulsingSettings()->GetPulseWidth()) {
-        throw bad_cast{};
-    }
 
     // Pulsing Settings
+    auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
     adjusted |= beamSet->GetPulsingSettings()->SetAscanAveragingFactor(paConfig->GetPulsingSettings()->GetAscanAveragingFactor());
     adjusted |= beamSet->GetPulsingSettings()->SetPulseWidth(100);
 
@@ -278,11 +265,10 @@ bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     digitizingSettings->GetTimeSettings()->SetTCGSynchroMode(paConfig->GetDigitizingSettings()->GetTimeSettings()->GetTCGSynchroMode());
     digitizingSettings->GetAmplitudeSettings()->SetScalingType(paConfig->GetDigitizingSettings()->GetAmplitudeSettings()->GetScalingType());
     digitizingSettings->GetFilterSettings()->EnableSmoothingFilter(true);
-    digitizingSettings->GetFilterSettings()->SetSmoothingFilter(ultrasoundConfig->GetDigitizerTechnology(UltrasoundTechnology::PhasedArray)->GetSmoothingFilterCollection()->GetSmoothingFilter(5.0));
+    digitizingSettings->GetFilterSettings()->SetSmoothingFilter(digitizer->GetSmoothingFilterCollection()->GetSmoothingFilter(5.0));
 
     // Beam Settings
-    cout << "GAIN: " << omSetCof->phasing_gain << endl;
-    for (size_t beamIdx = 0; beamIdx < beamSet->GetBeamCount(); ++beamIdx) {
+    for (size_t beamIdx = 0; beamIdx < omSetCof->beamNumber; ++beamIdx) {
         auto beam = beamSet->GetBeam(beamIdx);
         auto beamConfig = paConfig->AddBeam();
 
@@ -291,31 +277,25 @@ bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
         beam->SetAscanStart(paConfig->GetWedgeDelay() + omSetCof->PA_beamDelay + omSetCof->PA_digitizingDelay);
         beam->SetAscanLength(omSetCof->PA_DigitizingLength);
         beam->SetRecurrence(beamConfig->GetRecurrence());
-        beam->SetSumGainMode(beamConfig->GetSumGainMode());
+        beam->SetSumGainMode(beamConfig->GetSumGainMode()); // TODO reduce samples points for faster processing
         beam->SetSumGain(beamConfig->GetSumGain());
 
         double wedgeDelay = paConfig->GetWedgeDelay() + beamConfig->GetBeamDelay();
-
         // Pulser and Receiver Delay Configurations
         auto pulsers = beam->GetBeamFormation()->GetPulserDelayCollection();
+        auto receivers = beam->GetBeamFormation()->GetReceiverDelayCollection();
         auto pulsersConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetPulserDelayCollection();
 
-        for (size_t elementIdx = 0; elementIdx < pulsers->GetCount(); elementIdx += 2) {
-            auto element = pulsers->GetElementDelay(elementIdx);
-            element->SetElementId(omSetup->LinearElemStart + elementIdx);
-            element->SetDelay((beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay);
-        }
-
-        auto receivers = beam->GetBeamFormation()->GetReceiverDelayCollection();
-        auto receiversConfig = paConfig->GetBeam(beamIdx)->GetBeamFormation()->GetReceiverDelayCollection();
-
-        for (size_t elementIdx = 0; elementIdx < receivers->GetCount(); elementIdx += 2) {
-            auto element = receivers->GetElementDelay(elementIdx);
-            element->SetElementId(omSetup->LinearElemStart + elementIdx);
-            element->SetDelay((beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay * 2);
+        unsigned int VirAperture = omSetCof->EleFirst;
+        auto NumberElem = omSetCof->EleQuantity; // wrong formula
+        for (size_t elementIdx = 0; elementIdx < NumberElem; ++elementIdx) {
+            pulsers->GetElementDelay(elementIdx)->SetElementId(VirAperture);
+            pulsers->GetElementDelay(elementIdx)->SetDelay((beamIdx + elementIdx) * omSetCof->PA_skewAngle + omSetCof->PA_elementDelay);
+            receivers->GetElementDelay(elementIdx)->SetElementId(VirAperture);
+            receivers->GetElementDelay(elementIdx)->SetDelay((beamIdx + elementIdx) * omSetCof->PA_skewAngle + omSetCof->PA_elementDelay * 2);            
+            VirAperture += omSetCof->EleStep;
         }
     }
-
     return adjusted;
 }
 bool OmConfigSetup::ConfigDeviceSetting(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup)

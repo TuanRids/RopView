@@ -48,7 +48,7 @@ void BviewFrame::CreateCoordinate() {
     orgimage = std::make_unique<cv::Mat>(zsize, xsize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    auto everyColors = CreateColorPalette(ConfigL.sysParams->colorPalette);
+    auto everyColors = CreateColorPalette(ConfigLocator::getInstance().sysParams->colorPalette);
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t x = 0; x < xsize; ++x) {
             uint64_t index = z * (xsize * ysize) + curpt.y * xsize + x;

@@ -1,15 +1,13 @@
 #include "OpenView.Configuration.h"
 std::shared_ptr<Om_Settup_Config> OpenView::Configuration::omSetCof = nullptr;
-std::shared_ptr<Om_Setup_ScanPlan> OpenView::Configuration::omSetup = nullptr;
 
 namespace OpenView
 {
     void Configuration::Create(ISetupPtr setup)
     {
         if (!omSetCof)
-            omSetCof = OmSetupL::getInstance().OmSetupConf;
-        if (!omSetup)
-            omSetup = OmSetupL::getInstance().OmSetupScanplan;
+            omSetCof = OmSetupL::getInstance().OMS;
+
         auto sancPlan = setup->GetScanPlan();
         auto inspConfigs = setup->GetInspectionConfigurations();
         auto inspConfig = inspConfigs->Add(FiringTrigger::Internal, 1000.);
@@ -115,16 +113,16 @@ namespace OpenView
             beam->SetRefractedAnglePrimary(0);
             beam->SetSkewAngle(33);
 
-            auto beamFormation = beam->CreateBeamFormation(omSetup->LinearElemActive, omSetup->LinearElemActive);            
+            auto beamFormation = beam->CreateBeamFormation(32, 32);            
             auto pulserDelays = beamFormation->GetPulserDelayCollection();
             auto receiverDelays = beamFormation->GetReceiverDelayCollection();
 
-            for (size_t elementIdx(0); elementIdx < omSetup->LinearElemActive; elementIdx+= omSetup->LinearElemStep)
+            for (size_t elementIdx(0); elementIdx < omSetCof->EleQuantity; elementIdx+= omSetCof->EleStep)
             {
-                pulserDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->LinearElemStart + elementIdx);
+                pulserDelays->GetElementDelay(elementIdx)->SetElementId(omSetCof->EleFirst + elementIdx);
                 pulserDelays->GetElementDelay(elementIdx)->SetDelay( (beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay); /*omSetCof->PA_elementDelay[elementIdx]*/
 
-                receiverDelays->GetElementDelay(elementIdx)->SetElementId(omSetup->LinearElemStart + elementIdx);
+                receiverDelays->GetElementDelay(elementIdx)->SetElementId(omSetCof->EleFirst + elementIdx);
                 receiverDelays->GetElementDelay(elementIdx)->SetDelay( (beamIdx + elementIdx) * 2.5 + omSetCof->PA_elementDelay * 2 );
             }
 

@@ -6,7 +6,6 @@
 class ConfigLocator {
 private:
     ConfigLocator() {
-        omconf = std::make_shared<OmniConfig>();
 		settingconf = std::make_shared<SettingConfig>();
         sysParams = std::make_shared<SystemParams>();
         loadFromRegistry();  
@@ -18,7 +17,6 @@ public:
         return instance;
     }
 
-    static std::shared_ptr<OmniConfig> omconf;/* Realtime Config */
     static std::shared_ptr<SettingConfig> settingconf; /* Setting Config*/
     static std::shared_ptr<SystemParams> sysParams; /* System Params*/
     void saveToRegistry();
@@ -28,17 +26,19 @@ public:
 class OmSetupL {
 private:
     OmSetupL() {
-        OmSetupConf = std::make_shared<Om_Settup_Config>();
-        OmSetupScanplan = std::make_shared<Om_Setup_ScanPlan>();
+        OMS = std::make_shared<Om_Settup_Config>();
     }
 public:
     static OmSetupL& getInstance() {
         static OmSetupL instance;
         return instance;
     }
-    static std::shared_ptr<Om_Settup_Config> OmSetupConf;/* Om Setup Configuration */
-    static std::shared_ptr<Om_Setup_ScanPlan> OmSetupScanplan;/* Om Setup Configuration */
+    static std::shared_ptr<Om_Settup_Config> OMS; /* Om Setup Configuration */
 };
+
+
+
+
 
 
 // ============ UIArtScan =============

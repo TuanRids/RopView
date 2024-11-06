@@ -22,8 +22,8 @@ private:
 	static Instrumentation::IUltrasoundConfigurationPtr ultrasoundConfig ;
 
 	static bool CreateFiringBeamSetPhasedArray();
+	static bool UltrasoundConfiguration();
 	static std::shared_ptr<Om_Settup_Config> omSetCof;
-	static std::shared_ptr<Om_Setup_ScanPlan> omSetup;
 	static Olympus::FileManagement::ISetupPtr SetupConfig;
 };
 
