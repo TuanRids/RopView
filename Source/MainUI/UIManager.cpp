@@ -313,48 +313,21 @@ namespace nmainUI {
         QVBoxLayout* layout = new QVBoxLayout(settingsWidget);
         layout->setContentsMargins(1, 1, 1, 1);
 
-        // Create a checkbox for isTestMode
-        QCheckBox* testModeCheckBox = new QCheckBox("Test Mode");
-        layout->addWidget(testModeCheckBox);
-
-        QPushButton* startTestButton = new QPushButton("Start Test");
-        QPushButton* startSetupButton = new QPushButton("Start Setup");
-        layout->addWidget(startTestButton);
+        QPushButton* startSetupButton = new QPushButton("Start");
         layout->addWidget(startSetupButton);
-
-        // Set visibility of buttons based on checkbox state
-        startTestButton->setVisible(false);
-        startSetupButton->setVisible(true);
-
-        // Connect checkbox state change to button visibility
-        QObject::connect(testModeCheckBox, &QCheckBox::stateChanged, [=](int state) {
-            bool isChecked = (state == Qt::Checked);
-            //OmSettingFrame::getInstance()->switchTabs();
-            startTestButton->setVisible(isChecked);
-            startSetupButton->setVisible(!isChecked);
-            });
-
+                
         // Create a button for STOP action
         QPushButton* stopButton = new QPushButton("STOP");
         layout->addWidget(stopButton);
 
-        // Connect buttons to their respective slots
-        QObject::connect(startTestButton, &QPushButton::clicked, [=]() mutable {
-            nsubject->stopNotifyTimer();
-            if (IOmConnect::Create()->omConnectDevice(ConnectMode::TestingMode)) {
-                sttlogs->logNotify("Start RealTime Test Mode!");
-            }
-            nsubject->startRealtimeUpdate(45);
-            });
-
         QObject::connect(startSetupButton, &QPushButton::clicked, [=]() mutable {
             nsubject->stopNotifyTimer();
             if (IOmConnect::Create()->omConnectDevice(ConnectMode::SetupFileMode)) {
-                sttlogs->logNotify("Start RealTime Setup Mode!");
+                sttlogs->logNotify("Start connecting to the device!");
             }
             else {
                 IOmConnect::Create()->omDisconnectDevice();
-                sttlogs->logWarning("Release Device! Check your configuration.");
+                sttlogs->logWarning("Release device! Check your configuration.");
             }
             nsubject->startRealtimeUpdate(45);
             });
@@ -362,13 +335,11 @@ namespace nmainUI {
         QObject::connect(stopButton, &QPushButton::clicked, [=]() mutable {
             nsubject->stopRealtimeUpdate();
             IOmConnect::Create()->omDisconnectDevice();
-            sttlogs->logNotify("Stop RealTime!");
+            sttlogs->logNotify("Stop!");
             });
 
         return settingsWidget;
     }
-
-
     void UIManager::createLogWidget() {
         auto nmainwd = getMainWindow();
         QDockWidget* logWidget = new QDockWidget(nmainwd);
@@ -445,7 +416,6 @@ namespace nmainUI {
 
         nmainwd->addDockWidget(Qt::BottomDockWidgetArea, logWidget);
     }   
-
 //============== Create Frame Widgets ==============
 
     QWidget* UIManager::addFrameName(const QString& name, QWidget* frame) {

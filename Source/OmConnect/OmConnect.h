@@ -1,3 +1,5 @@
+#ifndef __OM_CONNECT_H__
+#define __OM_CONNECT_H__
 #pragma once
 #include "../pch.h"
 #include "IOmConnect.h"
@@ -16,16 +18,13 @@ public:
 
     bool omConnectDevice(ConnectMode mode) override;
     void omDisconnectDevice() override;
+
 private:
     // private methods
     shared_ptr<IDevice> DiscoverDevice() override;
     void StartDevice() override;
-    void ConfigureDevice() override;
-    shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
-
 
     nmainUI::statuslogs* sttlogs;
-    std::shared_ptr<IBeamSet> beamSet;
     std::shared_ptr<IAcquisition> acquisition;
     std::mutex bufferMutex;
     std::shared_ptr<nDataProcess> datProcess;
@@ -33,3 +32,9 @@ private:
 };
 
 
+/*
+std::shared_ptr<IBeamSet> beamSet;
+void ConfigureDevice() override;
+shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
+*/
+#endif

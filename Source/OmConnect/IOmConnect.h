@@ -25,7 +25,6 @@ protected:
 
     virtual shared_ptr<IDevice> DiscoverDevice() = 0;
     virtual void StartDevice() = 0;
-    virtual void ConfigureDevice() = 0;
 };
 
 #endif

@@ -13,20 +13,34 @@ using namespace Olympus::FileManagement::Storage;
 using namespace std;
 class OmConfigSetup {
 public:
-	static bool ConfigAcquisitionFromSetup(IAcquisitionPtr acquisition, Olympus::FileManagement::ISetupPtr setup);
-	static bool ConfigDeviceFromSetup(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup);
-	static bool ConfigDeviceSetting(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup);
-private:
-	static IBeamSetPtr Set_CreateFiringBeamSetPhasedArray(IConfigurationPtr config);
-	static bool Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config);
-	static Instrumentation::IUltrasoundConfigurationPtr ultrasoundConfig ;
+    OmConfigSetup(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr nsetup);
 
-	static bool CreateFiringBeamSetPhasedArray();
-	static bool UltrasoundConfiguration();
-	static std::shared_ptr<Om_Settup_Config> omSetCof;
-	static Olympus::FileManagement::ISetupPtr SetupConfig;
+    bool ConfigDeviceFromSetup();
+    bool ConfigDeviceSetting();
+
+    // recheck carefully about shared_ptr and weak_ptr to make sure there are no memory leak
+    void get_beamSet(std::shared_ptr<IBeamSet> &beamSet);
+    void get_acquisition(IAcquisitionPtr &nacquisition);
+
+private:
+    // getter properties
+    IAcquisitionPtr acquisition;
+    IDevicePtr device;
+    Olympus::FileManagement::ISetupPtr setup;
+
+    // Internal Properties
+    std::shared_ptr<Om_Settup_Config> omSetCof;
+    Instrumentation::IUltrasoundConfigurationPtr ultrasoundConfig;
+    IConfigurationPtr config;
+
+    // External Sharing Properties
+    std::shared_ptr<IBeamSet> beamSet;
+
+    // Internal Methods for processing.
+    IBeamSetPtr Set_CreateFiringBeamSetPhasedArray();
+    bool Set_ConfigBeamSetPhasedArray();
+    bool CreateFiringBeamSetPhasedArray();
+    bool UltrasoundConfiguration();
 };
 
-
-
-#endif
+#endif // CONFIGSETUP_H

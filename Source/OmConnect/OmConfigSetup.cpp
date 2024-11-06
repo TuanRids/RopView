@@ -1,36 +1,40 @@
 #include "OmConfigSetup.h"
 
-Instrumentation::IUltrasoundConfigurationPtr OmConfigSetup::ultrasoundConfig = nullptr;
-Olympus::FileManagement::ISetupPtr OmConfigSetup::SetupConfig = nullptr;
-std::shared_ptr<Om_Settup_Config> OmConfigSetup::omSetCof = nullptr;
+
+OmConfigSetup::OmConfigSetup(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr nsetup) :
+    acquisition(nacquisition), device(ndevice), setup(nsetup), ultrasoundConfig(nullptr)
+{
+    if (!omSetCof) omSetCof = OmSetupL::getInstance().OMS;
+    if (!ultrasoundConfig) ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
+}
+
 
 // Configure Device from Setup
 bool IsAdjusted(IAdjustedParameterCollectionPtr adjParams)
 {
     return adjParams->GetCount() > 0;
 }
-bool OmConfigSetup::ConfigDeviceFromSetup(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup) {
-    SetupConfig = setup;
+bool OmConfigSetup::ConfigDeviceFromSetup() {
     bool adjusted = false;
     auto inspConfig = setup->GetInspectionConfigurations()->GetConfiguration(0);
 
-    nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Internal);
+    acquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Internal);
 
     // Set firing trigger
     switch (inspConfig->GetFiringTrigger()) {
     case FiringTrigger::Internal:
-        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Internal);
+        acquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Internal);
         break;
     case FiringTrigger::Encoder:
-        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Encoder);
+        acquisition->SetFiringTrigger(IAcquisition::FiringTrigger::Encoder);
         break;
     case FiringTrigger::External:
-        nacquisition->SetFiringTrigger(IAcquisition::FiringTrigger::External);
+        acquisition->SetFiringTrigger(IAcquisition::FiringTrigger::External);
         break;
     }
 
     // Configure encoders
-    /*auto encoders = nacquisition->GetEncoders();
+    /*auto encoders = acquisition->GetEncoders();
     auto encodersConfig = inspConfig->GetEncoderConfigurations();
 
     for (size_t encoderIdx = 0; encoderIdx < encoders->GetCount(); ++encoderIdx) {
@@ -60,7 +64,7 @@ bool OmConfigSetup::ConfigDeviceFromSetup(IAcquisitionPtr nacquisition, IDeviceP
         }
     }*/
     // Configure ultrasound settings
-    ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
+    ultrasoundConfig = device->GetConfiguration()->GetUltrasoundConfiguration();
     auto inspConfigs = setup->GetInspectionConfigurations();
     for (size_t inspConfigIdx = 0; inspConfigIdx < inspConfigs->GetCount(); ++inspConfigIdx) {
         auto inspConfig = inspConfigs->GetConfiguration(inspConfigIdx);
@@ -70,14 +74,14 @@ bool OmConfigSetup::ConfigDeviceFromSetup(IAcquisitionPtr nacquisition, IDeviceP
             auto config = configs->GetConfiguration(configIdx);
             auto paMethod = dynamic_pointer_cast<IInspectionMethodPhasedArray>(config->GetInspectionMethod());
             if (paMethod) {
-                auto beamSet = Set_CreateFiringBeamSetPhasedArray(config);
-                adjusted |= Set_ConfigBeamSetPhasedArray(beamSet, config);
+                auto beamSet = Set_CreateFiringBeamSetPhasedArray();
+                adjusted |= Set_ConfigBeamSetPhasedArray();
             }
         }
     }
     return adjusted;
 }
-IBeamSetPtr OmConfigSetup::Set_CreateFiringBeamSetPhasedArray(IConfigurationPtr config) {
+IBeamSetPtr OmConfigSetup::Set_CreateFiringBeamSetPhasedArray() {
     /*auto paMethod = dynamic_pointer_cast<IInspectionMethodPhasedArray>(config->GetInspectionMethod());
     auto probePa = dynamic_pointer_cast<IProbeRectangularArray>(paMethod->GetProbe());
     auto probeDualPa = probePa ? nullptr : dynamic_pointer_cast<IProbeDualRectangularArray>(paMethod->GetProbe());
@@ -105,7 +109,7 @@ IBeamSetPtr OmConfigSetup::Set_CreateFiringBeamSetPhasedArray(IConfigurationPtr 
     /*}
     return nullptr;*/
 }
-bool OmConfigSetup::Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, IConfigurationPtr config) {
+bool OmConfigSetup::Set_ConfigBeamSetPhasedArray() {
     bool adjusted = false;
     auto paConfig = dynamic_pointer_cast<IPhasedArrayConfiguration>(config);
 
@@ -195,7 +199,6 @@ bool OmConfigSetup::Set_ConfigBeamSetPhasedArray(shared_ptr<IBeamSet> beamSet, I
 }
 
 
-
 // Configure Directly
 bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     if (!omSetCof)
@@ -203,8 +206,8 @@ bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
 
     // Scan Plan Configuration
     //========================== Acquisition Unit Configuration
-    auto scanPlan = SetupConfig->GetScanPlan();
-    auto inspConfigs = SetupConfig->GetInspectionConfigurations();
+    auto scanPlan = setup->GetScanPlan();
+    auto inspConfigs = setup->GetInspectionConfigurations();
     auto inspConfig = inspConfigs->Add(FiringTrigger::Internal, 1000.);
 
     auto acqUnits = scanPlan->GetAcquisitionUnits();
@@ -298,10 +301,8 @@ bool OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     }
     return adjusted;
 }
-bool OmConfigSetup::ConfigDeviceSetting(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr setup)
+bool OmConfigSetup::ConfigDeviceSetting()
 {
-    SetupConfig = setup;
-    ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
     auto beamSet = CreateFiringBeamSetPhasedArray();
     return true;
 }
