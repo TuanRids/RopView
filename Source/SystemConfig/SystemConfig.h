@@ -27,15 +27,14 @@ struct Om_Settup_Config
     double PA_beamDelay = 19000; // ns
     double PA_digitizingDelay = 5400; // 5400 ns
     double PA_elementDelay = 500; //Element Delay; 500
-    double PA_skewAngle = 0;
+    double PA_ElemInternalDelay = 0;
     double PA_AscanStart = 2000; // start; 2000
     double PA_DigitizingLength = 16840.; // Digitizing Length; 163840 ns
             // === Om Phasing Acquisition Settings ===
     double acquisition_paVoltage = 4.0; // Pulser voltage
-    std::string acquisition_deviceSerialNumber = "QC-0036707";
 
     // === Om Phasing Settings ===
-    double phasing_gain = 25.0;
+    double phasing_gain = 20.0;
     double phasing_velocity = 3235.0;
     double phasing_referenceAmplitude = 80.0;
     size_t phasing_pulseWidth = 100; // ns
@@ -80,7 +79,7 @@ struct Om_Settup_Config
 
     // Phased Array Linear Formation
     unsigned int beamNumber     = 64;
-    unsigned int EleStep        = 3; // Element step size
+    unsigned int EleStep        = 1; // Element step size
     unsigned int EleQuantity    = 16; // Active elements
     unsigned int EleFirst       = 1;    // Starting element
     unsigned int EleLast        = 64;    // Maximum number of elements

@@ -13,7 +13,7 @@ bool OmCreateSetup::SaveSetup()
 
         OpenView::ScanPlan::Create(setup);
         OpenView::Configuration::Create(setup);
-
+                
         auto signature = setup->GetSignature();
         signature->SetCompanyName(L"Company X");
         signature->SetSoftwareName(L"App Y");

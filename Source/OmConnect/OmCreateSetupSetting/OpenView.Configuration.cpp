@@ -17,7 +17,7 @@ namespace OpenView
         {
             auto acqUnit = acqUnits->GetAcquisitionUnit(acqUnitIdx);
             auto acqUnitConfig = inspConfig->GetAcquisitionUnitConfigurations()->Add(acqUnit);
-            acqUnitConfig->SetSerialNumber(omSetCof->acquisition_deviceSerialNumber);
+            acqUnitConfig->SetSerialNumber("QC-0036707");
 
             auto digitizerConfig = acqUnitConfig->GetUltrasoundDigitizerConfiguration();
 
@@ -110,7 +110,7 @@ namespace OpenView
             beam->SetDigitizingDelay(omSetCof->PA_digitizingDelay);
             beam->SetDigitizingLength(omSetCof->PA_DigitizingLength);
             beam->SetExitPointPrimary(omSetCof->PA_exitPoint );
-            beam->SetRefractedAnglePrimary(0);
+            beam->SetRefractedAnglePrimary(0.0);
             beam->SetSkewAngle(33);
 
             auto beamFormation = beam->CreateBeamFormation(32, 32);            

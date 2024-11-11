@@ -49,6 +49,7 @@ public:
 #include <deque>
 
 	void notifyRealtime() {
+
 		if (!isRealTime) return;
 		try {
 			static std::deque<float> timeLapses;

@@ -20,7 +20,7 @@ protected:
     IOmConnect() : device(nullptr) {}
     virtual ~IOmConnect() = 0;
 
-    shared_ptr<IDevice> device;
+    IDevicePtr device;
     string ipAddress = "192.168.0.1";
 
     virtual shared_ptr<IDevice> DiscoverDevice() = 0;

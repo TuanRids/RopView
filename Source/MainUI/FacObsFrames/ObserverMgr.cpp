@@ -34,8 +34,6 @@ void nObserver::RealDatProcess()
     }
     shared_ptr<IAscanCollection> RawAsanDat = std::move(nAscanCollection.front());
 
-
-
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
 
@@ -64,8 +62,7 @@ void nObserver::RealDatProcess()
             ArtScan->CViewBuf->copyTo(newMat);
             logger->info("Copied CViewBuf to newMat ({}, {})", ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols);
         }
-    }
-        
+    }        
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
         double maxAmplitudeCscan = 0; Color maxColor{};
@@ -76,7 +73,6 @@ void nObserver::RealDatProcess()
 
 #pragma omp simd reduction(max:maxAmplitudeCscan)
         for (int z = 0; z < zsize; ++z) {
-
             double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / maxAmplitudeSampling * maxAmplitudeUsable;
             // double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / 32.768;
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
@@ -100,14 +96,6 @@ void nObserver::RealDatProcess()
 
 std::vector<Color> nObserver::CreateColorPalette(int gainFactor = 0)
 {
-    /*
-    static auto setup = Olympus::FileManagement::Storage::CreateSetup();
-    auto palette = setup->GetViewProperties()->GetPalettes()->Add(L"LinearScanning");
-
-    for (size_t colorIdx{}; colorIdx < 256; colorIdx++) {
-        palette->GetColors()->Add("#FF0000");
-    }
-    */
     std::vector<Color> colors;
     std::vector<Color> everyColors;
     colors.emplace_back(Color{ 255, 255, 255 });
@@ -127,7 +115,7 @@ std::vector<Color> nObserver::CreateColorPalette(int gainFactor = 0)
     colors.emplace_back(Color{ 167, 50, 26 });
     colors.emplace_back(Color{ 145, 12, 29 });
 
-    size_t interpolationPoints = 7;
+    size_t interpolationPoints = 10;
     double f = 1.0 / interpolationPoints;
 
     for (size_t colorIdx(0); colorIdx < colors.size() - 1; colorIdx++)

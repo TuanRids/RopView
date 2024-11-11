@@ -34,16 +34,15 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
         //acquisition = IAcquisition::CreateEx(device);            
         //auto adjusted = OmConfigSetup::ConfigDeviceFromSetup(acquisition, device, setup);
 
-        acquisition = IAcquisition::CreateEx(device);          
         auto OmConfig = std::make_shared<OmConfigSetup>(acquisition, device, setup);
-        auto adjusted = OmConfig->ConfigDeviceSetting();
-        sttlogs->logInfo (adjusted ? "Configuration Device From SetupFile: Completed" : "Configuration Device From SetupFile: Failed");
+        OmConfig->ConfigDeviceSetting();
+        sttlogs->logInfo ("Configured Setting for the device.");
 
+        acquisition = IAcquisition::CreateEx(device);          
         auto setrate = acquisition->SetRate(omSetCof->Rate);
-        cout << "rate set: " << setrate << endl;
         acquisition->ApplyConfiguration();
         
-        if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition);    
+        if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition, device);    
         datProcess->Start();
     }
     catch (Instrumentation::ApplicationException& e) {

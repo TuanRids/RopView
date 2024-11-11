@@ -16,11 +16,7 @@ public:
     OmConfigSetup(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr nsetup);
 
     bool ConfigDeviceFromSetup();
-    bool ConfigDeviceSetting();
-
-    // recheck carefully about shared_ptr and weak_ptr to make sure there are no memory leak
-    void get_beamSet(std::shared_ptr<IBeamSet> &beamSet);
-    void get_acquisition(IAcquisitionPtr &nacquisition);
+    void ConfigDeviceSetting();
 
 private:
     // getter properties
@@ -34,12 +30,11 @@ private:
     IConfigurationPtr config;
 
     // External Sharing Properties
-    std::shared_ptr<IBeamSet> beamSet;
-
+    IBeamSetPtr beamSet;
     // Internal Methods for processing.
     IBeamSetPtr Set_CreateFiringBeamSetPhasedArray();
     bool Set_ConfigBeamSetPhasedArray();
-    bool CreateFiringBeamSetPhasedArray();
+    void CreateFiringBeamSetPhasedArray();
     bool UltrasoundConfiguration();
 };
 

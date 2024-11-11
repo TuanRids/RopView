@@ -78,7 +78,7 @@ namespace nmainUI {
         void addLogMessage(const QString& prefix, const QString& message, const QColor& color) {
             // QMutexLocker locker(&mtx);
             QString displayedMessage = message;
-            if (message.length() > 500) {
+            if (message.length() > 2000) {
                 displayedMessage = message.left(500) + "\n..." + "[Too Long. Check the logs.txt]";
                 logger->log(spdlog::level::info, message.toStdString()); 
                 logger->flush();
