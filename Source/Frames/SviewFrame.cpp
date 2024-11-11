@@ -96,9 +96,11 @@ void SviewFrame::updateRealTime()
                 break;
             }
         }
-
         scaledImage = std::make_unique<cv::Mat>();
-        cv::resize(*orgimage, *scaledImage, cv::Size(graphicsView->width() * 2, graphicsView->height() * 2), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
+        auto ScaleRatio = orgimage->rows/graphicsView->size().height();
+        int frameWidth = graphicsView->size().width() * ScaleRatio;
+        int frameHeight = graphicsView->size().height() * ScaleRatio;
+        cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
         //cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(5, 1), cv::BORDER_CONSTANT);
 
         auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);

@@ -330,12 +330,19 @@ void OmConfigSetup::CreateFiringBeamSetPhasedArray() {
         auto NumberElem = omSetCof->EleQuantity; // wrong formula
         for (size_t elementIdx = 0; elementIdx < NumberElem; ++elementIdx) {
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            pulserDelays->GetElementDelay(elementIdx)->SetDelay((iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + omSetCof->PA_elementDelay);
+            pulserDelays->GetElementDelay(elementIdx)->SetDelay(/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */omSetCof->PA_elementDelay);
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            receiverDelays->GetElementDelay(elementIdx)->SetDelay((iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + omSetCof->PA_elementDelay * 2);
+            receiverDelays->GetElementDelay(elementIdx)->SetDelay(/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay +*/ omSetCof->PA_elementDelay * 2);
+            cout << VirAperture  << " " ;
             VirAperture += omSetCof->EleStep;
+            if (VirAperture > omSetCof->EleLast) 
+            {
+                iBeam = omSetCof->beamNumber;
+                break;
+            }
         }
         beamFormations->Add(beamFormation);
+        cout << endl;
     }
     beamSet = phasedArrayFactory->CreateBeamSetPhasedArray(L"LinearPhasedArray", beamFormations);
 
@@ -362,7 +369,17 @@ void OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     digitizingSettings->GetTimeSettings()->SetTCGSynchroMode(Instrumentation::ITimeSettings::TCGSynchroMode::RelativeAscanSynchro);
     digitizingSettings->GetAmplitudeSettings()->SetScalingType(Instrumentation::IAmplitudeSettings::ScalingType::Linear);
     digitizingSettings->GetFilterSettings()->EnableSmoothingFilter(true);
-    digitizingSettings->GetFilterSettings()->SetSmoothingFilter(digitizerTechnology->GetSmoothingFilterCollection()->GetSmoothingFilter(10.0));
+    digitizingSettings->GetFilterSettings()->SetSmoothingFilter(digitizerTechnology->GetSmoothingFilterCollection()->GetSmoothingFilter(4));
+    
+    auto bandpass = digitizerTechnology->GetDigitalBandPassFilterCollection()->GetDigitalBandPassFilter(omSetCof->BandPassFilter);
+    auto type = bandpass->GetFilterType(); cout << " band type :";
+    bandpass->GetHighCutOffFrequency(); bandpass->GetLowCutOffFrequency(); bandpass->GetCharacteristic();
+    if (type == Instrumentation::IDigitalBandPassFilter::Type::None) cout << "None" << endl;
+    else if (type == Instrumentation::IDigitalBandPassFilter::Type::LowPass) cout << "LowPass" << endl;
+    else if (type == Instrumentation::IDigitalBandPassFilter::Type::HighPass) cout << "HighPass" << endl;
+    else if (type == Instrumentation::IDigitalBandPassFilter::Type::BandPass) cout << "BandPass" << endl;
+    
+    digitizingSettings->GetFilterSettings()->SetDigitalBandPassFilter(bandpass);
 
     // Bind the beamSet to the device
     shared_ptr<IConnector> connector = digitizerTechnology->GetConnectorCollection()->GetPulseConnector();
@@ -373,11 +390,11 @@ void OmConfigSetup::CreateFiringBeamSetPhasedArray() {
     {
         // Configure beam parameters
         beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->phasing_gain /*+ 2.2*/);
-        // beamSet->GetBeam(iBeam)->SetAscanStart(0);
-        // beamSet->GetBeam(iBeam)->SetAscanLength(20000);
-        //beamSet->GetBeam(iBeam)->SetRecurrence(beamConfig->GetRecurrence());
-        //beamSet->GetBeam(iBeam)->SetSumGainMode(beamConfig->GetSumGainMode()); // TODO reduce samples points for faster processing
-       // beamSet->GetBeam(iBeam)->SetSumGain(beamConfig->GetSumGain());
+        beamSet->GetBeam(iBeam)->SetAscanStart(4000);
+        beamSet->GetBeam(iBeam)->SetAscanLength(35000);
+        // beamSet->GetBeam(iBeam)->SetRecurrence(100);
+        // beamSet->GetBeam(iBeam)->SetSumGainMode(beamConfig->GetSumGainMode()); // TODO reduce samples points for faster processing
+        // beamSet->GetBeam(iBeam)->SetSumGain(beamConfig->GetSumGain());
     }
 
 }

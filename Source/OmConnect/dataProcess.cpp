@@ -99,7 +99,7 @@ void nDataProcess::Run()
             //        auto ubeam = beamSet->GetBeamSet()->GetBeam(beamIdx);
             //        auto pulsers = ubeam->GetBeamFormation()->GetPulserDelayCollection();
             //        auto receivers = ubeam->GetBeamFormation()->GetReceiverDelayCollection();
-
+            //
             //        unsigned int VirAperture = omSetCof->EleFirst;
             //        auto NumberElem = omSetCof->EleQuantity; // wrong formula
             //        for (size_t elementIdx = 0; elementIdx < NumberElem; ++elementIdx) {

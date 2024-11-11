@@ -40,7 +40,7 @@ struct Om_Settup_Config
     size_t phasing_pulseWidth = 100; // ns
     Instrumentation::IAmplitudeSettings::AscanDataSize phasing_ascanDataSize = Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits; // 8 default 12 16
     Instrumentation::IAmplitudeSettings::RectificationType phasing_rectification = Instrumentation::IAmplitudeSettings::RectificationType::Full; // full negavite none possitive 
-
+    size_t BandPassFilter = 0;
     // === Om Gate Settings ===
     double gate_gateIDelay = 5500.0;
     double gate_gateILength = 1500.0;

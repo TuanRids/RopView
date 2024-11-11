@@ -149,6 +149,10 @@ private:
             scanPlan->EleLast = value;
             });
 
+        createSpinBox(1, 64, scanPlan->BandPassFilter, layout3, "BandPassFilter", 4, 0, [=](int value) {
+            scanPlan->BandPassFilter = value;
+            });
+
         // Group 4 - Phased Array Beam Settings
         QGroupBox* group4 = new QGroupBox("Beam Settings");
         QGridLayout* layout4 = new QGridLayout(group4);
@@ -222,6 +226,7 @@ private:
         createSpinBox(10, 500, setupConfig->phasing_pulseWidth, layout1, "Pulse Width (ns)", 1, 1, [=](int value) {
             setupConfig->phasing_pulseWidth = value;
             });
+
 
         // Dropdown for Ascan Data Size
         QComboBox* ascanDataSizeDropdown = new QComboBox();
