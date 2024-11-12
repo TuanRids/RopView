@@ -56,6 +56,7 @@ void nDataProcess::Run()
             static std::deque<float> timeLapses;
             static const int maxSamples = 10;
             QElapsedTimer timer;  timer.start();
+
             std::lock_guard<std::mutex> lock(m_mtx);                       
             
             auto waitForDataResult = acquisition->WaitForDataEx();
@@ -64,8 +65,7 @@ void nDataProcess::Run()
                 nmainUI::statuslogs::getinstance().logCritical("~WaitForData Stopped (Reached the end of the cycles)");
                 continue;
             }
-            if (waitForDataResult.cycleData == nullptr || waitForDataResult.cycleData->GetAscanCollection()->GetCount() == 0) continue;   
-
+            if (waitForDataResult.cycleData == nullptr) continue;   
             obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
             setthoughout->set(acquisition->GetThroughput());             
 

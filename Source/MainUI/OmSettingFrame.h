@@ -3,7 +3,6 @@
 
 #include "../pch.h"
 #include "SystemConfig/ConfigLocator.h"
-
 class OmSettingFrame : public QWidget {
 public:
     static OmSettingFrame *getInstance() {
@@ -49,7 +48,7 @@ private:
         mainWindow->addDockWidget(Qt::TopDockWidgetArea, dockWidget);
         dockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     }
-    unsigned int cwidth = 220;
+    unsigned int cwidth = 300;
     OmSettingFrame() {};
     QSpinBox* createSpinBox(int min, int max, int value, QGridLayout* layout, QString name,int row, int column,  std::function<void(int)> slotFunction ) {
         QSpinBox* spinBox = new QSpinBox();
@@ -83,232 +82,177 @@ private:
         auto scanPlan = OmSetupL::getInstance().OMS;
         
         // Group for Phased Array Transducer Settings
-        QGroupBox* group1 = new QGroupBox("Scan Plan");
+        QGroupBox* group1 = new QGroupBox("Beam Formation");
         QGridLayout* layout1 = new QGridLayout(group1);
+        int x = 0; int y = 0;
+        {
+            createSpinBox(1, 64, scanPlan->beamNumber, layout1, "Beam Quantity", x, y, [=](double value) {
+                scanPlan->beamNumber = value;
+                });
 
-        createDoubleSpinBox(1.0, 15.0, scanPlan->raProbeFre, layout1, "Transducer Frequency", 0, 0, [=](double value) {
-            scanPlan->raProbeFre = value;
-            });
+            createSpinBox(1, 64, scanPlan->EleStep, layout1, "Ele Step", ++x, y, [=](double value) {
+                scanPlan->EleStep = value;
+                });
 
-        createSpinBox(1, 128, scanPlan->raProbeElem, layout1, "Element Quantity", 1, 0, [=](int value) {
-            scanPlan->raProbeElem = value;
-            });
+            createSpinBox(1, 64, scanPlan->EleFirst, layout1, "Ele First", ++x, y, [=](double value) {
+                scanPlan->EleFirst = value;
+                });
+            x = 0;
+            createSpinBox(1, 64, scanPlan->EleLast, layout1, "Ele Last", x, ++y, [=](double value) {
+                scanPlan->EleLast = value;
+                });
 
-        createSpinBox(1, 10, scanPlan->raProbeRows, layout1, "Row Quantity", 2, 0, [=](int value) {
-            scanPlan->raProbeRows = value;
-            });
+            createSpinBox(1, 64, scanPlan->EleQuantity, layout1, "Ele Quantity", ++x, y, [=](double value) {
+                scanPlan->EleQuantity = value;
+                });
 
-        createDoubleSpinBox(0.1, 5.0, scanPlan->raProbeWidth, layout1, "Width (mm)", 3, 0, [=](double value) {
-            scanPlan->raProbeWidth = value;
-            });
-        createDoubleSpinBox(1.0, 20.0, scanPlan->raProbeHeight, layout1, "Height (mm)", 4, 0, [=](double value) {
-            scanPlan->raProbeHeight = value;
-            });
+            createSpinBox(1, 64, scanPlan->Ele_Delay, layout1, "Ele Delay", ++x, y, [=](double value) {
+                scanPlan->Ele_Delay = value;
+                });
+        }
+
 
         // Group 2 - Phased Array Wedge Settings
-        QGroupBox* group2 = new QGroupBox("Wedge Settings");
+        QGroupBox* group2 = new QGroupBox("Digitizer");
         QGridLayout* layout2 = new QGridLayout(group2);
 
-        createDoubleSpinBox(1.0, 100.0, scanPlan->raWedgeLength, layout2, "Length (mm)", 0, 0, [=](double value) {
-            scanPlan->raWedgeLength = value;
-            });
+        x = 0; y = 0;
+        {
+            // Ascan Data Size
+            QComboBox* ascanDataSizeComboBox = new QComboBox(); auto index = 0;
+            ascanDataSizeComboBox->addItem("8 Bits", static_cast<int>(Instrumentation::IAmplitudeSettings::AscanDataSize::EightBits));
+            ascanDataSizeComboBox->addItem("12 Bits", static_cast<int>(Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits));
+            ascanDataSizeComboBox->addItem("16 Bits", static_cast<int>(Instrumentation::IAmplitudeSettings::AscanDataSize::SixteenBits));
+            switch (scanPlan->Digi_Ampli_AscanSize) {
+            case Instrumentation::IAmplitudeSettings::AscanDataSize::EightBits: index = 0; break;
+            case Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits: index = 1; break;
+            case Instrumentation::IAmplitudeSettings::AscanDataSize::SixteenBits: index = 2; break;
+            }
+            ascanDataSizeComboBox->setCurrentIndex(index);
+            layout2->addWidget(new QLabel("Ascan Data Size"), x, y);
+            layout2->addWidget(ascanDataSizeComboBox, x, ++y);
+            connect(ascanDataSizeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+                scanPlan->Digi_Ampli_AscanSize = static_cast<Instrumentation::IAmplitudeSettings::AscanDataSize>(ascanDataSizeComboBox->currentData().toInt());
+                });
 
-        createDoubleSpinBox(1.0, 100.0, scanPlan->raWedgeWidth, layout2, "Width (mm)", 1, 0, [=](double value) {
-            scanPlan->raWedgeWidth = value;
-            });
 
-        createDoubleSpinBox(1.0, 100.0, scanPlan->raWedgeHeight, layout2, "Height (mm)", 2, 0, [=](double value) {
-            scanPlan->raWedgeHeight = value;
-            });
+            // Scaling Type
+            QComboBox* scalingTypeComboBox = new QComboBox();
+            scalingTypeComboBox->addItem("Linear", static_cast<int>(Instrumentation::IAmplitudeSettings::ScalingType::Linear));
+            scalingTypeComboBox->addItem("Logarithmic", static_cast<int>(Instrumentation::IAmplitudeSettings::ScalingType::Logarithmic));
+            scalingTypeComboBox->setCurrentIndex(static_cast<int>(scanPlan->Digi_Ampli_Scaling));
+            layout2->addWidget(new QLabel("Scaling Type"), ++x, --y);
+            layout2->addWidget(scalingTypeComboBox, x, ++y);
+            connect(scalingTypeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+                scanPlan->Digi_Ampli_Scaling = static_cast<Instrumentation::IAmplitudeSettings::ScalingType>(scalingTypeComboBox->currentData().toInt());
+                });
 
-        createDoubleSpinBox(1.0, 100.0, scanPlan->raWedgeExitPoint, layout2, "Exit Point (mm)", 3, 0, [=](double value) {
-            scanPlan->raWedgeExitPoint = value;
-            });
+            // Rectification Type
+            QComboBox* rectificationTypeComboBox = new QComboBox();
+            rectificationTypeComboBox->addItem("None", static_cast<int>(Instrumentation::IAmplitudeSettings::RectificationType::None));
+            rectificationTypeComboBox->addItem("Positive", static_cast<int>(Instrumentation::IAmplitudeSettings::RectificationType::Positive));
+            rectificationTypeComboBox->addItem("Negative", static_cast<int>(Instrumentation::IAmplitudeSettings::RectificationType::Negative));
+            rectificationTypeComboBox->addItem("Full", static_cast<int>(Instrumentation::IAmplitudeSettings::RectificationType::Full));
+            rectificationTypeComboBox->setCurrentIndex(static_cast<int>(scanPlan->Digi_Ampli_rectification));
+            layout2->addWidget(new QLabel("Rectification Type"), ++x, --y);
+            layout2->addWidget(rectificationTypeComboBox, x, ++y);
+            connect(rectificationTypeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+                scanPlan->Digi_Ampli_rectification = static_cast<Instrumentation::IAmplitudeSettings::RectificationType>(rectificationTypeComboBox->currentData().toInt());
+                nmainUI::statuslogs::getinstance().logInfo("Synchro Mode: " + std::to_string(static_cast<int>(scanPlan->Digi_Ampli_rectification)));
+                });
 
-        createDoubleSpinBox(1000.0, 20000.0, scanPlan->raWedgeMaterialVelocity, layout2, "Material Velocity (m/s)", 4, 0, [=](double value) {
-            scanPlan->raWedgeMaterialVelocity = value;
-            });
+            // Time Compression Factor
+            createSpinBox(1, 100, scanPlan->Digi_Time_CompressFactor, layout2, "Time Comp. Factor", ++x, 0, [=](double value) {
+                scanPlan->Digi_Time_CompressFactor = static_cast<int>(value);
+                });
 
-        // Group 3 - Phased Array Linear Formation
-        QGroupBox* group3 = new QGroupBox("Linear Formation");
+            x = 0; y = 2;
+            // Synchro Mode
+            QComboBox* synchroModeComboBox = new QComboBox();
+            synchroModeComboBox->addItem("Absolute", static_cast<int>(Instrumentation::ITimeSettings::AscanSynchroMode::Absolute));
+            synchroModeComboBox->addItem("RelativeGateSynchro", static_cast<int>(Instrumentation::ITimeSettings::AscanSynchroMode::RelativeGateSynchro));
+            // Add other synchro modes here if they exist
+            synchroModeComboBox->setCurrentIndex(static_cast<int>(scanPlan->Digi_Time_Synch));
+            layout2->addWidget(new QLabel("Synchro Mode"), x, y);
+            layout2->addWidget(synchroModeComboBox, x, ++y);
+            connect(synchroModeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+                scanPlan->Digi_Time_Synch = static_cast<Instrumentation::ITimeSettings::AscanSynchroMode>(synchroModeComboBox->currentData().toInt());
+                nmainUI::statuslogs::getinstance().logInfo("Synchro Mode: " + std::to_string(static_cast<int>(scanPlan->Digi_Time_Synch)));
+                });
+
+            // Decimation Factor
+            QComboBox* decimationFactorComboBox = new QComboBox(); auto Deindex = 0;
+            decimationFactorComboBox->addItem("One", static_cast<int>(Instrumentation::ITimeSettings::SamplingDecimationFactor::One));
+            decimationFactorComboBox->addItem("Two", static_cast<int>(Instrumentation::ITimeSettings::SamplingDecimationFactor::Two));
+            decimationFactorComboBox->addItem("Four", static_cast<int>(Instrumentation::ITimeSettings::SamplingDecimationFactor::Four));
+            decimationFactorComboBox->addItem("Eight", static_cast<int>(Instrumentation::ITimeSettings::SamplingDecimationFactor::Eight));
+            decimationFactorComboBox->addItem("Sixteen", static_cast<int>(Instrumentation::ITimeSettings::SamplingDecimationFactor::Sixteen));
+            decimationFactorComboBox->addItem("ThrityTwo", static_cast<int>(Instrumentation::ITimeSettings::SamplingDecimationFactor::ThirtyTwo));
+            decimationFactorComboBox->addItem("SixtyFour", static_cast<int>(Instrumentation::ITimeSettings::SamplingDecimationFactor::SixtyFour));
+            switch (scanPlan->Digi_Time_DecimaFactor) {
+            case Instrumentation::ITimeSettings::SamplingDecimationFactor::One: Deindex = 0; break;
+            case Instrumentation::ITimeSettings::SamplingDecimationFactor::Two: Deindex = 1; break;
+            case Instrumentation::ITimeSettings::SamplingDecimationFactor::Four: Deindex = 2; break;
+            case Instrumentation::ITimeSettings::SamplingDecimationFactor::Eight: Deindex = 3; break;
+            case Instrumentation::ITimeSettings::SamplingDecimationFactor::Sixteen: Deindex = 4; break;
+            case Instrumentation::ITimeSettings::SamplingDecimationFactor::ThirtyTwo: Deindex = 5; break;
+            case Instrumentation::ITimeSettings::SamplingDecimationFactor::SixtyFour: Deindex = 6; break;
+            }
+            // Add other decimation factors here if they exist
+            decimationFactorComboBox->setCurrentIndex(Deindex);
+            layout2->addWidget(new QLabel("Decimation Factor"), ++x, --y);
+            layout2->addWidget(decimationFactorComboBox, x, ++y);
+            connect(decimationFactorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+                scanPlan->Digi_Time_DecimaFactor = static_cast<Instrumentation::ITimeSettings::SamplingDecimationFactor>(decimationFactorComboBox->currentData().toInt());
+                nmainUI::statuslogs::getinstance().logInfo("Decimation Factor changed to " + std::to_string(static_cast<int>(scanPlan->Digi_Time_DecimaFactor)));
+                });
+
+            // Band Pass Filter
+            createSpinBox(0, 100, scanPlan->Digi_BandPassFilter, layout2, "Band Pass Filter", 2, 1, [=](double value) {
+                scanPlan->Digi_BandPassFilter = static_cast<size_t>(value);
+                nmainUI::statuslogs::getinstance().logInfo("Band Pass Filter || TODO Update this instance");
+
+                });
+            // Band Pass Filter
+            createSpinBox(1, 326, scanPlan->Rate, layout2, "Cycle Rate", 3, 1, [=](double value) {
+                scanPlan->Rate = static_cast<size_t>(value);
+                });
+        }
+        
+        // Group for Phased Array Transducer Settings
+        QGroupBox* group3 = new QGroupBox("Beam Individual");
         QGridLayout* layout3 = new QGridLayout(group3);
+        x = 0; y = 0;
+        {
+            createSpinBox(1, 1000, scanPlan->BeamGain, layout3, "Beam Gain", x, y, [=](double value) {
+                scanPlan->BeamGain = value;
+                });
 
-        createSpinBox(1, 32, scanPlan->EleStep, layout3, "Step", 0, 0, [=](double value) {
-            scanPlan->EleStep = value;
-            });
+            createSpinBox(0, 164800, scanPlan->BeamAStart, layout3, "A Start", ++x, y, [=](double value) {
+                scanPlan->BeamAStart = value;
+                });
 
-        createSpinBox(1, 32, scanPlan->EleQuantity, layout3, "Quantity", 1, 0, [=](int value) {
-            scanPlan->EleQuantity = value;
-            });
+            createSpinBox(0, 164800, scanPlan->BeamAEnd, layout3, "A End", ++x, y, [=](double value) {
+                scanPlan->BeamAEnd = value;
+                });
+        }
 
-        createSpinBox(1, 32, scanPlan->EleFirst, layout3, "First", 2, 0, [=](int value) {
-            scanPlan->EleFirst = value;
-            });
-
-        createSpinBox(1, 64, scanPlan->EleLast, layout3, "Last", 3, 0, [=](int value) {
-            scanPlan->EleLast = value;
-            });
-
-        createSpinBox(1, 64, scanPlan->BandPassFilter, layout3, "BandPassFilter", 4, 0, [=](int value) {
-            scanPlan->BandPassFilter = value;
-            });
-
-        // Group 4 - Phased Array Beam Settings
-        QGroupBox* group4 = new QGroupBox("Beam Settings");
-        QGridLayout* layout4 = new QGridLayout(group4);
-
-        createDoubleSpinBox(1.0, 200.0, scanPlan->beamFocusingDepth, layout4, "Focusing Depth (mm)", 0, 0, [=](double value) {
-            scanPlan->beamFocusingDepth = value;
-            });
-
-        createDoubleSpinBox(0.0, 90.0, scanPlan->beamRefractedAngle, layout4, "Refracted Angle (deg)", 1, 0, [=](double value) {
-            scanPlan->beamRefractedAngle = value;
-            });
-
-        createDoubleSpinBox(0.0, 360.0, scanPlan->probePositionAngle, layout4, "Probe pos Angle (deg)", 2, 0, [=](double value) {
-            scanPlan->probePositionAngle = value;
-            });
-
-        createDoubleSpinBox(-100.0, 100.0, scanPlan->probePositionX, layout4, "Probe pos X (mm)", 3, 0, [=](double value) {
-            scanPlan->probePositionX = value;
-            });
-
-        createDoubleSpinBox(-100.0, 100.0, scanPlan->probePositionY, layout4, "Probe pos Y (mm)", 0, 1, [=](double value) {
-            scanPlan->probePositionY = value;
-            });
-
-        createDoubleSpinBox(0.0, 90.0, scanPlan->skewStart, layout4, "Skew Start (deg)", 1, 1, [=](double value) {
-            scanPlan->skewStart = value;
-            });
-
-        createDoubleSpinBox(0.0, 90.0, scanPlan->skewStop, layout4, "Skew Stop (deg)", 2, 1, [=](double value) {
-            scanPlan->skewStop = value;
-            });
-
-        createDoubleSpinBox(0.1, 10.0, scanPlan->skewStep, layout4, "Skew Step (deg)", 3, 1, [=](double value) {
-            scanPlan->skewStep = value;
-            });
 
         QFrame* separator = new QFrame();
         separator->setFrameShape(QFrame::HLine);
         separator->setFrameShadow(QFrame::Sunken);
-        group1->setFixedWidth(cwidth);
-        group2->setFixedWidth(cwidth);
-        group3->setFixedWidth(cwidth);
-        group4->setFixedWidth(cwidth*2);
+        group1->setFixedWidth(cwidth - 70);
+        group2->setFixedWidth(cwidth + 70);
+        group3->setFixedWidth(cwidth - 140);
 
         layout->addWidget(group1);
         layout->addWidget(group2);
         layout->addWidget(group3);
-        layout->addWidget(group4);
         layout->addWidget(separator);
     }
     void setupConfigTabContent(QHBoxLayout* layout) {
         auto setupConfig = OmSetupL::getInstance().OMS;
-
-        // Group for Phasing Settings
-        QGroupBox* group1 = new QGroupBox("Phasing Settings");
-        QGridLayout* layout1 = new QGridLayout(group1);
-
-
-        createDoubleSpinBox(0.0, 200., setupConfig->phasing_gain, layout1, "Gain", 0, 0, [=](double value) {
-            setupConfig->phasing_gain = value;
-            });
-
-        createDoubleSpinBox(100.0, 20000.0, setupConfig->phasing_velocity, layout1, "Velocity (m/s)", 1, 0, [=](double value) {
-            setupConfig->phasing_velocity = value;
-            });
-
-        createDoubleSpinBox(0.0, 100.0, setupConfig->phasing_referenceAmplitude, layout1, "Reference Amplitude", 0, 1, [=](double value) {
-            setupConfig->phasing_referenceAmplitude = value;
-            });
-
-        createSpinBox(10, 500, setupConfig->phasing_pulseWidth, layout1, "Pulse Width (ns)", 1, 1, [=](int value) {
-            setupConfig->phasing_pulseWidth = value;
-            });
-
-
-        // Dropdown for Ascan Data Size
-        QComboBox* ascanDataSizeDropdown = new QComboBox();
-        ascanDataSizeDropdown->addItem("8 Bits", QVariant::fromValue(Instrumentation::IAmplitudeSettings::AscanDataSize::EightBits));
-        ascanDataSizeDropdown->addItem("12 Bits", QVariant::fromValue(Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits));
-        ascanDataSizeDropdown->addItem("16 Bits", QVariant::fromValue(Instrumentation::IAmplitudeSettings::AscanDataSize::SixteenBits));
-        ascanDataSizeDropdown->setCurrentIndex(static_cast<int>(Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits));
-
-        connect(ascanDataSizeDropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
-            setupConfig->phasing_ascanDataSize = static_cast<Instrumentation::IAmplitudeSettings::AscanDataSize>(ascanDataSizeDropdown->itemData(index).toInt());
-            });
-        addSettingToGrid(layout1, "Ascan Data Size", ascanDataSizeDropdown, 2, 0);
-
-        // Dropdown for Rectification Type
-        QComboBox* rectificationDropdown = new QComboBox();
-        rectificationDropdown->addItem("None", QVariant::fromValue(Instrumentation::IAmplitudeSettings::RectificationType::None));
-        rectificationDropdown->addItem("Positive", QVariant::fromValue(Instrumentation::IAmplitudeSettings::RectificationType::Positive));
-        rectificationDropdown->addItem("Negative", QVariant::fromValue(Instrumentation::IAmplitudeSettings::RectificationType::Negative));
-        rectificationDropdown->addItem("Full", QVariant::fromValue(Instrumentation::IAmplitudeSettings::RectificationType::Full));
-        rectificationDropdown->setCurrentIndex(static_cast<int>(setupConfig->phasing_rectification));
-
-        connect(rectificationDropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
-            setupConfig->phasing_rectification = static_cast<Instrumentation::IAmplitudeSettings::RectificationType>(rectificationDropdown->itemData(index).toInt());
-            });
-        addSettingToGrid(layout1, "Rectification Type", rectificationDropdown, 2, 1);
-
-
-
-
-        // Group for Gate Settings
-        QGroupBox* group2 = new QGroupBox("Gate Settings");
-        //group2->setFixedSize(180, 300);
-        QGridLayout* layout2 = new QGridLayout(group2);
-
-        createDoubleSpinBox(0.0, 20000.0, setupConfig->gate_gateIDelay, layout2, "Gate I Delay", 0, 0, [=](double value) {
-            setupConfig->gate_gateIDelay = value;
-            });
-
-        createDoubleSpinBox(0.0, 10000.0, setupConfig->gate_gateILength, layout2, "Gate I Length", 1, 0, [=](double value) {
-            setupConfig->gate_gateILength = value;
-            });
-
-        createDoubleSpinBox(0.0, 100.0, setupConfig->gate_gateIThreshold, layout2, "Gate I Threshold", 2, 0, [=](double value) {
-            setupConfig->gate_gateIThreshold = value;
-            });
-
-        createDoubleSpinBox(1.0, 20.0, setupConfig->gate_gateISamplingResolution, layout2, "Gate I Sampling Res", 3, 0, [=](double value) {
-            setupConfig->gate_gateISamplingResolution = value;
-            });
-
-
-        // Group for Phasing Acquisition Settings
-        QGroupBox* group3 = new QGroupBox("Phasing Acquisition Settings");
-        //group3->setFixedSize(180, 200);
-        QGridLayout* layout3 = new QGridLayout(group3);
-        createDoubleSpinBox(0.0, 2000000., setupConfig->PA_DigitizingLength, layout3, "Digitizer Length", 0, 0, [=](double value) {
-            setupConfig->PA_DigitizingLength = value;
-            });
-
-        createDoubleSpinBox(0.0, 2048. , setupConfig->beamNumber, layout3, "Beam Number", 1, 0, [=](double value) {
-            setupConfig->beamNumber = value;
-            });
-
-        createDoubleSpinBox(0.0, 10.0, setupConfig->acquisition_paVoltage, layout3, "Pulser Voltage", 2, 0, [=](double value) {
-            setupConfig->acquisition_paVoltage = value;
-            });
-        createDoubleSpinBox(-360, 360.0, setupConfig->PA_ElemInternalDelay, layout3, "Element Internal Delay", 3, 0, [=](double value) {
-            setupConfig->PA_ElemInternalDelay = value;
-            });
-
-        group1->setFixedWidth(cwidth*2);
-        group2->setFixedWidth(cwidth);
-        group3->setFixedWidth(cwidth);
-
-        layout->addWidget(group1);
-        layout->addWidget(group2);
-        layout->addWidget(group3);
-
-        QFrame* separator = new QFrame();
-        separator->setFrameShape(QFrame::HLine);
-        separator->setFrameShadow(QFrame::Sunken);
-        layout->addWidget(separator);
+        return;
     }
 
     void addSettingToGrid(QGridLayout* layout, const QString& label, QWidget* widget, int row, int column) {

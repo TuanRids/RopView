@@ -1,6 +1,4 @@
 #include "OmConfigSetup.h"
-#include "OmConnect/OmCreateSetupSetting/OpenView.ScanPlan.h"
-#include "OmConnect/OmCreateSetupSetting/OpenView.Configuration.h"
 #include "MainUI/statuslogs.h"
 
 
@@ -11,7 +9,6 @@ OmConfigSetup::OmConfigSetup(IDevicePtr ndevice) :
     if (!ultrasoundConfig) ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
 
 }
-
 
 void OmConfigSetup::ConfigUpdateSetting()
 {
@@ -32,9 +29,9 @@ void OmConfigSetup::ConfigUpdateSetting()
         unsigned int VirAperture = omSetCof->EleFirst + iBeam;
         for (size_t elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->PA_elementDelay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
+            pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            receiverDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->PA_elementDelay * 2);
+            receiverDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay * 2);
             VirAperture += omSetCof->EleStep;
             if (VirAperture > omSetCof->EleLast)
             {
@@ -45,20 +42,27 @@ void OmConfigSetup::ConfigUpdateSetting()
     }
     beamSet->GetDigitizingSettings()->GetAmplitudeSettings()->SetAscanDataSize(IAmplitudeSettings::AscanDataSize::TwelveBits);
 
+    // Configure for digitizing.
     auto digitizingSettings = beamSet->GetDigitizingSettings();
-    digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetCof->phasing_ascanDataSize);
-    digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetCof->phasing_rectification);
-    auto bandpass = digitizerTechnology->GetDigitalBandPassFilterCollection()->GetDigitalBandPassFilter(omSetCof->BandPassFilter);
+    digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetCof->Digi_Ampli_AscanSize);
+    digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetCof->Digi_Ampli_rectification);
+    digitizingSettings->GetAmplitudeSettings()->SetScalingType(omSetCof->Digi_Ampli_Scaling);
+    digitizingSettings->GetTimeSettings()->SetAscanCompressionFactor(omSetCof->Digi_Time_CompressFactor);
+    digitizingSettings->GetTimeSettings()->SetAscanSynchroMode(omSetCof->Digi_Time_Synch);
+    digitizingSettings->GetTimeSettings()->SetSamplingDecimationFactor(omSetCof->Digi_Time_DecimaFactor);
+
+    auto bandpass = digitizerTechnology->GetDigitalBandPassFilterCollection()->GetDigitalBandPassFilter(omSetCof->Digi_BandPassFilter);
+    bandpass->GetHighCutOffFrequency(); bandpass->GetLowCutOffFrequency(); bandpass->GetCharacteristic();
     digitizingSettings->GetFilterSettings()->SetDigitalBandPassFilter(bandpass);
+
 
     for (size_t iBeam(0); iBeam < beamSet->GetBeamCount(); ++iBeam)
     {
-        beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->phasing_gain );
-        beamSet->GetBeam(iBeam)->SetAscanStart(4000);
-        beamSet->GetBeam(iBeam)->SetAscanLength(35000);
+        beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->BeamGain /*+ 2.2*/);
+        beamSet->GetBeam(iBeam)->SetAscanStart(omSetCof->BeamAStart);
+        beamSet->GetBeam(iBeam)->SetAscanLength(omSetCof->BeamAEnd);
     }
     acquisition->SetRate(omSetCof->Rate);
-
 }
 
 IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
@@ -80,9 +84,9 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
         unsigned int VirAperture = omSetCof->EleFirst + iBeam;
         for (size_t elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->PA_elementDelay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
+            pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            receiverDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->PA_elementDelay * 2);
+            receiverDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay * 2);
             VirAperture += omSetCof->EleStep;
             if (VirAperture > omSetCof->EleLast)
             {
@@ -106,17 +110,16 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
 
     // Configure for digitizing.
     auto digitizingSettings = beamSet->GetDigitizingSettings();
-    digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetCof->phasing_ascanDataSize);
-    digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetCof->phasing_rectification);
-    digitizingSettings->GetAmplitudeSettings()->SetScalingType(Instrumentation::IAmplitudeSettings::ScalingType::Linear);
-    digitizingSettings->GetTimeSettings()->SetAscanCompressionFactor(10);
-    digitizingSettings->GetTimeSettings()->SetAscanSynchroMode(Instrumentation::ITimeSettings::AscanSynchroMode::Absolute);
-    digitizingSettings->GetTimeSettings()->SetSamplingDecimationFactor(Instrumentation::ITimeSettings::SamplingDecimationFactor::One);
-    digitizingSettings->GetTimeSettings()->SetTCGSynchroMode(Instrumentation::ITimeSettings::TCGSynchroMode::RelativeAscanSynchro);
+    digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetCof->Digi_Ampli_AscanSize);
+    digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetCof->Digi_Ampli_rectification);
+    digitizingSettings->GetAmplitudeSettings()->SetScalingType(omSetCof->Digi_Ampli_Scaling);
+    digitizingSettings->GetTimeSettings()->SetAscanCompressionFactor(omSetCof->Digi_Time_CompressFactor);
+    digitizingSettings->GetTimeSettings()->SetAscanSynchroMode(omSetCof->Digi_Time_Synch);
+    digitizingSettings->GetTimeSettings()->SetSamplingDecimationFactor(omSetCof->Digi_Time_DecimaFactor);
     digitizingSettings->GetFilterSettings()->EnableSmoothingFilter(true);
     digitizingSettings->GetFilterSettings()->SetSmoothingFilter(digitizerTechnology->GetSmoothingFilterCollection()->GetSmoothingFilter(4));
 
-    auto bandpass = digitizerTechnology->GetDigitalBandPassFilterCollection()->GetDigitalBandPassFilter(omSetCof->BandPassFilter);
+    auto bandpass = digitizerTechnology->GetDigitalBandPassFilterCollection()->GetDigitalBandPassFilter(omSetCof->Digi_BandPassFilter);
     bandpass->GetHighCutOffFrequency(); bandpass->GetLowCutOffFrequency(); bandpass->GetCharacteristic();
     digitizingSettings->GetFilterSettings()->SetDigitalBandPassFilter(bandpass);
 
@@ -125,9 +128,9 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
     for (size_t iBeam(0); iBeam < beamSet->GetBeamCount(); ++iBeam)
     {
-        beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->phasing_gain /*+ 2.2*/);
-        beamSet->GetBeam(iBeam)->SetAscanStart(omSetCof->PA_AscanStart);
-        beamSet->GetBeam(iBeam)->SetAscanLength(35000);
+        beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->BeamGain /*+ 2.2*/);
+        beamSet->GetBeam(iBeam)->SetAscanStart(omSetCof->BeamAStart);
+        beamSet->GetBeam(iBeam)->SetAscanLength(omSetCof->BeamAEnd);
         // beamSet->GetBeam(iBeam)->SetRecurrence(100);
         // beamSet->GetBeam(iBeam)->SetSumGainMode(beamConfig->GetSumGainMode()); // TODO reduce samples points for faster processing
         // beamSet->GetBeam(iBeam)->SetSumGain(beamConfig->GetSumGain());

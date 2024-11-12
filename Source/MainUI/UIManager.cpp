@@ -536,13 +536,10 @@ namespace nmainUI {
     }
     void nmainUI::UIManager::onLoadSetup()
     {
-        if (OmReadSetupFile::read_setup()) sttlogs->logNotify("Setup is Loaded!");
-        else sttlogs->logCritical("Failed to load the setup!");
     }
     void nmainUI::UIManager::onSaveSetup()
     {
-        if (OmCreateSetup::SaveSetup()) sttlogs->logInfo("Setup is Saved!");
-        else sttlogs->logCritical("Save Setup Failed!");
+
     }
 
 }

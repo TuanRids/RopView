@@ -12,8 +12,7 @@
 #include "Frames/AviewFrame.h"
 #include "SystemConfig/ConfigLocator.h"
 #include "../Data3DProcessing/Data3DProcess.h"
-#include "OmConnect/OmCreateSetupSetting/OmCreateSetup.h"
-#include "OmConnect/OmCreateSetupSetting/OmReadSetupFile.h"
+
 
 namespace nmainUI {
     class UIManager {

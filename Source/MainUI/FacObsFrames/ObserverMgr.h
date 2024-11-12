@@ -31,6 +31,7 @@ public:
 	size_t bufferSize() { return nAscanCollection.size(); }
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {
 		std::lock_guard<std::mutex> lock(collectionMutex);
+		if (!_nAscanCollection) return;
 		nAscanCollection.push_back(_nAscanCollection);
 	}
 

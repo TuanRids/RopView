@@ -21,24 +21,20 @@ nObserver::nObserver()
 void nObserver::RealDatProcess()
 {
     static auto logger = spdlog::get("file_logger");
-    if (logger) { logger->info("--->Starting RealDatProcess"); }
      
     static auto everyColors = CreateColorPalette(ConfigLocator::getInstance().sysParams->colorPalette);
     std::lock_guard<std::mutex> lock(collectionMutex);
     while (nAscanCollection.size() > 5) { nAscanCollection.pop_front(); }
 
     if (!nAscanCollection.front()) {
-        logger->error("RawAsanDat is NULLPTR. Buffer Size: {}", nAscanCollection.size()); 
+        logger->error("RawAsanDat is null. Buffer Size: {}", nAscanCollection.size());
         nAscanCollection.pop_front();
-        throw std::runtime_error("nAscanCollection is empty.");
+        return;
     }
     shared_ptr<IAscanCollection> RawAsanDat = std::move(nAscanCollection.front());
 
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
-
-    
-    logger->info("zsize: {}, ysize: {}", zsize, ysize); 
 
     QVector<QPointF> points(zsize);
     cv::Mat newMat;
@@ -46,21 +42,18 @@ void nObserver::RealDatProcess()
     {
         ArtScan->resetall();
         ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3);
+        ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3);
         ArtScan->AViewBuf->clear();
         if (ArtScan->CViewBuf->empty()) {
-            ArtScan->CViewBuf->create(ysize, 500, CV_8UC3);
+            ArtScan->CViewBuf->create(ysize, 500, CV_8UC3); ArtScan->CViewBuf->setTo(cv::Scalar(0, 0, 0));
             newMat.create(ysize, 500, CV_8UC3);    
-            ArtScan->CViewBuf->setTo(cv::Scalar(0, 0, 0));
-            logger->info("Created new CViewBuf & newMat ({}, {})", ysize, 500);
         }
         else {
             if (ArtScan->CViewBuf->cols > 2500) {
                 ArtScan->CViewBuf = std::make_shared<cv::Mat>(ArtScan->CViewBuf->colRange(0, 499).clone());
-                logger->warn("CViewBuf columns exceeded limit, --> to 500.");
             }
             newMat.create(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
             ArtScan->CViewBuf->copyTo(newMat);
-            logger->info("Copied CViewBuf to newMat ({}, {})", ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols);
         }
     }        
 #pragma omp parallel for
@@ -78,19 +71,18 @@ void nObserver::RealDatProcess()
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
 
             ArtScan->SViewBuf->at<cv::Vec3b>(z, beamID) = cv::Vec3b(color.B, color.G, color.R);
-            if (    oms.OMS->beamCurrentID == beamID    ) {
-                points[z] = QPointF(percentAmplitude, static_cast<double>(z)); }
 
+            if ( oms.OMS->beamCurrentID == beamID ) {
+                points[z] = QPointF(percentAmplitude, static_cast<double>(z)); 
+            }
             if (percentAmplitude > maxAmplitudeCscan) { maxColor = color; maxAmplitudeCscan = percentAmplitude; }
-        }
-     
+        }     
         newMat.at<cv::Vec3b>(beamID,0 ) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
 
     *ArtScan->AViewBuf = points;
     ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(newMat.colRange(1, newMat.cols));
     ArtScan->CViewBuf = std::make_shared<cv::Mat>(newMat);
-    logger->info("RealDatProcess: Completed <----");    
     RawAsanDat.reset();
 }
 
