@@ -55,7 +55,7 @@ void nDataProcess::Run()
             static double last_beamGain = 0; static int last_InternalDelay = -1; static double last_smoothFilter = -1;
             static std::deque<float> timeLapses;
             static const int maxSamples = 10;
-            QElapsedTimer timer;  timer.start();
+            static QElapsedTimer timer;  
 
             std::lock_guard<std::mutex> lock(m_mtx);                       
             
@@ -74,12 +74,15 @@ void nDataProcess::Run()
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             }       
+
             recordReadingPAUT::getinstance().set_Fps(double(timer.nsecsElapsed() / 1e6f));     
             if (isUpdate) 
             {
                 acquisition->ApplyConfiguration();
                 isUpdate = false;
             }
+            timer.start();
+            //this_thread::sleep_for(std::chrono::milliseconds(50));
 
         } while ((m_running));
 

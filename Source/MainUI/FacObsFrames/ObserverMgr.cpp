@@ -37,23 +37,33 @@ void nObserver::RealDatProcess()
     int ysize = static_cast<int>(RawAsanDat->GetCount());
 
     QVector<QPointF> points(zsize);
-    cv::Mat newMat;
+    cv::Mat cmat; cv::Mat bmat;
     // aview and sview would be reset as realtime
     {
         ArtScan->resetall();
         ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3);
-        ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3);
         ArtScan->AViewBuf->clear();
         if (ArtScan->CViewBuf->empty()) {
             ArtScan->CViewBuf->create(ysize, 500, CV_8UC3); ArtScan->CViewBuf->setTo(cv::Scalar(0, 0, 0));
-            newMat.create(ysize, 500, CV_8UC3);    
+            cmat.create(ysize, 500, CV_8UC3);
         }
         else {
             if (ArtScan->CViewBuf->cols > 2500) {
                 ArtScan->CViewBuf = std::make_shared<cv::Mat>(ArtScan->CViewBuf->colRange(0, 499).clone());
             }
-            newMat.create(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
-            ArtScan->CViewBuf->copyTo(newMat);
+            cmat.create(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
+            ArtScan->CViewBuf->copyTo(cmat);
+        }
+        if (ArtScan->BViewBuf->empty()) {
+            ArtScan->BViewBuf->create(zsize, 500, CV_8UC3); ArtScan->BViewBuf->setTo(cv::Scalar(0, 0, 0));
+            bmat.create(zsize, 500, CV_8UC3);
+        }
+        else {
+            if (ArtScan->BViewBuf->cols > 2500) {
+                ArtScan->BViewBuf = std::make_shared<cv::Mat>(ArtScan->BViewBuf->colRange(0, 499).clone());
+            }
+            bmat.create(ArtScan->BViewBuf->rows, ArtScan->BViewBuf->cols, ArtScan->BViewBuf->type());
+            ArtScan->BViewBuf->copyTo(bmat);
         }
     }        
 #pragma omp parallel for
@@ -74,15 +84,18 @@ void nObserver::RealDatProcess()
 
             if ( oms.OMS->beamCurrentID == beamID ) {
                 points[z] = QPointF(percentAmplitude, static_cast<double>(z)); 
+                bmat.at<cv::Vec3b>(z, 0 ) = cv::Vec3b(color.B, color.G, color.R);
             }
             if (percentAmplitude > maxAmplitudeCscan) { maxColor = color; maxAmplitudeCscan = percentAmplitude; }
         }     
-        newMat.at<cv::Vec3b>(beamID,0 ) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
+        cmat.at<cv::Vec3b>(beamID,0 ) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
 
     *ArtScan->AViewBuf = points;
-    ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(newMat.colRange(1, newMat.cols));
-    ArtScan->CViewBuf = std::make_shared<cv::Mat>(newMat);
+    ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(cmat.colRange(1, cmat.cols));
+    ArtScan->CViewBuf = std::make_shared<cv::Mat>(cmat);
+    ArtScan->BViewBuf->colRange(0, ArtScan->BViewBuf->cols - 1).copyTo(bmat.colRange(1, bmat.cols));
+    ArtScan->BViewBuf = std::make_shared<cv::Mat>(bmat);
     RawAsanDat.reset();
 }
 

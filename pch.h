@@ -103,7 +103,7 @@
 
 // ======== OpenCV CUDA ============
 #include <opencv2/opencv.hpp>
-
+#include <opencv2/cudawarping.hpp>
 // ======== Olympus ============
 #include <Storage/Storage.h>
 

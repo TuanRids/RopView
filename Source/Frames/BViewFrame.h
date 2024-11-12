@@ -13,7 +13,7 @@
 // Graphics Frame
 class BviewFrame : public nObserver {
 private:
-    void CreateCoordinate();
+    void CreateArtFrame();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
     void addPoints(bool Cviewlink, int x, int y);
 

@@ -106,11 +106,10 @@ private:
                 scanPlan->EleQuantity = value;
                 });
 
-            createSpinBox(1, 64, scanPlan->Ele_Delay, layout1, "Ele Delay", ++x, y, [=](double value) {
+            createSpinBox(1, 1000, scanPlan->Ele_Delay, layout1, "Ele Delay", ++x, y, [=](double value) {
                 scanPlan->Ele_Delay = value;
                 });
         }
-
 
         // Group 2 - Phased Array Wedge Settings
         QGroupBox* group2 = new QGroupBox("Digitizer");

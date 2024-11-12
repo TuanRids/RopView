@@ -22,25 +22,53 @@ QWidget* BviewFrame::createFrame() {
 }
 
 void BviewFrame::update() {
-    isRealTime = false;
+    if (isRealTime) isRealTime = false;
     if (scandat.Amplitudes.empty()) return;
 
-    CreateCoordinate();
+    CreateArtFrame();    
     addPoints(true, -1, -1);
 }
 
 void BviewFrame::updateRealTime()
 {
-    if (!isRealTime) { scene->clear(); isRealTime = true; }
+    if (!isRealTime) {
+        scene->clear();
+        isRealTime = true;
+    }
+    orgimage = std::make_shared<cv::Mat>(ArtScan->BViewBuf->clone());
+    if (!orgimage) return;
 
+    scaledImage = std::make_unique<cv::Mat>();
+
+    int originalWidth = orgimage->cols;
+    int newWidth = graphicsView->size().width();
+
+    int newHeight = graphicsView->size().height();
+
+    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
+    cv::flip(*scaledImage, *scaledImage, 1);
+    auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+    *qImage = qImage->rgbSwapped();
+
+    QPixmap pixmap = QPixmap::fromImage(*qImage);
+    for (auto item : scene->items()) {
+        if (item->data(0).toString() == "artwork") {
+            scene->removeItem(item);
+            delete item;
+            break;
+        }
+    }
+    QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
+    artworkItem->setData(0, "artwork");
+
+    graphicsView->update();
 }
 
 
-void BviewFrame::CreateCoordinate() {
+void BviewFrame::CreateArtFrame()
+{
     if (scandat.Amplitudes.empty()) return;
 
-    static bool dataOnGPU = false;
-    static cv::cuda::GpuMat gpuAmplitudes;
     zsize = scandat.AmplitudeAxes[0].Quantity;
     ysize = scandat.AmplitudeAxes[1].Quantity;
     xsize = scandat.AmplitudeAxes[2].Quantity;
@@ -49,6 +77,7 @@ void BviewFrame::CreateCoordinate() {
     scaledImage = std::make_unique<cv::Mat>();
 
     auto everyColors = CreateColorPalette(ConfigLocator::getInstance().sysParams->colorPalette);
+
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t x = 0; x < xsize; ++x) {
             uint64_t index = z * (xsize * ysize) + curpt.y * xsize + x;
@@ -77,7 +106,6 @@ void BviewFrame::CreateCoordinate() {
     auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
     *qImage = qImage->rgbSwapped();
 
-
     QPixmap pixmap = QPixmap::fromImage(*qImage);
     for (auto item : scene->items()) {
         if (item->data(0).toString() == "artwork") {
@@ -88,12 +116,11 @@ void BviewFrame::CreateCoordinate() {
     }
     QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
     artworkItem->setData(0, "artwork");
+    static bool first_flag = true; if (first_flag) graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio); first_flag = false;
 
-    graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
     graphicsView->update();
+
 }
-
-
 
 void BviewFrame::addPoints(bool Cviewlink, int x, int y)
 {
@@ -135,6 +162,7 @@ std::pair<int, int> BviewFrame::calculateOriginalPos(int scaled_x, int scaled_z)
     if (original_x < 0 || original_z < 0 || original_z >= zsize || original_x >= xsize) throw std::exception();
     return { original_x, original_z };
 }
+
 void BviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView)
 {
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseMoved, [=](int scaled_x, int scaled_z) {
@@ -164,6 +192,16 @@ void BviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
    
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseLeftView, [=]() {
         overlay->ClearLineGroup();
+        });
+
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::nKeyPressedEvent, [=]() {
+        for (auto item : scene->items()) {
+            if (item->data(0).toString() == "artwork") {
+                graphicsView->fitInView(item->boundingRect(), Qt::KeepAspectRatio);
+                break;
+            }
+        }
+
         });
 }
 

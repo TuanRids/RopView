@@ -1,5 +1,7 @@
 #include "../pch.h"
 #include "CviewFrame.h"
+//#include <opencv2/cudawarping.hpp> 
+
 QWidget* CviewFrame::createFrame(){
     if (!scene) { scene = new QGraphicsScene; }
     if (!graphicsView) { graphicsView = new ZoomableGraphicsView; }
@@ -49,6 +51,7 @@ void CviewFrame::update() {
 
 void CviewFrame::updateRealTime()
 {
+
     if (!isRealTime) {
         scene->clear();
         isRealTime = true;
@@ -62,9 +65,9 @@ void CviewFrame::updateRealTime()
     int newWidth = graphicsView->size().width();
 
     int newHeight = graphicsView->size().height();
-
-    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_NEAREST);
-
+    
+    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
+    cv::flip(*scaledImage, *scaledImage, 1);
     auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
     *qImage = qImage->rgbSwapped();
 
@@ -156,9 +159,8 @@ void CviewFrame::CreateXYview() {
     QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
     artworkItem->setData(0, "artwork");
 
-    graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+    static bool first_flag = true; if (first_flag) graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio); first_flag = false;
     graphicsView->update();
-
 }
 
 void CviewFrame::addPoints(bool Cviewlink, int x, int y)

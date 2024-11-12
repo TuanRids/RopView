@@ -38,7 +38,7 @@ struct Om_Settup_Config
     int Digi_Time_CompressFactor = 10;
     Instrumentation::ITimeSettings::AscanSynchroMode Digi_Time_Synch = Instrumentation::ITimeSettings::AscanSynchroMode::Absolute;
     Instrumentation::ITimeSettings::SamplingDecimationFactor Digi_Time_DecimaFactor = Instrumentation::ITimeSettings::SamplingDecimationFactor::One;
-    size_t Digi_BandPassFilter = 10;
+    int Digi_BandPassFilter = 10;
     
     // === Each Individual Beam
     double BeamGain = 35.0;

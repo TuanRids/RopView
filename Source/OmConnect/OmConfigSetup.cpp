@@ -20,14 +20,14 @@ void OmConfigSetup::ConfigUpdateSetting()
     std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory = digitizerTechnology->GetBeamSetFactory();
 
     shared_ptr<IBeamFormationCollection> beamFormations = phasedArrayFactory->CreateBeamFormationCollection();
-    for (size_t iBeam(0); iBeam < omSetCof->beamNumber; ++iBeam)
+    for (unsigned int iBeam(0); iBeam < omSetCof->beamNumber; ++iBeam)
     {
         auto beamFormation = beamSet->GetBeam(iBeam)->GetBeamFormation();
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
 
         unsigned int VirAperture = omSetCof->EleFirst + iBeam;
-        for (size_t elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
+        for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
@@ -75,14 +75,14 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
     std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory = digitizerTechnology->GetBeamSetFactory();
 
     shared_ptr<IBeamFormationCollection> beamFormations = phasedArrayFactory->CreateBeamFormationCollection();
-    for (size_t iBeam(0); iBeam < omSetCof->beamNumber; ++iBeam)
+    for (unsigned int iBeam(0); iBeam < omSetCof->beamNumber; ++iBeam)
     {
         shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
 
         unsigned int VirAperture = omSetCof->EleFirst + iBeam;
-        for (size_t elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
+        for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
@@ -99,9 +99,9 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
     beamSet = phasedArrayFactory->CreateBeamSetPhasedArray(L"LinearPhasedArray", beamFormations);
 
     // ============== Digitizing Settings
-    size_t NbOfVoltage = digitizerTechnology->GetPulserVoltageCollection()->GetCount();
+    int NbOfVoltage = digitizerTechnology->GetPulserVoltageCollection()->GetCount();
     double HigherVoltage = 0;
-    for (size_t VoltageIndex = 0; VoltageIndex < NbOfVoltage; VoltageIndex++)
+    for (int VoltageIndex = 0; VoltageIndex < NbOfVoltage; VoltageIndex++)
     {
         double CurrentVoltage = digitizerTechnology->GetPulserVoltageCollection()->GetPulserVoltage(VoltageIndex);
         if (CurrentVoltage > HigherVoltage) { HigherVoltage = CurrentVoltage; }
@@ -131,9 +131,8 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
         beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->BeamGain /*+ 2.2*/);
         beamSet->GetBeam(iBeam)->SetAscanStart(omSetCof->BeamAStart);
         beamSet->GetBeam(iBeam)->SetAscanLength(omSetCof->BeamAEnd);
-        // beamSet->GetBeam(iBeam)->SetRecurrence(100);
-        // beamSet->GetBeam(iBeam)->SetSumGainMode(beamConfig->GetSumGainMode()); // TODO reduce samples points for faster processing
-        // beamSet->GetBeam(iBeam)->SetSumGain(beamConfig->GetSumGain());
+        // beamSet->GetBeam(iBeam)->SetSumGainMode(Instrumentation::IBeam::SumGainMode::Manual); 
+        // beamSet->GetBeam(iBeam)->SetSumGain(20);
     }
     acquisition = IAcquisition::CreateEx(device);
     acquisition->SetRate(omSetCof->Rate);
