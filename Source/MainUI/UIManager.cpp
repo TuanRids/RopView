@@ -313,29 +313,32 @@ namespace nmainUI {
         QVBoxLayout* layout = new QVBoxLayout(settingsWidget);
         layout->setContentsMargins(1, 1, 1, 1);
 
-        QPushButton* startSetupButton = new QPushButton("Start");
-        layout->addWidget(startSetupButton);
+        QPushButton* StartOmni = new QPushButton("Start");
+        layout->addWidget(StartOmni);
                 
         // Create a button for STOP action
-        QPushButton* stopButton = new QPushButton("STOP");
+        QPushButton* stopButton = new QPushButton("Stop");
         layout->addWidget(stopButton);
 
-        QObject::connect(startSetupButton, &QPushButton::clicked, [=]() mutable {
+        QObject::connect(StartOmni, &QPushButton::clicked, [=]() mutable {
             nsubject->stopNotifyTimer();
             if (IOmConnect::Create()->omConnectDevice(ConnectMode::SetupFileMode)) {
                 sttlogs->logNotify("Start connecting to the device!");
+                StartOmni->setText("Update");
             }
             else {
-                IOmConnect::Create()->omDisconnectDevice();
+                IOmConnect::ReleaseDevice();
                 sttlogs->logWarning("Release device! Check your configuration.");
+                StartOmni->setText("Start");
             }
             nsubject->startRealtimeUpdate(45);
             });
 
         QObject::connect(stopButton, &QPushButton::clicked, [=]() mutable {
             nsubject->stopRealtimeUpdate();
-            IOmConnect::Create()->omDisconnectDevice();
+            IOmConnect::ReleaseDevice();
             sttlogs->logNotify("Stop!");
+            StartOmni->setText("Start");
             });
 
         return settingsWidget;
@@ -517,7 +520,7 @@ namespace nmainUI {
     {
         nsubject->stopRealtimeUpdate();
         nsubject->startNotifyTimer(52);
-        IOmConnect::Create()->omDisconnectDevice();
+        IOmConnect::ReleaseDevice();
         if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
         static std::shared_ptr<AscanProcessor> processor;
         if (!processor) { processor = std::make_shared<AscanProcessor>(); }

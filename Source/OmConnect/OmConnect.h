@@ -21,20 +21,14 @@ public:
 
 private:
     // private methods
-    shared_ptr<IDevice> DiscoverDevice() override;
-    void StartDevice() override;
+    void DiscoverDevice(IDevicePtr& device) override;
 
     nmainUI::statuslogs* sttlogs;
-    std::shared_ptr<IAcquisition> acquisition;
+    IAcquisitionPtr acquisition;
     std::mutex bufferMutex;
     std::shared_ptr<nDataProcess> datProcess;
     std::shared_ptr<Om_Settup_Config> omSetCof;
+    std::shared_ptr<OmConfigSetup> OmConfig;
 };
 
-
-/*
-std::shared_ptr<IBeamSet> beamSet;
-void ConfigureDevice() override;
-shared_ptr<IBeamFormationCollection> GenerateBeamFormations(shared_ptr<IBeamSetFactory> factory);
-*/
 #endif

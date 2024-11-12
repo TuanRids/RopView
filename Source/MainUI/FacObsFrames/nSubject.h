@@ -76,6 +76,9 @@ public:
 			averageTimeLapse /= timeLapses.size();
 
 			recordProcessingData::getinstance().set_Fps(averageTimeLapse);
+
+
+
 		}
 		catch (...) { void(0); }
 	}

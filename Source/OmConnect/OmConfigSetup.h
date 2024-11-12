@@ -13,29 +13,20 @@ using namespace Olympus::FileManagement::Storage;
 using namespace std;
 class OmConfigSetup {
 public:
-    OmConfigSetup(IAcquisitionPtr nacquisition, IDevicePtr ndevice, Olympus::FileManagement::ISetupPtr nsetup);
+    OmConfigSetup(IDevicePtr ndevice);
 
-    bool ConfigDeviceFromSetup();
-    void ConfigDeviceSetting();
-
+    IAcquisitionPtr ConfigDeviceSetting();
+    void ConfigUpdateSetting();
 private:
     // getter properties
     IAcquisitionPtr acquisition;
     IDevicePtr device;
-    Olympus::FileManagement::ISetupPtr setup;
 
     // Internal Properties
     std::shared_ptr<Om_Settup_Config> omSetCof;
     Instrumentation::IUltrasoundConfigurationPtr ultrasoundConfig;
     IConfigurationPtr config;
-
-    // External Sharing Properties
     IBeamSetPtr beamSet;
-    // Internal Methods for processing.
-    IBeamSetPtr Set_CreateFiringBeamSetPhasedArray();
-    bool Set_ConfigBeamSetPhasedArray();
-    void CreateFiringBeamSetPhasedArray();
-    bool UltrasoundConfiguration();
 };
 
 #endif // CONFIGSETUP_H

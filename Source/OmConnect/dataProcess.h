@@ -8,29 +8,31 @@
 using namespace std;
 using namespace Instrumentation;
 
+//Auto start after initialization
 class nDataProcess
 {
     // internal properties
-    std::mutex m_mtx;
+    std::mutex m_mtx; std::mutex m_mtx2;
     bool exceptionFound = false;
     std::atomic<bool> m_running{ false };
     std::future<void> m_future;
     ConfigLocator* configL;
     std::shared_ptr<Om_Settup_Config> omSetCof;
-
+    bool isUpdate = false;
     // PAUT properties
     IAcquisitionPtr acquisition;
     IDevicePtr device;
     IFiringBeamSetPtr beamSet;
 
 public:
-    nDataProcess(std::shared_ptr<IAcquisition> gacquisition, IDevicePtr gdevice);
+    nDataProcess(IAcquisitionPtr gacquisition, IDevicePtr gdevice);
     ~nDataProcess();
 
-    bool Start();
     void Stop();
+    void update();
 
 private:
+    bool Start();
     void Run();
 };
 

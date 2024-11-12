@@ -22,18 +22,25 @@ struct SystemParams {
 
 struct Om_Settup_Config
 {
-    // === Om Phased Array Beam Settings ===
+    // === Configure a phased array BeamSet
     double PA_exitPoint = 28; // mm
     double PA_beamDelay = 19000; // ns
     double PA_digitizingDelay = 5400; // 5400 ns
     double PA_elementDelay = 500; //Element Delay; 500
     double PA_ElemInternalDelay = 0;
-    double PA_AscanStart = 2000; // start; 2000
+    double PA_AscanStart = 4000; // start; 2000
     double PA_DigitizingLength = 16840.; // Digitizing Length; 163840 ns
+    // Phased Array BeamFormation
+    unsigned int beamNumber     = 64;
+    unsigned int EleStep        = 1; // Element step size
+    unsigned int EleQuantity    = 16; // Active elements
+    unsigned int EleFirst       = 1;    // Starting element
+    unsigned int EleLast        = 64;    // Maximum number of elements
+    Olympus::Inspection::WaveType LineaerWaveType = Olympus::Inspection::WaveType::Longitudinal; // wavetype
             // === Om Phasing Acquisition Settings ===
     double acquisition_paVoltage = 4.0; // Pulser voltage
 
-    // === Om Phasing Settings ===
+    // === Configure a phased array for digitizing.
     double phasing_gain = 20.0;
     double phasing_velocity = 3235.0;
     double phasing_referenceAmplitude = 80.0;
@@ -41,6 +48,7 @@ struct Om_Settup_Config
     Instrumentation::IAmplitudeSettings::AscanDataSize phasing_ascanDataSize = Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits; // 8 default 12 16
     Instrumentation::IAmplitudeSettings::RectificationType phasing_rectification = Instrumentation::IAmplitudeSettings::RectificationType::Full; // full negavite none possitive 
     size_t BandPassFilter = 0;
+
     // === Om Gate Settings ===
     double gate_gateIDelay = 5500.0;
     double gate_gateILength = 1500.0;
@@ -77,13 +85,6 @@ struct Om_Settup_Config
     double raWedgeExitPoint = 36.1;     // Exit point (mm)
     double raWedgeMaterialVelocity = 2330.0;  // Material velocity (m/s)
 
-    // Phased Array Linear Formation
-    unsigned int beamNumber     = 64;
-    unsigned int EleStep        = 1; // Element step size
-    unsigned int EleQuantity    = 16; // Active elements
-    unsigned int EleFirst       = 1;    // Starting element
-    unsigned int EleLast        = 64;    // Maximum number of elements
-    Olympus::Inspection::WaveType LineaerWaveType = Olympus::Inspection::WaveType::Longitudinal; // wavetype
 
     // Phased Array Beam Settings
     double beamFocusingDepth = 50.0;   // Focusing distance (mm)

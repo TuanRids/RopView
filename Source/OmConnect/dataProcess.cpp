@@ -11,28 +11,22 @@ nDataProcess::nDataProcess(IAcquisitionPtr gacquisition, IDevicePtr gdevice)
     if (!configL) configL = &ConfigLocator::getInstance();
     beamSet = device->GetConfiguration()->GetUltrasoundConfiguration()->GetFiringBeamSetCollection()->FindFiringBeamSet(L"LinearPhasedArray");
     if (!omSetCof) omSetCof = OmSetupL::getInstance().OMS;
+    Start();
 }
+
 
 nDataProcess::~nDataProcess()
 {
     Stop();
 }
 
-void SetThreadName(const std::string& name) {
-    HRESULT hr = SetThreadDescription(GetCurrentThread(), std::wstring(name.begin(), name.end()).c_str());
-    if (FAILED(hr)) { }}
-
 bool nDataProcess::Start()
 {
     if (m_running) return true;
     m_running = true;
-    if (exceptionFound)  
-    {
-        exceptionFound = false; return false;
-    }
-    // m_future = std::async(std::launch::async, &nDataProcess::Run, this);
     m_future = std::async(std::launch::async, [this]() {
-        SetThreadName("Data Acquisition Thread");
+        std::string name = "Data Acquisition Thread";
+        SetThreadDescription(GetCurrentThread(), std::wstring(name.begin(), name.end()).c_str());
         this->Run();
         });
 	return true;
@@ -41,14 +35,17 @@ bool nDataProcess::Start()
 void nDataProcess::Stop()
 {
     m_running = false;
-    acquisition->Stop();
-    
+    acquisition->Stop();  
+}
 
+void nDataProcess::update()
+{
+    std::lock_guard<std::mutex> lock(m_mtx2);
+    isUpdate = true;
 }
 
 void nDataProcess::Run()
-{
-    
+{    
     acquisition->Start();
     static auto setthoughout = &recordReadingPAUT::getinstance();
     try
@@ -59,74 +56,42 @@ void nDataProcess::Run()
             static std::deque<float> timeLapses;
             static const int maxSamples = 10;
             QElapsedTimer timer;  timer.start();
-
+            std::lock_guard<std::mutex> lock(m_mtx);                       
+            
             auto waitForDataResult = acquisition->WaitForDataEx();
-
-            if (acquisition->WaitForDataEx().status != IAcquisition::WaitForDataResultEx::DataAvailable)
+            if ( !acquisition || acquisition->WaitForDataEx().status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
-                acquisition->Stop();
-                m_running = false;
-                return;
+                nmainUI::statuslogs::getinstance().logCritical("~WaitForData Stopped (Reached the end of the cycles)");
+                continue;
             }
+            if (waitForDataResult.cycleData == nullptr || waitForDataResult.cycleData->GetAscanCollection()->GetCount() == 0) continue;   
 
-            if (waitForDataResult.cycleData == nullptr || waitForDataResult.cycleData->GetAscanCollection()->GetCount() == 0) continue;
-            if (waitForDataResult.cycleData && waitForDataResult.cycleData->GetAscanCollection())
-            {
-                std::lock_guard<std::mutex> lock(m_mtx);                        
-                obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
-                setthoughout->set(acquisition->GetThroughput());
-            }           
-                
+            obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+            setthoughout->set(acquisition->GetThroughput());             
+
             if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
             {
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             }       
-
-            recordReadingPAUT::getinstance().set_Fps(double(timer.nsecsElapsed() / 1e6f));
-            //if (last_beamGain != omSetCof->phasing_gain)
-            //{
-            //    for (auto i = 0; i < beamSet->GetBeamSet()->GetBeamCount(); i++)
-            //    {
-            //        beamSet->GetBeamSet()->GetBeam(i)->SetGainEx(omSetCof->phasing_gain);
-            //    }
-            //    acquisition->ApplyConfiguration();
-            //    last_beamGain = omSetCof->phasing_gain;
-            //}
-            //if (last_InternalDelay != omSetCof->PA_ElemInternalDelay) {
-            //    for (auto beamIdx = 0; beamIdx < beamSet->GetBeamSet()->GetBeamCount(); beamIdx++)
-            //    {
-            //        auto ubeam = beamSet->GetBeamSet()->GetBeam(beamIdx);
-            //        auto pulsers = ubeam->GetBeamFormation()->GetPulserDelayCollection();
-            //        auto receivers = ubeam->GetBeamFormation()->GetReceiverDelayCollection();
-            //
-            //        unsigned int VirAperture = omSetCof->EleFirst;
-            //        auto NumberElem = omSetCof->EleQuantity; // wrong formula
-            //        for (size_t elementIdx = 0; elementIdx < NumberElem; ++elementIdx) {
-            //            pulsers->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            //            pulsers->GetElementDelay(elementIdx)->SetDelay((beamIdx + elementIdx) * omSetCof->PA_ElemInternalDelay + omSetCof->PA_elementDelay);
-            //            receivers->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            //            receivers->GetElementDelay(elementIdx)->SetDelay((beamIdx + elementIdx) * omSetCof->PA_ElemInternalDelay + omSetCof->PA_elementDelay * 2);
-            //            VirAperture += omSetCof->EleStep;
-            //        }
-            //    }
-            //    acquisition->ApplyConfiguration();
-            //    last_InternalDelay = omSetCof->PA_ElemInternalDelay;
-            //}
-
+            recordReadingPAUT::getinstance().set_Fps(double(timer.nsecsElapsed() / 1e6f));     
+            if (isUpdate) 
+            {
+                acquisition->ApplyConfiguration();
+                isUpdate = false;
+            }
 
         } while ((m_running));
 
     }
     catch (const exception& e)
     {
+        cout << "STOPPPP\n";
+        m_running = false;
+        acquisition->Stop();
         std::lock_guard<std::mutex> lock(m_mtx);
         nmainUI::statuslogs::getinstance().logCritical("Exception found: " + std::string(e.what()));
-        exceptionFound = true;
-        acquisition->Stop();
-        m_running = false;
     }
-
     acquisition->Stop();
     m_running = false;
 }
