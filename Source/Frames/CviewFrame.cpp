@@ -32,18 +32,18 @@ void CviewFrame::update() {
     isRealTime = false;
     static int lastResolution = -1;
     if (scandat.Amplitudes.empty()) { return; }
-    if (lastResolution != ConfigL.sysParams->resolution) {
-        lastResolution = ConfigL.sysParams->resolution;
+    if (lastResolution != ConfigL->sysParams->resolution) {
+        lastResolution = ConfigL->sysParams->resolution;
         CreateXYview();
     }
     // if Bscan and Cscan layer
-    if (ConfigL.sysParams->resolution) {
+    if (ConfigL->sysParams->resolution) {
         CreateXYview();
     }
 
     static bool lastIsCscanLayer = false;
-    if (lastIsCscanLayer != ConfigL.sysParams->isCscanLayer) {
-        lastIsCscanLayer = ConfigL.sysParams->isCscanLayer;
+    if (lastIsCscanLayer != ConfigL->sysParams->isCscanLayer) {
+        lastIsCscanLayer = ConfigL->sysParams->isCscanLayer;
         CreateXYview();
     }
     addPoints(true,-1,-1);
@@ -98,14 +98,14 @@ void CviewFrame::CreateXYview() {
     orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    std::vector<Color> everyColors = CreateColorPalette(ConfigL.sysParams->colorPalette);
+    std::vector<Color> everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
     uint64_t z_offset = curpt.z * (xsize * ysize);
     double percentAmplitude;
 
     // Processing amplitude data to assign colors
     for (uint64_t y = 0; y < ysize; ++y) {
         for (uint64_t x = 0; x < xsize; ++x) {
-            if (!ConfigL.sysParams->isCscanLayer) {
+            if (!ConfigL->sysParams->isCscanLayer) {
                 int16_t maxAmplitude = 0;
                 for (uint64_t z = 0; z < zsize; ++z) {
                     uint64_t index = z * (xsize * ysize) + y * xsize + x;

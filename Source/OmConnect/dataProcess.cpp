@@ -35,13 +35,18 @@ bool nDataProcess::Start()
 void nDataProcess::Stop()
 {
     m_running = false;
-    acquisition->Stop();  
+    if (m_future.valid()) {
+        acquisition->Stop();  
+        m_future.wait();
+    }
+
 }
 
 void nDataProcess::update()
 {
     std::lock_guard<std::mutex> lock(m_mtx2);
     isUpdate = true;
+    m_future = {};
 }
 
 void nDataProcess::Run()
@@ -60,7 +65,7 @@ void nDataProcess::Run()
             std::lock_guard<std::mutex> lock(m_mtx);                       
             
             auto waitForDataResult = acquisition->WaitForDataEx();
-            if ( !acquisition || acquisition->WaitForDataEx().status != IAcquisition::WaitForDataResultEx::DataAvailable)
+            if ( !acquisition || waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
                 nmainUI::statuslogs::getinstance().logCritical("~WaitForData Stopped (Reached the end of the cycles)");
                 continue;
@@ -89,12 +94,13 @@ void nDataProcess::Run()
     }
     catch (const exception& e)
     {
-        cout << "STOPPPP\n";
+        cout << "ERROR : " << e.what() << "\n";
         m_running = false;
         acquisition->Stop();
         std::lock_guard<std::mutex> lock(m_mtx);
         nmainUI::statuslogs::getinstance().logCritical("Exception found: " + std::string(e.what()));
     }
+    cout << "Stop " << "\n";
     acquisition->Stop();
     m_running = false;
 }

@@ -15,10 +15,24 @@ struct SystemParams {
     // cscan layer
     bool isCscanLayer = false;
     std::string tempBufferLogs ="";
-    //color Palette upper | lowewr
-    int colorPalette = 0;
     
 };
+
+/// Linear: Linear nonFocus Constant
+///         Linear Fix angled (Focus)
+/// Sectorial:
+///
+///
+enum class PautModeOmni {Linear = 0, Sectorial = 1, TFM = 2};
+struct VisualizeConfig
+{
+    //color Palette upper | lowewr
+    int Color_Palette = 0;
+    uint16_t BC_Scan_Horizontal = 100;
+    PautModeOmni setPautMode = PautModeOmni::Sectorial;
+    
+};
+
 
 struct Om_Settup_Config
 {
@@ -30,6 +44,10 @@ struct Om_Settup_Config
     unsigned int EleFirst       = 1;    // Starting element
     unsigned int EleLast        = 64;    // Maximum number of elements
     double Ele_Delay = 500; //Element Delay; 500
+
+    double BeamAngle = 00;
+    double FocusLength = 85;
+    double Velocity = 6500;
 
     // === Phased Array Digitizer
     Instrumentation::IAmplitudeSettings::AscanDataSize Digi_Ampli_AscanSize = Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits; // 8 default 12 16

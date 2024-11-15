@@ -32,7 +32,7 @@ void SviewFrame::update() {
     orgimage = std::make_unique<cv::Mat>(zsize, ysize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    auto everyColors = CreateColorPalette(ConfigLocator::getInstance().sysParams->colorPalette);
+    auto everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
 #pragma omp parallel for
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {
@@ -53,7 +53,7 @@ void SviewFrame::update() {
     int newWidth = (frameRatio > imageRatio) ? static_cast<int>(orgimage->rows * frameRatio) : orgimage->cols;
     int newHeight = (frameRatio > imageRatio) ? orgimage->rows : static_cast<int>(orgimage->cols / frameRatio);
 
-    int scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? ConfigLocator::getInstance().sysParams->resolution : 1;
+    int scaleFactor = (!isPanning || ConfigL->settingconf->bhighResBscan) ? ConfigL->sysParams->resolution : 1;
     cv::resize(*orgimage, *scaledImage, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), 0);
@@ -96,12 +96,22 @@ void SviewFrame::updateRealTime()
                 break;
             }
         }
-        scaledImage = std::make_unique<cv::Mat>();
         auto ScaleRatio = orgimage->rows/graphicsView->size().height();
         int frameWidth = graphicsView->size().width() * ScaleRatio;
         int frameHeight = graphicsView->size().height() * ScaleRatio;
-        cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
-        //cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(5, 1), cv::BORDER_CONSTANT);
+        if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
+        {
+            scaledImage = std::make_unique<cv::Mat>();
+            cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
+            //scaledImage = orgimage;
+        }
+        else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial)
+        {
+            scaledImage = std::make_unique<cv::Mat>();
+            cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
+            //scaledImage = orgimage;
+        }
+        //cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), cv::BORDER_CONSTANT);
 
         auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
 

@@ -23,7 +23,7 @@ public:
 	virtual void updateRealTime() = 0;
 
 	void setScandat(const AscanData& dataa) { scandat = dataa; }
-	void clearScandat() { scandat = AscanData(); }
+	void clearScandat() { scandat = AscanData(); ArtScan->resetall(); }
 	void popFront() {};
 
 	void clearBuffer() { nAscanCollection.clear(); }
@@ -36,7 +36,7 @@ public:
 	}
 
 protected:
-	ConfigLocator ConfigL = ConfigLocator::getInstance();
+	ConfigLocator* ConfigL = &ConfigLocator::getInstance();
 	OmSetupL oms = OmSetupL::getInstance();
 	static bool isPanning;
 	static curpt3d curpt;

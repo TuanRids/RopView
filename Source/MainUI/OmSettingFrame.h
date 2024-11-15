@@ -234,8 +234,31 @@ private:
             createSpinBox(0, 164800, scanPlan->BeamAEnd, layout3, "A End", ++x, y, [=](double value) {
                 scanPlan->BeamAEnd = value;
                 });
-        }
+            x = 0; y++;
 
+        }
+        QGroupBox* group4 = new QGroupBox("Mode");
+        QGridLayout* layout4 = new QGridLayout(group4);
+        x = 0; y = 0;
+        {
+            QComboBox* BoxPautMode = new QComboBox(); auto DeModeid = 0;
+            BoxPautMode->addItem("Linear", static_cast<int>(PautModeOmni::Linear));
+            BoxPautMode->addItem("Sectorial", static_cast<int>(PautModeOmni::Sectorial));
+            switch (ConfigLocator::getInstance().visualConfig->setPautMode) {
+            case PautModeOmni::Linear: DeModeid = 0; break;
+            case PautModeOmni::Sectorial: DeModeid = 1; break;
+            }
+            BoxPautMode->setCurrentIndex(DeModeid);
+            layout4->addWidget(new QLabel("PAUT Mode"), x, y);
+            layout4->addWidget(BoxPautMode, x, ++y);
+            connect(BoxPautMode, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+                ConfigLocator::getInstance().visualConfig->setPautMode = static_cast<PautModeOmni>(BoxPautMode->currentData().toInt());
+                nmainUI::statuslogs::getinstance().logInfo("PAUT Mode changed to " + std::to_string(static_cast<int>(ConfigLocator::getInstance().visualConfig->setPautMode)));
+                });
+            createSpinBox(1, 25000, scanPlan->FocusLength, layout4, "Focus", ++x, --y, [=](double value) {
+                scanPlan->FocusLength = value;
+                });
+        }
 
         QFrame* separator = new QFrame();
         separator->setFrameShape(QFrame::HLine);
@@ -243,10 +266,12 @@ private:
         group1->setFixedWidth(cwidth - 70);
         group2->setFixedWidth(cwidth + 70);
         group3->setFixedWidth(cwidth - 140);
+        group4->setFixedWidth(cwidth - 140);
 
         layout->addWidget(group1);
         layout->addWidget(group2);
         layout->addWidget(group3);
+        layout->addWidget(group4);
         layout->addWidget(separator);
     }
     void setupConfigTabContent(QHBoxLayout* layout) {

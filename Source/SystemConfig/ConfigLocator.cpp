@@ -3,6 +3,7 @@
 // ========== ConFigLocator ==========
 std::shared_ptr<SettingConfig> ConfigLocator::settingconf = nullptr;
 std::shared_ptr<SystemParams> ConfigLocator::sysParams = nullptr;
+std::shared_ptr<VisualizeConfig> ConfigLocator::visualConfig = nullptr;
 
 
 void ConfigLocator::saveToRegistry() {

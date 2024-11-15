@@ -75,26 +75,58 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
     std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory = digitizerTechnology->GetBeamSetFactory();
 
     shared_ptr<IBeamFormationCollection> beamFormations = phasedArrayFactory->CreateBeamFormationCollection();
-    for (unsigned int iBeam(0); iBeam < omSetCof->beamNumber; ++iBeam)
-    {
-        shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
-        auto pulserDelays = beamFormation->GetPulserDelayCollection();
-        auto receiverDelays = beamFormation->GetReceiverDelayCollection();
 
-        unsigned int VirAperture = omSetCof->EleFirst + iBeam;
-        for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
-            pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            pulserDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
-            receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-            receiverDelays->GetElementDelay(elementIdx)->SetDelay(omSetCof->Ele_Delay * 2);
-            VirAperture += omSetCof->EleStep;
-            if (VirAperture > omSetCof->EleLast)
-            {
-                iBeam = omSetCof->beamNumber;
-                break;
+    if (ConfigLocator::getInstance().visualConfig->setPautMode == PautModeOmni::Linear)
+    {
+        for (unsigned int iBeam(0); iBeam < omSetCof->beamNumber; ++iBeam)
+        {
+            shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
+            auto pulserDelays = beamFormation->GetPulserDelayCollection();
+            auto receiverDelays = beamFormation->GetReceiverDelayCollection();
+
+            unsigned int VirAperture = omSetCof->EleFirst + iBeam;
+            for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
+                auto delay = elementIdx * 0.6 * 1e-3 * sin(omSetCof->BeamAngle * M_PI / 180) / (6500 / 1e9);
+                pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
+                pulserDelays->GetElementDelay(elementIdx)->SetDelay(delay);/*(iBeam + elementIdx) * omSetCof->PA_ElemInternalDelay + */
+                receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
+                receiverDelays->GetElementDelay(elementIdx)->SetDelay(delay );
+                VirAperture += omSetCof->EleStep;
+                if (VirAperture > omSetCof->EleLast) {
+                    iBeam = omSetCof->beamNumber;
+                    break;
+                }
             }
+            beamFormations->Add(beamFormation);
         }
-        beamFormations->Add(beamFormation);
+    }
+    else if (ConfigLocator::getInstance().visualConfig->setPautMode == PautModeOmni::Sectorial)
+    {
+        double focus = omSetCof->FocusLength*1e-3;// m
+        for (unsigned int iBeam = 0; iBeam < omSetCof->beamNumber; ++iBeam) {
+            shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
+            auto pulserDelays = beamFormation->GetPulserDelayCollection();
+            auto receiverDelays = beamFormation->GetReceiverDelayCollection();
+            cout << " start : ";
+            unsigned int VirAperture = omSetCof->EleFirst + iBeam;
+            for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
+                pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
+                double nth = std::sqrt((elementIdx - 8)*(elementIdx - 8));
+                double delay = iBeam + (nth * nth * 0.6*1e-3 * 0.6*1e-3 ) / (2 * focus * omSetCof->Velocity/1e9);
+                cout << delay <<  " " ;
+                pulserDelays->GetElementDelay(elementIdx)->SetDelay(500 - delay);
+                receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
+                receiverDelays->GetElementDelay(elementIdx)->SetDelay(1000 - delay  );
+
+                VirAperture += omSetCof->EleStep;
+                if (VirAperture > omSetCof->EleLast) {
+                    iBeam = omSetCof->beamNumber;
+                    break;
+                }
+            }
+            beamFormations->Add(beamFormation);
+            cout << endl;
+        }
     }
     beamSet = phasedArrayFactory->CreateBeamSetPhasedArray(L"LinearPhasedArray", beamFormations);
 
