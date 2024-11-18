@@ -85,6 +85,7 @@ void SviewFrame::update() {
 
 void SviewFrame::updateRealTime()
 {
+
     try {
         if (!isRealTime) { scene->clear(); isRealTime = true; }
         orgimage = std::make_shared<cv::Mat>(ArtScan->SViewBuf->clone());
@@ -99,8 +100,10 @@ void SviewFrame::updateRealTime()
         auto ScaleRatio = orgimage->rows/graphicsView->size().height();
         int frameWidth = graphicsView->size().width() * ScaleRatio;
         int frameHeight = graphicsView->size().height() * ScaleRatio;
+
         if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
         {
+            // MXU is scaled
             scaledImage = std::make_unique<cv::Mat>();
             cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
             //scaledImage = orgimage;
@@ -111,7 +114,7 @@ void SviewFrame::updateRealTime()
             cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
             //scaledImage = orgimage;
         }
-        //cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), cv::BORDER_CONSTANT);
+        cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), cv::BORDER_CONSTANT);
 
         auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
 

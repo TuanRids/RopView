@@ -100,20 +100,19 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
             beamFormations->Add(beamFormation);
         }
     }
-    else if (ConfigLocator::getInstance().visualConfig->setPautMode == PautModeOmni::Sectorial)
-    {
+    else if (ConfigLocator::getInstance().visualConfig->setPautMode == PautModeOmni::Sectorial)    {
         double focus = omSetCof->FocusLength*1e-3;// m
         for (unsigned int iBeam = 0; iBeam < omSetCof->beamNumber; ++iBeam) {
             shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
             auto pulserDelays = beamFormation->GetPulserDelayCollection();
             auto receiverDelays = beamFormation->GetReceiverDelayCollection();
-            cout << " start : ";
-            unsigned int VirAperture = omSetCof->EleFirst + iBeam;
+            unsigned int VirAperture = omSetCof->EleFirst; 
             for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
+                /*double nth = std::sqrt((elementIdx - 8)*(elementIdx - 8));
+                double delay = iBeam + (nth * nth * 0.6*1e-3 * 0.6*1e-3 ) / (2 * focus * omSetCof->Velocity/1e9);*/
+                auto delay = elementIdx * 0.6 * 1e-3 * sin(( /* omSetCof->BeamAngle + */ iBeam) * M_PI / 180) / (6500 / 1e9);
+                cout << delay << " ";
                 pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
-                double nth = std::sqrt((elementIdx - 8)*(elementIdx - 8));
-                double delay = iBeam + (nth * nth * 0.6*1e-3 * 0.6*1e-3 ) / (2 * focus * omSetCof->Velocity/1e9);
-                cout << delay <<  " " ;
                 pulserDelays->GetElementDelay(elementIdx)->SetDelay(500 - delay);
                 receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
                 receiverDelays->GetElementDelay(elementIdx)->SetDelay(1000 - delay  );

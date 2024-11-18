@@ -51,7 +51,6 @@ void CviewFrame::update() {
 
 void CviewFrame::updateRealTime()
 {
-
     if (!isRealTime) {
         scene->clear();
         isRealTime = true;
@@ -65,7 +64,7 @@ void CviewFrame::updateRealTime()
     int newWidth = graphicsView->size().width();
 
     int newHeight = graphicsView->size().height();
-    
+
     cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
     cv::flip(*scaledImage, *scaledImage, 1);
     auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);

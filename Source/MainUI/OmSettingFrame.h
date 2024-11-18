@@ -258,6 +258,9 @@ private:
             createSpinBox(1, 25000, scanPlan->FocusLength, layout4, "Focus", ++x, --y, [=](double value) {
                 scanPlan->FocusLength = value;
                 });
+            createSpinBox(-90, 90, scanPlan->BeamAngle, layout4, "Angel", ++x, y, [=](double value) {
+                scanPlan->BeamAngle = value;
+                });
         }
 
         QFrame* separator = new QFrame();

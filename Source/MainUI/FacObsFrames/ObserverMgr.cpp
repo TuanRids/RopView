@@ -53,11 +53,11 @@ void nObserver::RealDatProcess()
         ArtScan->resetall();
         if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
         {
-            ArtScan->SViewBuf->create(zsize, ysize + tan(oms.OMS->BeamAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
+            ArtScan->SViewBuf->create(zsize, ysize + sin(oms.OMS->BeamAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
         }
         else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial)
         {
-            ArtScan->SViewBuf->create(zsize, ysize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
+            ArtScan->SViewBuf->create(zsize, ysize + 2 * tan(oms.OMS->BeamAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
         }
         ArtScan->AViewBuf->clear();
         if (ArtScan->CViewBuf->empty()) {
@@ -86,64 +86,53 @@ void nObserver::RealDatProcess()
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
         double maxAmplitudeCscan = 0; Color maxColor{};
-        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();        
+        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
         double minAmplitude = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMin();
         double maxAmplitudeSampling = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
         double maxAmplitudeUsable = RawAsanDat->GetAscan(beamID)->GetAmplitudeDataRange()->GetFloatingMax();
-                
+
         double angle = angleMin + angle_default + beamID /** angleStep*/;
         double radian = angle * CV_PI / 180.0;
 #pragma omp simd reduction(max:maxAmplitudeCscan)
         for (int z = 0; z < zsize; ++z) {
             double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / maxAmplitudeSampling * maxAmplitudeUsable;
-            // double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / 32.768;
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
 
-            static int last_x = 0; static int last_y = 0; static Color color_last = Color{ 0, 0, 0 };
-            if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
-            {
-                int offsetX = static_cast<int>(z * tan(oms.OMS->BeamAngle * M_PI / 180));
+            if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear) {
+                int offsetX = static_cast<int>(z * sin(oms.OMS->BeamAngle * M_PI / 180));
                 int adjustedX = beamID + offsetX;
-
-                ArtScan->SViewBuf->at<cv::Vec3b>(z, adjustedX) = cv::Vec3b(color.B, color.G, color.R);
+                if (adjustedX >= 0 && adjustedX < ArtScan->SViewBuf->cols && z >= 0 && z < ArtScan->SViewBuf->rows) {
+                    ArtScan->SViewBuf->at<cv::Vec3b>(z, adjustedX) = cv::Vec3b(color.B, color.G, color.R);
+                }
             }
-            else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial)
-            {             
-
-                ArtScan->SViewBuf->at<cv::Vec3b>(z, beamID) = cv::Vec3b(color.B, color.G, color.R);
-                /*double radius = maxRadius * (static_cast<double>(z) / zsize);
+            else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial) {
+                double radius = maxRadius * (static_cast<double>(z) / zsize);
                 int x = centerX + static_cast<int>(radius * cos(radian));
-                int y = centerY - static_cast<int>(radius * sin(radian)); 
+                int y = centerY - static_cast<int>(radius * sin(radian));
                 if (x >= 0 && x < ArtScan->SViewBuf->cols && y >= 0 && y < ArtScan->SViewBuf->rows) {
                     ArtScan->SViewBuf->at<cv::Vec3b>(y, x) = cv::Vec3b(color.B, color.G, color.R);
-                }      
-                last_x += 1; last_y += 1;
-                while (last_x - x > 0 || last_y - y > 0) {
-                    if (last_x - x > 0) {
-                        if (last_x >= 0 && last_x < ArtScan->SViewBuf->cols && last_y >= 0 && last_y < ArtScan->SViewBuf->rows) {
-                            ArtScan->SViewBuf->at<cv::Vec3b>(last_y, last_x) = cv::Vec3b(color_last.B, color_last.G, color_last.R);
-                        }
-						last_x += 1;
-                    }
-                    if (last_y - y > 0) {
-                        if (last_x >= 0 && last_x < ArtScan->SViewBuf->cols && last_y >= 0 && last_y < ArtScan->SViewBuf->rows) {
-                            ArtScan->SViewBuf->at<cv::Vec3b>(last_y, last_x) = cv::Vec3b(color_last.B, color_last.G, color_last.R);
-                        }
-						last_y += 1;
-					}
                 }
 
-                color_last = color;*/
+                double nextAngle = angleMin + angle_default + beamID + 1;
+                double nextRadian = nextAngle * CV_PI / 180.0;
+                int next_x = centerX + static_cast<int>(radius * cos(nextRadian));
+                int next_y = centerY - static_cast<int>(radius * sin(nextRadian));
+                if (next_x >= 0 && next_x < ArtScan->SViewBuf->cols && next_y >= 0 && next_y < ArtScan->SViewBuf->rows) {
+                    cv::line(*ArtScan->SViewBuf, cv::Point(x, y), cv::Point(next_x, next_y), cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_AA);
+                }
             }
-            if ( oms.OMS->beamCurrentID == beamID ) {
-                points[z] = QPointF(percentAmplitude, static_cast<double>(z)); 
-                bmat.at<cv::Vec3b>(z, 0 ) = cv::Vec3b(color.B, color.G, color.R);
+
+            if (oms.OMS->beamCurrentID == beamID) {
+                points[z] = QPointF(percentAmplitude, static_cast<double>(z));
+                bmat.at<cv::Vec3b>(z, 0) = cv::Vec3b(color.B, color.G, color.R);
             }
             if (percentAmplitude > maxAmplitudeCscan) { maxColor = color; maxAmplitudeCscan = percentAmplitude; }
-        }     
+        }
 
-        cmat.at<cv::Vec3b>(beamID,0 ) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
+        cmat.at<cv::Vec3b>(beamID, 0) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
+
+
 
     *ArtScan->AViewBuf = points;
     ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(cmat.colRange(1, cmat.cols));

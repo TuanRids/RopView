@@ -31,6 +31,7 @@ void BviewFrame::update() {
 
 void BviewFrame::updateRealTime()
 {
+
     if (!isRealTime) {
         scene->clear();
         isRealTime = true;

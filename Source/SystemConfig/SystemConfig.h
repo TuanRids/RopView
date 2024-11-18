@@ -22,6 +22,7 @@ struct SystemParams {
 ///         Linear Fix angled (Focus)
 /// Sectorial:
 ///
+/// Compound Scan.
 ///
 enum class PautModeOmni {Linear = 0, Sectorial = 1, TFM = 2};
 struct VisualizeConfig
@@ -45,7 +46,7 @@ struct Om_Settup_Config
     unsigned int EleLast        = 64;    // Maximum number of elements
     double Ele_Delay = 500; //Element Delay; 500
 
-    double BeamAngle = 00;
+    double BeamAngle = 30;
     double FocusLength = 85;
     double Velocity = 6500;
 
