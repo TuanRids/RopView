@@ -102,7 +102,10 @@ void nObserver::RealDatProcess()
                 int offsetX = static_cast<int>(z * sin(oms.OMS->BeamAngle * M_PI / 180));
                 int adjustedX = beamID + offsetX;
                 if (adjustedX >= 0 && adjustedX < ArtScan->SViewBuf->cols && z >= 0 && z < ArtScan->SViewBuf->rows) {
-                    ArtScan->SViewBuf->at<cv::Vec3b>(z, adjustedX) = cv::Vec3b(color.B, color.G, color.R);
+                    uchar* row_ptr = ArtScan->SViewBuf->ptr<uchar>(z);
+                    row_ptr[adjustedX * 3 + 0] = color.B;
+                    row_ptr[adjustedX * 3 + 1] = color.G;
+                    row_ptr[adjustedX * 3 + 2] = color.R;
                 }
             }
             else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial) {
@@ -110,7 +113,10 @@ void nObserver::RealDatProcess()
                 int x = centerX + static_cast<int>(radius * cos(radian));
                 int y = centerY - static_cast<int>(radius * sin(radian));
                 if (x >= 0 && x < ArtScan->SViewBuf->cols && y >= 0 && y < ArtScan->SViewBuf->rows) {
-                    ArtScan->SViewBuf->at<cv::Vec3b>(y, x) = cv::Vec3b(color.B, color.G, color.R);
+                    uchar* row_ptr = ArtScan->SViewBuf->ptr<uchar>(y);
+                    row_ptr[x * 3 + 0] = color.B;
+                    row_ptr[x * 3 + 1] = color.G;
+                    row_ptr[x * 3 + 2] = color.R;
                 }
 
                 double nextAngle = angleMin + angle_default + beamID + 1;
@@ -118,7 +124,7 @@ void nObserver::RealDatProcess()
                 int next_x = centerX + static_cast<int>(radius * cos(nextRadian));
                 int next_y = centerY - static_cast<int>(radius * sin(nextRadian));
                 if (next_x >= 0 && next_x < ArtScan->SViewBuf->cols && next_y >= 0 && next_y < ArtScan->SViewBuf->rows) {
-                    cv::line(*ArtScan->SViewBuf, cv::Point(x, y), cv::Point(next_x, next_y), cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_AA);
+                    cv::line(*ArtScan->SViewBuf, cv::Point(x, y), cv::Point(next_x, next_y), cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_4);
                 }
             }
 
