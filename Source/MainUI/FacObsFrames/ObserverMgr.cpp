@@ -35,29 +35,27 @@ void nObserver::RealDatProcess()
 
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
-
     QVector<QPointF> points(zsize);
     cv::Mat cmat; cv::Mat bmat;
     // aview and sview would be reset as realtime
 
     // Calc for S-scan
-        int centerX = ArtScan->SViewBuf->cols / 2;
+        int centerX = /*ArtScan->SViewBuf->cols / 2*/0;
         int centerY = 0;
         double maxRadius = static_cast<double>(ArtScan->SViewBuf->rows);
         double angle_default = -90;
-        double angleMin = -40 ;
-        double angleMax = 40 ;
-        double angleStep = (angleMax - angleMin) / ysize;
+        //double angleMax = 30 ;
+        //double angleStep = (angleMax - angleMin) / ysize;
     static uint16_t BCsize = 100;
     {
         ArtScan->resetall();
         if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
         {
-            ArtScan->SViewBuf->create(zsize, ysize + sin(oms.OMS->BeamAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
+            ArtScan->SViewBuf->create(zsize, ysize + sin(oms.OMS->BeamStartAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
         }
         else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial)
         {
-            ArtScan->SViewBuf->create(zsize, ysize + 2 * tan(oms.OMS->BeamAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
+            ArtScan->SViewBuf->create(zsize, ysize + 2 * tan(oms.OMS->BeamStartAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
         }
         ArtScan->AViewBuf->clear();
         if (ArtScan->CViewBuf->empty()) {
@@ -91,7 +89,7 @@ void nObserver::RealDatProcess()
         double maxAmplitudeSampling = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
         double maxAmplitudeUsable = RawAsanDat->GetAscan(beamID)->GetAmplitudeDataRange()->GetFloatingMax();
 
-        double angle = angleMin + angle_default + beamID /** angleStep*/;
+        double angle = oms.OMS->BeamStartAngle + angle_default + beamID /** angleStep*/;
         double radian = angle * CV_PI / 180.0;
 #pragma omp simd reduction(max:maxAmplitudeCscan)
         for (int z = 0; z < zsize; ++z) {
@@ -99,7 +97,7 @@ void nObserver::RealDatProcess()
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
 
             if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear) {
-                int offsetX = static_cast<int>(z * sin(oms.OMS->BeamAngle * M_PI / 180));
+                int offsetX = static_cast<int>(z * sin(oms.OMS->BeamStartAngle * M_PI / 180));
                 int adjustedX = beamID + offsetX;
                 if (adjustedX >= 0 && adjustedX < ArtScan->SViewBuf->cols && z >= 0 && z < ArtScan->SViewBuf->rows) {
                     uchar* row_ptr = ArtScan->SViewBuf->ptr<uchar>(z);
@@ -118,13 +116,15 @@ void nObserver::RealDatProcess()
                     row_ptr[x * 3 + 1] = color.G;
                     row_ptr[x * 3 + 2] = color.R;
                 }
-
-                double nextAngle = angleMin + angle_default + beamID + 1;
-                double nextRadian = nextAngle * CV_PI / 180.0;
-                int next_x = centerX + static_cast<int>(radius * cos(nextRadian));
-                int next_y = centerY - static_cast<int>(radius * sin(nextRadian));
-                if (next_x >= 0 && next_x < ArtScan->SViewBuf->cols && next_y >= 0 && next_y < ArtScan->SViewBuf->rows) {
-                    cv::line(*ArtScan->SViewBuf, cv::Point(x, y), cv::Point(next_x, next_y), cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_4);
+                if (beamID+1 < ysize) 
+                {
+                    double nextAngle = oms.OMS->BeamStartAngle + angle_default + beamID + 1;
+                    double nextRadian = nextAngle * CV_PI / 180.0;
+                    int next_x = centerX + static_cast<int>(radius * cos(nextRadian));
+                    int next_y = centerY - static_cast<int>(radius * sin(nextRadian));
+                    if (next_x >= 0 && next_x < ArtScan->SViewBuf->cols && next_y >= 0 && next_y < ArtScan->SViewBuf->rows) {
+                        cv::line(*ArtScan->SViewBuf, cv::Point(x, y), cv::Point(next_x, next_y), cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_4);
+                    }
                 }
             }
 
@@ -134,7 +134,6 @@ void nObserver::RealDatProcess()
             }
             if (percentAmplitude > maxAmplitudeCscan) { maxColor = color; maxAmplitudeCscan = percentAmplitude; }
         }
-
         cmat.at<cv::Vec3b>(beamID, 0) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
 

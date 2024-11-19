@@ -27,6 +27,13 @@ private:
     Instrumentation::IUltrasoundConfigurationPtr ultrasoundConfig;
     IConfigurationPtr config;
     IBeamSetPtr beamSet;
+
+    // Internal Methods
+    void ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations);
+    void ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations);
+    void ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations);
+    void ConfigureDigitizingSettings(IDigitizerTechnologyPtr digitizerTechnology);
+
 };
 
 #endif // CONFIGSETUP_H

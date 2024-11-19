@@ -20,11 +20,11 @@ struct SystemParams {
 
 /// Linear: Linear nonFocus Constant
 ///         Linear Fix angled (Focus)
-/// Sectorial:
-///
+/// Sectorial: Center at 1st element
+///         
 /// Compound Scan.
 ///
-enum class PautModeOmni {Linear = 0, Sectorial = 1, TFM = 2};
+enum class PautModeOmni {Linear = 0, Sectorial = 1, Compound = 2, TFM = 3};
 struct VisualizeConfig
 {
     //color Palette upper | lowewr
@@ -39,14 +39,14 @@ struct Om_Settup_Config
 {
     // === Configure a phased array BeamSet
     // Phased Array BeamFormation
-    unsigned int beamNumber     = 64;
+    unsigned int beamNumber     = 30;
     unsigned int EleStep        = 1; // Element step size
     unsigned int EleQuantity    = 16; // Active elements
     unsigned int EleFirst       = 1;    // Starting element
     unsigned int EleLast        = 64;    // Maximum number of elements
     double Ele_Delay = 500; //Element Delay; 500
 
-    double BeamAngle = 30;
+    double BeamStartAngle = 30;
     double FocusLength = 85;
     double Velocity = 6500;
 
