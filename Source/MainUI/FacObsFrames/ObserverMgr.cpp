@@ -20,14 +20,12 @@ nObserver::nObserver()
 
 void nObserver::RealDatProcess()
 {
-    static auto logger = spdlog::get("file_logger");
      
     static auto everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
     std::lock_guard<std::mutex> lock(collectionMutex);
     while (nAscanCollection.size() > 5) { nAscanCollection.pop_front(); }
 
     if (!nAscanCollection.front()) {
-        logger->error("RawAsanDat is null. Buffer Size: {}", nAscanCollection.size());
         nAscanCollection.pop_front();
         return;
     }

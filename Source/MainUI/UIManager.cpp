@@ -85,6 +85,7 @@ namespace nmainUI {
 
         auto fullScreenAction = viewMenu->addAction("FullScreen", [=]() { onFullScreen(); });
         viewMenu->addAction("Debug Logs", [=]() { showRealTimeLogs(); });
+        showRealTimeLogs();
 
         newAction->setEnabled(false);
 		saveAction->setEnabled(false);
@@ -123,12 +124,18 @@ namespace nmainUI {
         logDockWidget->setObjectName("RealTimeLogsUIManagerDockWidget");
         QTextEdit* logTextEdit = new QTextEdit(logDockWidget);
         logTextEdit->setReadOnly(true);
+
+        QFont monospaceFont("Courier New");
+        monospaceFont.setStyleHint(QFont::Monospace);
+        logTextEdit->setFont(monospaceFont);
+
+        logTextEdit->setWordWrapMode(QTextOption::NoWrap);
+
         logDockWidget->setWidget(logTextEdit);
         nmainwd->addDockWidget(Qt::RightDockWidgetArea, logDockWidget);
 
         QString logFilePath = QString::fromStdString(ConfigLocator::getInstance().sysParams->tempBufferLogs);
         static qint64 lastPos = 0;
-        const int maxLogSize = 10000;
 
         QTimer* logUpdateTimer = new QTimer(nmainwd);
         QObject::connect(logUpdateTimer, &QTimer::timeout, [logTextEdit, logFilePath]() mutable {
@@ -141,10 +148,6 @@ namespace nmainUI {
                 file.close();
 
                 if (!newContent.isEmpty()) {
-                    if (logTextEdit->toPlainText().size() > maxLogSize) {
-                        logTextEdit->clear();
-                    }
-
                     logTextEdit->moveCursor(QTextCursor::End);
                     logTextEdit->insertPlainText(newContent);
                     logTextEdit->moveCursor(QTextCursor::End);
@@ -304,7 +307,6 @@ namespace nmainUI {
         nmainUI::statuslogs::getinstance().initialize(logOutput);
 
         layout->addWidget(logOutput);
-
         return logWidget;
     }
     QWidget* UIManager::createConnectFrames() {

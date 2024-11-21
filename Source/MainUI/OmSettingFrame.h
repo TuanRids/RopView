@@ -244,9 +244,13 @@ private:
             QComboBox* BoxPautMode = new QComboBox(); auto DeModeid = 0;
             BoxPautMode->addItem("Linear", static_cast<int>(PautModeOmni::Linear));
             BoxPautMode->addItem("Sectorial", static_cast<int>(PautModeOmni::Sectorial));
+            BoxPautMode->addItem("Sectorial", static_cast<int>(PautModeOmni::Compound));
+            BoxPautMode->addItem("Sectorial", static_cast<int>(PautModeOmni::TFM));
             switch (ConfigLocator::getInstance().visualConfig->setPautMode) {
             case PautModeOmni::Linear: DeModeid = 0; break;
             case PautModeOmni::Sectorial: DeModeid = 1; break;
+            case PautModeOmni::Compound: DeModeid = 2; break;
+            case PautModeOmni::TFM: DeModeid = 3; break;
             }
             BoxPautMode->setCurrentIndex(DeModeid);
             layout4->addWidget(new QLabel("PAUT Mode"), x, y);
@@ -255,7 +259,7 @@ private:
                 ConfigLocator::getInstance().visualConfig->setPautMode = static_cast<PautModeOmni>(BoxPautMode->currentData().toInt());
                 nmainUI::statuslogs::getinstance().logInfo("PAUT Mode changed to " + std::to_string(static_cast<int>(ConfigLocator::getInstance().visualConfig->setPautMode)));
                 });
-            createSpinBox(1, 25000, scanPlan->FocusLength, layout4, "Focus", ++x, --y, [=](double value) {
+            createSpinBox(0, 100, scanPlan->FocusLength, layout4, "Focus", ++x, --y, [=](double value) {
                 scanPlan->FocusLength = value;
                 });
             createSpinBox(-90, 90, scanPlan->BeamStartAngle, layout4, "Angel", ++x, y, [=](double value) {

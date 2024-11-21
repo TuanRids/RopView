@@ -80,7 +80,51 @@ void CviewFrame::updateRealTime()
     }
     QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
     artworkItem->setData(0, "artwork");
+    /* TODO OPTIMIZE
+    void CviewFrame::updateRealTime() {
+    if (!isRealTime) {
+        scene->clear();
+        isRealTime = true;
+    }
 
+    orgimage = std::make_shared<cv::Mat>(ArtScan->CViewBuf->clone());
+    if (!orgimage) return;
+
+    scaledImage = std::make_unique<cv::Mat>();
+    int originalWidth = orgimage->cols;
+    int newWidth = graphicsView->size().width();
+    int newHeight = graphicsView->size().height();
+
+    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
+    cv::Mat newCol = cv::Mat(scaledImage->rows, 1, scaledImage->type(), cv::Scalar(0, 0, 255));
+    cv::hconcat(*scaledImage, newCol, *scaledImage);
+
+    QImage qImage(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
+    qImage = qImage.rgbSwapped();
+
+    QGraphicsPixmapItem* artworkItem = nullptr;
+    for (auto item : scene->items()) {
+        if (item->data(0).toString() == "artwork") {
+            artworkItem = dynamic_cast<QGraphicsPixmapItem*>(item);
+            break;
+        }
+    }
+
+    if (!artworkItem) {
+        QPixmap pixmap = QPixmap::fromImage(qImage);
+        artworkItem = scene->addPixmap(pixmap);
+        artworkItem->setData(0, "artwork");
+    } else {
+        QPixmap& pixmap = const_cast<QPixmap&>(artworkItem->pixmap());
+        QPainter painter(&pixmap);
+        painter.drawImage(0, 0, qImage);
+        painter.end();
+    }
+
+    graphicsView->update();
+}
+
+    */
     graphicsView->update();
 }
 

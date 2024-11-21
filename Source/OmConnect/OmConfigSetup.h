@@ -27,7 +27,7 @@ private:
     Instrumentation::IUltrasoundConfigurationPtr ultrasoundConfig;
     IConfigurationPtr config;
     IBeamSetPtr beamSet;
-
+    shared_ptr<spdlog::logger> debugLogger;
     // Internal Methods
     void ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations);
     void ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations);

@@ -40,14 +40,16 @@ struct Om_Settup_Config
     // === Configure a phased array BeamSet
     // Phased Array BeamFormation
     unsigned int beamNumber     = 30;
-    unsigned int EleStep        = 1; // Element step size
+    unsigned int EleStep        = 1; // If EleStep is too high, take that FocusLength with the high EleStep could increase the pitch virtual, then the beam could cause Lobes: pv > 1/2*(lambda)
     unsigned int EleQuantity    = 16; // Active elements
     unsigned int EleFirst       = 1;    // Starting element
     unsigned int EleLast        = 64;    // Maximum number of elements
     double Ele_Delay = 500; //Element Delay; 500
 
-    double BeamStartAngle = 30;
-    double FocusLength = 85;
+    double BeamStartAngle = 10;
+    // Focus Length only work as near field (about under 40mm). If Focus Length is too high, the Beam symmetry will like a constant Linear Beam, then it will changed to noFocus
+    // Focus = 0 is No Focus
+    double FocusLength = 45;
     double Velocity = 6500;
 
     // === Phased Array Digitizer

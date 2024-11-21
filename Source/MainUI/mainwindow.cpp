@@ -37,11 +37,7 @@ void initSpdLog() {
     spdlog::set_default_logger(logger);
     logger->set_level(spdlog::level::debug);
     logger->set_pattern("[%H:%M:%S] [%l] %v");
-
-    logger->info("=======================================");
-    logger->info("=========== RopView Start =============");
-    logger->info("=======================================");
-
+    logger->info("RopView Start");
     spdlog::flush_every(std::chrono::seconds(1));
 }
 
