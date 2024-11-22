@@ -85,7 +85,6 @@ void SviewFrame::update() {
 
 void SviewFrame::updateRealTime()
 {
-
     try {
         if (!isRealTime) { scene->clear(); isRealTime = true; }
         orgimage = std::make_shared<cv::Mat>(ArtScan->SViewBuf->clone());
@@ -114,7 +113,7 @@ void SviewFrame::updateRealTime()
             cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);/*INTER_NEAREST*/
             //scaledImage = orgimage;
         }
-        cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), cv::BORDER_CONSTANT);
+        //cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), cv::BORDER_CONSTANT);
 
         auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
 

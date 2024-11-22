@@ -51,6 +51,7 @@ void CviewFrame::update() {
 
 void CviewFrame::updateRealTime()
 {
+
     if (!isRealTime) {
         scene->clear();
         isRealTime = true;

@@ -35,18 +35,12 @@ void nObserver::RealDatProcess()
     int ysize = static_cast<int>(RawAsanDat->GetCount());
     QVector<QPointF> points(zsize);
     cv::Mat cmat; cv::Mat bmat;
-    // aview and sview would be reset as realtime
+    // aview and sview would be reset as realtime 
 
-    // Calc for S-scan
-        int centerX = /*ArtScan->SViewBuf->cols / 2*/0;
-        int centerY = 0;
-        double maxRadius = static_cast<double>(ArtScan->SViewBuf->rows);
-        double angle_default = -90;
-        //double angleMax = 30 ;
-        //double angleStep = (angleMax - angleMin) / ysize;
+
     static uint16_t BCsize = 100;
     {
-        ArtScan->resetall();
+        ArtScan->resetASscan();
         if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
         {
             ArtScan->SViewBuf->create(zsize, ysize + sin(oms.OMS->BeamStartAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
@@ -55,15 +49,13 @@ void nObserver::RealDatProcess()
         {
             ArtScan->SViewBuf->create(zsize, ysize + 2 * tan(oms.OMS->BeamStartAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
         }
+        
         ArtScan->AViewBuf->clear();
         if (ArtScan->CViewBuf->empty()) {
             ArtScan->CViewBuf->create(ysize, BCsize, CV_8UC3); ArtScan->CViewBuf->setTo(cv::Scalar(0, 0, 0));
             cmat.create(ysize, BCsize, CV_8UC3);
         }
         else {
-            if (ArtScan->CViewBuf->cols > 2500) {
-                ArtScan->CViewBuf = std::make_shared<cv::Mat>(ArtScan->CViewBuf->colRange(0, 499).clone());
-            }
             cmat.create(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
             ArtScan->CViewBuf->copyTo(cmat);
         }
@@ -72,13 +64,17 @@ void nObserver::RealDatProcess()
             bmat.create(zsize, BCsize, CV_8UC3);
         }
         else {
-            if (ArtScan->BViewBuf->cols > 2500) {
-                ArtScan->BViewBuf = std::make_shared<cv::Mat>(ArtScan->BViewBuf->colRange(0, 499).clone());
-            }
             bmat.create(ArtScan->BViewBuf->rows, ArtScan->BViewBuf->cols, ArtScan->BViewBuf->type());
             ArtScan->BViewBuf->copyTo(bmat);
         }
-    }        
+    }      
+    // Calc for S-scan
+    int centerX = /*ArtScan->SViewBuf->cols / 2*/0;
+    int centerY = 0;
+    double maxRadius = static_cast<double>(ArtScan->SViewBuf->rows);
+    double angle_default = -90;
+    //double angleMax = 30 ;
+    //double angleStep = (angleMax - angleMin) / ysize;
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
         double maxAmplitudeCscan = 0; Color maxColor{};
@@ -138,6 +134,7 @@ void nObserver::RealDatProcess()
 
 
     *ArtScan->AViewBuf = points;
+
     ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(cmat.colRange(1, cmat.cols));
     ArtScan->CViewBuf = std::make_shared<cv::Mat>(cmat);
     ArtScan->BViewBuf->colRange(0, ArtScan->BViewBuf->cols - 1).copyTo(bmat.colRange(1, bmat.cols));

@@ -23,7 +23,7 @@ public:
 	virtual void updateRealTime() = 0;
 
 	void setScandat(const AscanData& dataa) { scandat = dataa; }
-	void clearScandat() { scandat = AscanData(); ArtScan->resetall(); }
+	void clearScandat() { scandat = AscanData(); ArtScan->resetAll(); }
 	void popFront() {};
 
 	void clearBuffer() { nAscanCollection.clear(); }

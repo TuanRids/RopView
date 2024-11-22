@@ -64,10 +64,17 @@ public:
         static UIArtScan instance;
         return instance;
     }
-    void resetall() {
+    void resetASscan() {
         SViewBuf.reset();  AViewBuf.reset();
         SViewBuf = std::make_shared<cv::Mat>();
         AViewBuf = std::make_shared<QVector<QPointF>>();
+    }
+    void resetAll()
+    {
+        if (SViewBuf) SViewBuf.reset(); SViewBuf = std::make_shared<cv::Mat>();
+		if (BViewBuf) BViewBuf.reset(); BViewBuf = std::make_shared<cv::Mat>(cv::Mat());
+		if (CViewBuf) CViewBuf.reset(); CViewBuf = std::make_shared<cv::Mat>(cv::Mat());
+		if (AViewBuf) AViewBuf.reset(); AViewBuf = std::make_shared<QVector<QPointF>>();		
     }
     std::shared_ptr<cv::Mat> SViewBuf;
     std::shared_ptr<cv::Mat> BViewBuf;

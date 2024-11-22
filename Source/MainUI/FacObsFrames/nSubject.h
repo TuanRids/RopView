@@ -39,6 +39,8 @@ public:
 	void stopRealtimeUpdate() {
 		isRealTime = false;
 		realTimeTimer->stop();
+		observers[0]->clearBuffer() ;
+		observers[0]->clearScandat();
 	}
 	void startNotifyTimer(int intervalMs) {
 		offlineTimer->start(intervalMs);
@@ -46,11 +48,9 @@ public:
 	void stopNotifyTimer() {
 		offlineTimer->stop();
 	}
-#include <deque>
 
 	void notifyRealtime() {
-
-		if (!isRealTime) return;
+		//if (!isRealTime) return;
 		try {
 			static std::deque<float> timeLapses;
 			const int maxSamples = 10;
@@ -76,11 +76,13 @@ public:
 			averageTimeLapse /= timeLapses.size();
 
 			recordProcessingData::getinstance().set_Fps(averageTimeLapse);
-
-
-
+			
 		}
-		catch (...) { void(0); }
+		catch (std::exception& e) {
+			nmainUI::statuslogs::getinstance().logCritical(e.what());
+			this->stopRealtimeUpdate();
+			IOmConnect::ReleaseDevice();
+		}
 	}
 
 };

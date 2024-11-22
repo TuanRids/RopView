@@ -66,6 +66,11 @@ qt6_wrap_cpp(MOC_SOURCES ${HEADER_FILES})
 qt_add_resources(RopView_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shader/shaders.qrc)
 
 
+#if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+#    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g -O2")
+#endif()
+#set(CMAKE_CXX_STANDARD 20) 
+
 
 # Combine all sources and moc-generated sources
 add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SOURCES} Source/Validate/fileformat.rc  "Source/MainUI/FacObsFrames/ObserverMgr.cpp")
@@ -73,11 +78,9 @@ add_executable (RopView RopView.cpp pch.h ${SOURCES} ${MOC_SOURCES} ${RopView_SO
 
 # Depending on the compiler (MSVC or GCC), add specific flags or settings
 if (MSVC)
-    # Enable MASM (Microsoft Macro Assembler) in MSVC
     set(CMAKE_ASM_MASM_SOURCE_FILE_EXTENSIONS asm)
     enable_language(ASM_MASM)
 else()
-    # Enable inline assembly for GCC or Clang
     enable_language(ASM)
 endif()
 

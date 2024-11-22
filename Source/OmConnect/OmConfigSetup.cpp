@@ -195,8 +195,9 @@ void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBea
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
         unsigned int VirAperture = omSetCof->EleFirst;
 
+        logger += fmt::format("iBeam: {}\n", iBeam);
         for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
-            double delay{ 0 };
+            double delay{ 0 }; 
             if (focus == 0) {
                 delay = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
                 logger += fmt::format("{:>5} {:>10.3f}\n", VirAperture, delay);
@@ -216,15 +217,16 @@ void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBea
             pulserDelays->GetElementDelay(elementIdx)->SetDelay(delay);
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             receiverDelays->GetElementDelay(elementIdx)->SetDelay(500 + delay);
-            cout << delay << " ";
             VirAperture += omSetCof->EleStep;
             if (VirAperture > omSetCof->EleLast) {
                 iBeam = omSetCof->beamNumber;
                 break;
             }
-        } cout << endl;
+        } 
         beamFormations->Add(beamFormation);
     }
+    logger += std::string(40, '-') + "\n";
+    debugLogger->debug(logger);
 }
 
 void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations)
