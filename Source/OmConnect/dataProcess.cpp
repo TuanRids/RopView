@@ -42,7 +42,7 @@ void nDataProcess::Stop()
 
 }
 
-void nDataProcess::update()
+void nDataProcess::updateRealtimeProcess()
 {
     std::lock_guard<std::mutex> lock(m_mtx2);
     isUpdate = true;
@@ -52,18 +52,26 @@ void nDataProcess::update()
 void nDataProcess::Run()
 {    
     acquisition->Start();
-    static auto setthoughout = &recordReadingPAUT::getinstance();
+    static auto readfps = &ReadStatus::getinstance();
     try
     {
         do
         {
             static double last_beamGain = 0; static int last_InternalDelay = -1; static double last_smoothFilter = -1;
-            static std::deque<float> timeLapses;
-            static const int maxSamples = 10;
-            static QElapsedTimer timer;  
-
-            std::lock_guard<std::mutex> lock(m_mtx);                       
             
+            static QElapsedTimer fpsTimer;
+            static int frameCount = 0;
+            if (!fpsTimer.isValid()) { fpsTimer.start(); }
+            if (fpsTimer.elapsed() >= 1000) {
+                float avgEachFrameTime = fpsTimer.elapsed() / frameCount;
+                readfps->set_readPAUT(avgEachFrameTime);
+
+                fpsTimer.restart();
+                frameCount = 0;
+            }
+            frameCount++;
+
+            std::lock_guard<std::mutex> lock(m_mtx);                   
             auto waitForDataResult = acquisition->WaitForDataEx();
             if ( !acquisition || waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
@@ -72,22 +80,20 @@ void nDataProcess::Run()
             }
             if (waitForDataResult.cycleData == nullptr) continue;   
             obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
-            setthoughout->set(acquisition->GetThroughput());             
+            readfps->set_throughout(acquisition->GetThroughput());
 
             if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
             {
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             }       
-
-            recordReadingPAUT::getinstance().set_Fps(double(timer.nsecsElapsed() / 1e6f));     
-            if (isUpdate) 
+            
+       
+            if (isUpdate)
             {
                 acquisition->ApplyConfiguration();
                 isUpdate = false;
             }
-            timer.start();
-            //this_thread::sleep_for(std::chrono::milliseconds(50));
 
         } while ((m_running));
 

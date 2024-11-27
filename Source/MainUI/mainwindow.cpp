@@ -62,7 +62,9 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
 
     // Free Docker
     uiManager.createLogWidget();
-    OmSettingFrame::getInstance()->show();
+    auto settingFrame = OmSettingFrame::getInstance();
+    QWidget* settingsWidget = settingFrame->getWidget();
+    mainWindow->addDockWidget(Qt::TopDockWidgetArea, new QDockWidget(settingsWidget));
 
      // Top Logs DockWidget
     QDockWidget* connectDockWidget = new QDockWidget(mainWindow);

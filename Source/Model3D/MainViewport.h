@@ -7,7 +7,7 @@
 #include "Transformation.h"
 class MeshRenderer;
 
-class VulkanWindow : public QVulkanWindow
+class VulkanWindow : public QVulkanWindow // QVulkanWindow 
 {
     Q_OBJECT
 
@@ -28,6 +28,7 @@ private:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+
     //void GetDeviceInfo();
     QPoint lastMousePosition;
     bool isRightMouseButtonPressed = false;

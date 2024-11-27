@@ -10,10 +10,9 @@ std::shared_ptr<CviewFrame> nFactoryFrame::crCviewFrm() {
     return std::make_shared<CviewFrame>();
 }
 
-std::shared_ptr<SviewFrame> nFactoryFrame::crSViewFrm()
+std::shared_ptr<SviewFrame> nFactoryFrame::crSViewFrm(QWidget* SscanWidget)
 {
-    return std::make_shared<SviewFrame>();
-
+    return std::make_shared<SviewFrame>(SscanWidget);
 }
 
 std::shared_ptr<AviewFrame> nFactoryFrame::crAviewFrm()

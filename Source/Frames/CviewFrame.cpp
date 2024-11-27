@@ -28,7 +28,7 @@ QWidget* CviewFrame::createFrame(){
 
 }
 
-void CviewFrame::update() {
+void CviewFrame::updateOffLine() {
     isRealTime = false;
     static int lastResolution = -1;
     if (scandat.Amplitudes.empty()) { return; }
@@ -51,7 +51,7 @@ void CviewFrame::update() {
 
 void CviewFrame::updateRealTime()
 {
-
+    return;
     if (!isRealTime) {
         scene->clear();
         isRealTime = true;

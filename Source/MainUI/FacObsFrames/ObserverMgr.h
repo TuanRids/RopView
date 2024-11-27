@@ -10,6 +10,11 @@
 #include "SystemConfig/ConfigLocator.h"
 #include <mutex>
 
+struct VertexData {
+	QVector2D position;  
+	QVector3D color;    
+};
+
 using namespace std;
 struct curpt3d { int x{ -1 }, y{ -1 }, z{ -1 };};
 
@@ -19,23 +24,27 @@ public:
 	virtual ~nObserver() = default;
 
 	virtual QWidget* createFrame() = 0;
-	virtual void update() = 0;
+	virtual void updateOffLine() = 0;
 	virtual void updateRealTime() = 0;
 
 	void setScandat(const AscanData& dataa) { scandat = dataa; }
 	void clearScandat() { scandat = AscanData(); ArtScan->resetAll(); }
+	void clearBuffer() { nAscanCollection.clear(); }
 	void popFront() {};
 
-	void clearBuffer() { nAscanCollection.clear(); }
 	void RealDatProcess();
+	void RealDatProcessGPU();
 	size_t bufferSize() { return nAscanCollection.size(); }
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {
 		std::lock_guard<std::mutex> lock(collectionMutex);
 		if (!_nAscanCollection) return;
-		nAscanCollection.push_back(_nAscanCollection);
+		nAscanCollection.push_back(_nAscanCollection);		
 	}
 
 protected:
+	static QVector<VertexData> vertice_sview; // temporary
+
+
 	ConfigLocator* ConfigL = &ConfigLocator::getInstance();
 	OmSetupL oms = OmSetupL::getInstance();
 	static bool isPanning;
@@ -54,7 +63,7 @@ private:
 
 class upFrame : public nObserver {
 	QWidget* createFrame() override {return nullptr;}
-	void update() override {}
+	void updateOffLine() override {}
 	void updateRealTime() override {}
 	std::mutex upMutex;
 public:

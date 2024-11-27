@@ -53,12 +53,14 @@ file(GLOB_RECURSE SOURCES
     "Source/**/*.cu"
     "Source/**/*.qrc"
 )
+#set(CMAKE_AUTOMOC ON)
 
 # Add the header files that contain Q_OBJECT
 set(HEADER_FILES 
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/event/ZoomableGraphicsView.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/MainUI/mainwindow.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Model3D/MainViewport.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Frames/SviewFrame.h
 
 )
 # Use qt6_wrap_cpp to process the headers with Q_OBJECT
@@ -97,7 +99,7 @@ target_include_directories(RopView PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
 #link libraries
 target_link_libraries(RopView PRIVATE ${OpenCV_LIBS})
 target_link_libraries(RopView PRIVATE opencv_ml opencv_dnn opencv_core opencv_flann)
-target_link_libraries(RopView PRIVATE Qt6::Widgets)
+target_link_libraries(RopView PRIVATE Qt6::Widgets Qt6::OpenGL)
 target_link_libraries(RopView PRIVATE Qt6::Charts)
 target_link_libraries(RopView PRIVATE Vulkan::Vulkan)
 target_link_libraries(RopView PRIVATE glm::glm)

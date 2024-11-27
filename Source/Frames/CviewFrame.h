@@ -30,7 +30,7 @@ private:
 
 public:
     QWidget* createFrame() override;
-    void update() override;
+    void updateOffLine() override;
     void updateRealTime() override;
     void setter_Curpt(int x, int y, int z) {curpt.x = x; curpt.y = y; curpt.z = z;}
 

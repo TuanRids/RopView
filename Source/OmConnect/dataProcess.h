@@ -29,7 +29,7 @@ public:
     ~nDataProcess();
 
     void Stop();
-    void update();
+    void updateRealtimeProcess();
 
 private:
     bool Start();

@@ -136,6 +136,16 @@ void MeshRenderer::releaseResources()
 
 
 void MeshRenderer::startNextFrame() {
+    static QElapsedTimer fpsTimer;
+    static int frameCount = 0;
+    if (!fpsTimer.isValid()) { fpsTimer.start(); }
+    if (fpsTimer.elapsed() >= 1000) {
+        float avgEachFrameTime = fpsTimer.elapsed() / static_cast<float>(frameCount);
+        std::cout << "fps: " << avgEachFrameTime << std::endl;
+        fpsTimer.restart();
+        frameCount = 0;
+    }frameCount++;
+
     VkDevice dev = m_VulWindow->device();
     VkCommandBuffer cb = m_VulWindow->currentCommandBuffer();
     const QSize sz = m_VulWindow->swapChainImageSize();

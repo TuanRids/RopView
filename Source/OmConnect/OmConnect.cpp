@@ -35,7 +35,7 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
             if (!device || !acquisition) throw std::exception("Device or acquisition is null");
             OmConfig->ConfigUpdateSetting();
 			sttlogs->logInfo("Updated the Acquisition.");
-            datProcess->update();
+            datProcess->updateRealtimeProcess();
         }       
         
     }

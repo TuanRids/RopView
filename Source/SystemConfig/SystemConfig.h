@@ -30,7 +30,7 @@ struct VisualizeConfig
     //color Palette upper | lowewr
     int Color_Palette = 0;
     uint16_t BC_Scan_Horizontal = 100;
-    PautModeOmni setPautMode = PautModeOmni::Sectorial;
+    PautModeOmni setPautMode = PautModeOmni::Linear;
     
 };
 

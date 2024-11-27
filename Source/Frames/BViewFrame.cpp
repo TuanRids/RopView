@@ -21,7 +21,7 @@ QWidget* BviewFrame::createFrame() {
     return frame;
 }
 
-void BviewFrame::update() {
+void BviewFrame::updateOffLine() {
     if (isRealTime) isRealTime = false;
     if (scandat.Amplitudes.empty()) return;
 
@@ -32,6 +32,7 @@ void BviewFrame::update() {
 void BviewFrame::updateRealTime()
 {
 
+    return;
     if (!isRealTime) {
         scene->clear();
         isRealTime = true;

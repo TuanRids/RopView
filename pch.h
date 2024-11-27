@@ -23,8 +23,10 @@
 #include <sstream>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+
 // ======== Windows-Specific Headers ============
 #include <windows.h>
+
 // ======== Boost Library ============
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -104,8 +106,22 @@
 // ======== OpenCV CUDA ============
 #include <opencv2/opencv.hpp>
 #include <opencv2/cudawarping.hpp>
+
 // ======== Olympus ============
 #include <Storage/Storage.h>
+
+// ======= OpenGL ============
+#include <QOpenGLWidget>
+#include <QOpenGLFunctions>
+#include <QVector2D>
+#include <QOpenGLBuffer>
+#include <QOpenGLVertexArrayObject>
+#include <QOpenGLShaderProgram>
+#include <QOpenGLShader>
+#include <QVector2D>
+#include <QVector3D>
+#include <QOpenGLWindow>
+#include <QOpenGLFunctions_3_3_Core>
 
 
 // ======== Logs ============
@@ -114,6 +130,7 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h> 
 #include <spdlog/fmt/fmt.h> 
+
 
 
 inline std::filesystem::path getFilePath()

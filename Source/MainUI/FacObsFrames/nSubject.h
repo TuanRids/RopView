@@ -6,85 +6,90 @@
 
 class nSubject {
 private:
-	std::vector<std::shared_ptr<nObserver>> observers;
-	bool isRealTime = false;
-	QTimer* realTimeTimer;
-	QTimer* offlineTimer;
+    std::vector<std::shared_ptr<nObserver>> observers;
+    std::atomic<bool> runRealtime{ false };
+    std::thread realtimeThread;
+    QTimer* offlineTimer;
+    std::mutex fpsmutex;
+    void notifyRealtimeInternal() {
+        if (observers[0]->bufferSize() < 1) return;
+
+        static QElapsedTimer fpsTimer;
+        static int frameCount = 0;
+        if (!fpsTimer.isValid()) { fpsTimer.start(); }
+        if (fpsTimer.elapsed() >= 1000) {
+            float avgEachFrameTime = fpsTimer.elapsed() / frameCount;
+            ReadStatus::getinstance().set_processData(avgEachFrameTime);
+
+            fpsTimer.restart();
+            frameCount = 0;
+        }
+        frameCount++;
+
+        observers[0]->RealDatProcessGPU();
+        
+    }
+
 public:
-	nSubject() : realTimeTimer(new QTimer()), offlineTimer(new QTimer()) {
-		QObject::connect(realTimeTimer, &QTimer::timeout, [this]() {
-			this->notifyRealtime();
-			});
-		QObject::connect(offlineTimer, &QTimer::timeout, [this]() {
-			this->notify();
-			});
-	}
-	~nSubject() { delete realTimeTimer; delete offlineTimer; }
-	void addObserver(const std::shared_ptr<nObserver>& a_object) { observers.push_back(a_object); }
-	void removeObserver(const std::shared_ptr<nObserver>& a_object) {
-		observers.erase(std::remove(observers.begin(), observers.end(), a_object), observers.end());
-	}
-	// Notify all: nullptr
-	void notify() {
-		for (const auto& object : observers)
-		{
-			if (isRealTime) return;
-			object->update();
-		}
-	}
-	void startRealtimeUpdate(int intervalMs) {
-		isRealTime = true;
-		realTimeTimer->start(intervalMs);
-	}
-	void stopRealtimeUpdate() {
-		isRealTime = false;
-		realTimeTimer->stop();
-		observers[0]->clearBuffer() ;
-		observers[0]->clearScandat();
-	}
-	void startNotifyTimer(int intervalMs) {
-		offlineTimer->start(intervalMs);
-	}
-	void stopNotifyTimer() {
-		offlineTimer->stop();
-	}
+    nSubject() : offlineTimer(new QTimer()) {
+        QObject::connect(offlineTimer, &QTimer::timeout, [this]() {
+            this->notify();
+            });
+    }
 
-	void notifyRealtime() {
-		//if (!isRealTime) return;
-		try {
-			static std::deque<float> timeLapses;
-			const int maxSamples = 10;
-			if (observers[0]->bufferSize() < 1) return;
+    ~nSubject() {
+        stopRealtimeUpdate();
+        delete offlineTimer;
+    }
 
-			QElapsedTimer timer;
-			timer.start();
+    void addObserver(const std::shared_ptr<nObserver>& a_object) {
+        observers.push_back(a_object);
+    }
 
-			observers[0]->RealDatProcess();
-			for (const auto& object : observers) {
-				object->updateRealTime();
-			}
+    void removeObserver(const std::shared_ptr<nObserver>& a_object) {
+        observers.erase(std::remove(observers.begin(), observers.end(), a_object), observers.end());
+    }
 
-			float elapsedTime = timer.nsecsElapsed() / 1e6f; 
-			timeLapses.push_back(elapsedTime);
-			if (timeLapses.size() > maxSamples) {
-				timeLapses.pop_front();
-			}
-			float averageTimeLapse = 0;
-			for (float lapse : timeLapses) {
-				averageTimeLapse += lapse;
-			}
-			averageTimeLapse /= timeLapses.size();
+    void notify() {
+        for (const auto& object : observers) {
+            object->updateOffLine();
+        }
+    }
 
-			recordProcessingData::getinstance().set_Fps(averageTimeLapse);
-			
-		}
-		catch (std::exception& e) {
-			nmainUI::statuslogs::getinstance().logCritical(e.what());
-			this->stopRealtimeUpdate();
-			IOmConnect::ReleaseDevice();
-		}
-	}
+    void startRealtimeUpdate() {
+        if (runRealtime) return; // Avoid duplicate threads
+        runRealtime = true;
+        realtimeThread = std::thread([this]() {
+            while (runRealtime) {
+                try {
+                    notifyRealtimeInternal();
+                }
+                catch (const std::exception& e) {
+                    nmainUI::statuslogs::getinstance().logCritical(e.what());
+                    stopRealtimeUpdate();
+                    IOmConnect::ReleaseDevice();
+                }
+            }
+            });
+    }
 
+    void stopRealtimeUpdate() {
+        runRealtime = false;
+        if (realtimeThread.joinable()) {
+            realtimeThread.join();
+        }
+        if (!observers.empty()) {
+            observers[0]->clearBuffer();
+            observers[0]->clearScandat();
+        }
+    }
+
+    void startNotifyTimer(int intervalMs) {
+        offlineTimer->start(intervalMs);
+    }
+
+    void stopNotifyTimer() {
+        offlineTimer->stop();
+    }
 };
-
 #endif

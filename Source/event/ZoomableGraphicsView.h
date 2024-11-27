@@ -26,7 +26,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
-
+    
 private:
     const double zoomFactor;
     bool isPanning;
@@ -38,6 +38,5 @@ private:
     QPointF startPoint;
     QPointF scenePos;
 };
-
 
 #endif // ZOOMABLEGRAPHICSVIEW_H

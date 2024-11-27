@@ -1,6 +1,10 @@
 #include "UIManager.h"
 
 #include "MainUI/OmSettingFrame.h"
+#include "Frames/CviewFrame.h"
+#include "Frames/SviewFrame.h"
+#include "Frames/AviewFrame.h"
+#include "Frames/BviewFrame.h"
 //==============Basic Settings ==============
 namespace nmainUI {
     UIManager::UIManager() : sttlogs(nullptr), nsubject(nullptr), vulkanWindow(nullptr)
@@ -333,7 +337,7 @@ namespace nmainUI {
                 sttlogs->logWarning("Release device! Check your configuration.");
                 StartOmni->setText("Start");
             }
-            nsubject->startRealtimeUpdate(45);
+            nsubject->startRealtimeUpdate();
             });
 
         QObject::connect(stopButton, &QPushButton::clicked, [=]() mutable {
@@ -347,80 +351,54 @@ namespace nmainUI {
     }
     void UIManager::createLogWidget() {
         auto nmainwd = getMainWindow();
-        QDockWidget* logWidget = new QDockWidget(nmainwd);
+        QDockWidget* logWidget = new QDockWidget("Processing Status", nmainwd);
         logWidget->setObjectName("logBottomUIManagerDockWidget");
-        logWidget->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::TopDockWidgetArea);
-
-        logWidget->setTitleBarWidget(new QWidget());
-
+        
         QWidget* logContainer = new QWidget();
-        QHBoxLayout* layout = new QHBoxLayout(logContainer);
+        QVBoxLayout* layout = new QVBoxLayout(logContainer);
         layout->setContentsMargins(0, 0, 0, 0);
+        size_t table_size = 5;
+        QTableWidget* logTable = new QTableWidget(table_size, 2, logContainer); // 4 rows, 2 columns
+        logTable->horizontalHeader()->setVisible(false); // Hide header
+        logTable->verticalHeader()->setVisible(false);   // Hide header
+        logTable->setSelectionMode(QAbstractItemView::NoSelection);
+        logTable->setFocusPolicy(Qt::NoFocus);
+        logTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        logTable->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
 
-        QTextEdit* logOutput1 = new QTextEdit();
-        logOutput1->setLineWrapMode(QTextEdit::NoWrap);
-        logOutput1->setReadOnly(true);
-        logOutput1->setFixedHeight(25);  
 
-        QTextEdit* logOutput11 = new QTextEdit();
-        logOutput11->setLineWrapMode(QTextEdit::NoWrap);
-        logOutput11->setReadOnly(true);
-        logOutput11->setFixedHeight(25);
+        logTable->setItem(0, 0, new QTableWidgetItem("Buffer Size"));
+        logTable->setItem(1, 0, new QTableWidgetItem("Throughput (MB/s)"));
+        logTable->setItem(2, 0, new QTableWidgetItem("Read PAUT (ms)"));
+        logTable->setItem(3, 0, new QTableWidgetItem("Process (ms)"));
+        logTable->setItem(4, 0, new QTableWidgetItem("Sview (ms)"));
 
-        QTextEdit* logOutput2 = new QTextEdit();
-        logOutput2->setLineWrapMode(QTextEdit::NoWrap);
-        logOutput2->setReadOnly(true);
-        logOutput2->setFixedHeight(25);  
+        for (int i = 0; i < table_size; ++i) {
+            logTable->setItem(i, 1, new QTableWidgetItem("-"));
+        }
 
-        QTextEdit* logOutput3 = new QTextEdit();
-        logOutput3->setLineWrapMode(QTextEdit::NoWrap);
-        logOutput3->setReadOnly(true);
-        logOutput3->setFixedHeight(25); 
-
-        logOutput1->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        logOutput1->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        logOutput2->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        logOutput2->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        logOutput3->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        logOutput3->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-
-        layout->addWidget(logOutput1);
-        layout->addWidget(logOutput11);
-        layout->addWidget(logOutput2);
-        layout->addWidget(logOutput3);
-
+        layout->addWidget(logTable);
         logWidget->setWidget(logContainer);
 
         QTimer* timer = new QTimer(logWidget);
-        QObject::connect(timer, &QTimer::timeout, [logOutput1, logOutput11, logOutput2, logOutput3]() {
-            static auto readPAUTstatus = &recordReadingPAUT::getinstance();
-            static auto processdataStatus = &recordProcessingData::getinstance();
+        QObject::connect(timer, &QTimer::timeout, [logTable]() {
+            static std::mutex mtx;
+            static auto readStatus = &ReadStatus::getinstance();
             size_t buffer = std::make_shared<upFrame>()->bufferSize();
 
-            logOutput1->clear();
-            QString text1 = QString("Buffer Size: %1").arg(static_cast<int>(buffer));
-            logOutput1->append(text1);
-
-            logOutput2->clear();
-            QString text2 = QString("Throughput Mbs: %1").arg(readPAUTstatus->get(), 0, 'f', 2);
-            logOutput2->append(text2);
-
-            logOutput11->clear();
-            QString text11 = QString("Read FPS Size: %1").arg(readPAUTstatus->get_FPS(), 0, 'f', 2);
-            logOutput11->append(text11);
-
-            logOutput3->clear();
-            QString text3 = QString("Frame Time ms: %1").arg(processdataStatus->get_FPS(), 0, 'f', 2);
-            logOutput3->append(text3);
-
+            logTable->item(0, 1)->setText(QString::number(static_cast<int>(buffer)));
+            logTable->item(1, 1)->setText(QString::number(readStatus->get_throughout(), 'f', 2));
+            logTable->item(2, 1)->setText(QString::number(readStatus->get_readPAUT(), 'f', 2));
+            logTable->item(3, 1)->setText(QString::number(readStatus->get_processData(), 'f', 2));
+            logTable->item(4, 1)->setText(QString::number(readStatus->get_sviewfps(), 'f', 2));
+            //table_size
             });
 
-        timer->start(100);
-
+        timer->start(1000);
         logWidget->show();
-
         nmainwd->addDockWidget(Qt::BottomDockWidgetArea, logWidget);
-    }   
+    }
+
 //============== Create Frame Widgets ==============
 
     QWidget* UIManager::addFrameName(const QString& name, QWidget* frame) {
@@ -428,10 +406,9 @@ namespace nmainUI {
             QVBoxLayout* layout = new QVBoxLayout(frame);
             layout->setContentsMargins(0, 0, 0, 0);
         }
-
         QLabel* label = new QLabel(name, frame);
         label->setStyleSheet("color: red; font-weight: bold; background-color: rgba(0, 0, 0, 0);");
-        label->setGeometry(30, 10, 100, 20);
+        label->setGeometry(0, -5, 100, 20);
 
         label->setAttribute(Qt::WA_TransparentForMouseEvents);
         label->raise();
@@ -459,9 +436,18 @@ namespace nmainUI {
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
 
-        auto SviewFrame = nFactoryFrame::crSViewFrm();
-        nsubject->addObserver(SviewFrame);
-        layout->addWidget(SviewFrame->createFrame());
+        QSurfaceFormat format;
+        format.setDepthBufferSize(24);
+        format.setStencilBufferSize(8);
+        format.setVersion(3, 3);
+        format.setProfile(QSurfaceFormat::CoreProfile);
+        format.setSwapInterval(0);
+        QSurfaceFormat::setDefaultFormat(format);
+
+        auto sViewFrm = nFactoryFrame::crSViewFrm(SscanWidget);
+        nsubject->addObserver(sViewFrm);
+        layout->addWidget(sViewFrm->createFrame());
+
 
         return addFrameName("Sscan", SscanWidget);
     }
@@ -493,12 +479,12 @@ namespace nmainUI {
     }
     QWidget* UIManager::create3DFrame() {
         QWidget* VWidget = new QWidget();
-
+        
         // Initialize Vulkan instance
         QVulkanInstance* inst = new QVulkanInstance();
         inst->setApiVersion(QVersionNumber::fromString("1.2"));
-
-
+        
+        
         inst->setLayers({ "VK_LAYER_KHRONOS_validation" });
         if (!inst->create()) {
             qFatal("Failed to create Vulkan instance");
@@ -508,12 +494,11 @@ namespace nmainUI {
         vulkanWindow = new VulkanWindow;
         vulkanWindow->setVulkanInstance(inst);
         vulkanWindow->GetDeviceInfo();
-        // Set the layout to display the window
+         // Set the layout to display the window
         QVBoxLayout* layout = new QVBoxLayout(VWidget);
         layout->addWidget(QWidget::createWindowContainer(vulkanWindow));
         layout->setContentsMargins(0, 0, 0, 0);
-
-
+        
         return VWidget;
     }
 

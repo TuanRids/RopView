@@ -47,6 +47,7 @@ void ZoomableGraphicsView::leaveEvent(QEvent* event) {
 
 void ZoomableGraphicsView::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
+
         scenePos = mapToScene(event->pos());
         // reg zoom
         startPoint = mapToScene(event->pos());

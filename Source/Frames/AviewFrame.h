@@ -27,7 +27,7 @@ private:
 public:
 
     QWidget* createFrame() override;
-    void update() override;
+    void updateOffLine() override;
     void updateRealTime() override ;
 
 };

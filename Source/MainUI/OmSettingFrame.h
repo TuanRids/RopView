@@ -3,7 +3,7 @@
 
 #include "../pch.h"
 #include "SystemConfig/ConfigLocator.h"
-class OmSettingFrame : public QWidget {
+class OmSettingFrame {
 public:
     static OmSettingFrame *getInstance() {
         static OmSettingFrame Instance;
@@ -14,15 +14,24 @@ public:
 		}
 		return &Instance;
 	}      
+    QWidget* getWidget() const {
+        return widgetContainer;
+    }
 
 private:
+    QWidget* widgetContainer = nullptr;
+
     void initSettingFrames() {
         isreal = true;
         auto mainWindow = getMainWindow();
+
         QDockWidget* dockWidget = new QDockWidget(mainWindow);
         dockWidget->setWindowTitle("Settings");
         dockWidget->setObjectName("SettingsUIManagerDockWidget");
         dockWidget->setMaximumHeight(250);
+
+        widgetContainer = new QWidget();
+        QVBoxLayout* mainLayout = new QVBoxLayout(widgetContainer);
 
         settingModeWidget = new QTabWidget();
 
@@ -38,18 +47,20 @@ private:
         setupConfigTabContent(setupConfigLayout);
         settingModeWidget->addTab(setupConfigTab, "Config");
 
-        QVBoxLayout* mainLayout = new QVBoxLayout(this);
         mainLayout->addWidget(settingModeWidget);
-
-        settingModeWidget->setVisible(true);
+        widgetContainer->setLayout(mainLayout);
 
         dockWidget->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::TopDockWidgetArea);
-        dockWidget->setWidget(this);
+        dockWidget->setWidget(widgetContainer);
         mainWindow->addDockWidget(Qt::TopDockWidgetArea, dockWidget);
         dockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     }
+
     unsigned int cwidth = 300;
     OmSettingFrame() {};
+    QTabWidget* settingModeWidget = nullptr;
+    bool isreal;
+
     QSpinBox* createSpinBox(int min, int max, int value, QGridLayout* layout, QString name,int row, int column,  std::function<void(int)> slotFunction ) {
         QSpinBox* spinBox = new QSpinBox();
         spinBox->setRange(min, max);
@@ -58,7 +69,7 @@ private:
         spinBox->setAlignment(Qt::AlignRight);  // Align numbers to the right
         spinBox->setMinimumWidth(80);  // Ensure a consistent width for numbers
         spinBox->setMinimumHeight(10);  // Set minimum height for input box
-        connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), slotFunction);
+        QObject::connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), slotFunction);
         addSettingToGrid(layout, name, spinBox,row, column);
         return spinBox;
     }
@@ -70,13 +81,11 @@ private:
         doubleSpinBox->setAlignment(Qt::AlignRight);  // Align numbers to the right
         doubleSpinBox->setMinimumWidth(80);  // Ensure a consistent width for numbers
         doubleSpinBox->setMinimumHeight(10);  // Set minimum height for input box
-        connect(doubleSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), slotFunction);
+        QObject::connect(doubleSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), slotFunction);
         addSettingToGrid(layout, name, doubleSpinBox,row, column);
         return doubleSpinBox;
     }
 
-    QTabWidget* settingModeWidget;
-    bool isreal;
         
     void setupScanPlanTab(QHBoxLayout* layout) {
         auto scanPlan = OmSetupL::getInstance().OMS;
@@ -130,7 +139,7 @@ private:
             ascanDataSizeComboBox->setCurrentIndex(index);
             layout2->addWidget(new QLabel("Ascan Data Size"), x, y);
             layout2->addWidget(ascanDataSizeComboBox, x, ++y);
-            connect(ascanDataSizeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+            QObject::connect(ascanDataSizeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
                 scanPlan->Digi_Ampli_AscanSize = static_cast<Instrumentation::IAmplitudeSettings::AscanDataSize>(ascanDataSizeComboBox->currentData().toInt());
                 });
 
@@ -142,7 +151,7 @@ private:
             scalingTypeComboBox->setCurrentIndex(static_cast<int>(scanPlan->Digi_Ampli_Scaling));
             layout2->addWidget(new QLabel("Scaling Type"), ++x, --y);
             layout2->addWidget(scalingTypeComboBox, x, ++y);
-            connect(scalingTypeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+            QObject::connect(scalingTypeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
                 scanPlan->Digi_Ampli_Scaling = static_cast<Instrumentation::IAmplitudeSettings::ScalingType>(scalingTypeComboBox->currentData().toInt());
                 });
 
@@ -155,7 +164,7 @@ private:
             rectificationTypeComboBox->setCurrentIndex(static_cast<int>(scanPlan->Digi_Ampli_rectification));
             layout2->addWidget(new QLabel("Rectification Type"), ++x, --y);
             layout2->addWidget(rectificationTypeComboBox, x, ++y);
-            connect(rectificationTypeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+            QObject::connect(rectificationTypeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
                 scanPlan->Digi_Ampli_rectification = static_cast<Instrumentation::IAmplitudeSettings::RectificationType>(rectificationTypeComboBox->currentData().toInt());
                 nmainUI::statuslogs::getinstance().logInfo("Synchro Mode: " + std::to_string(static_cast<int>(scanPlan->Digi_Ampli_rectification)));
                 });
@@ -174,7 +183,7 @@ private:
             synchroModeComboBox->setCurrentIndex(static_cast<int>(scanPlan->Digi_Time_Synch));
             layout2->addWidget(new QLabel("Synchro Mode"), x, y);
             layout2->addWidget(synchroModeComboBox, x, ++y);
-            connect(synchroModeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+            QObject::connect(synchroModeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
                 scanPlan->Digi_Time_Synch = static_cast<Instrumentation::ITimeSettings::AscanSynchroMode>(synchroModeComboBox->currentData().toInt());
                 nmainUI::statuslogs::getinstance().logInfo("Synchro Mode: " + std::to_string(static_cast<int>(scanPlan->Digi_Time_Synch)));
                 });
@@ -201,7 +210,7 @@ private:
             decimationFactorComboBox->setCurrentIndex(Deindex);
             layout2->addWidget(new QLabel("Decimation Factor"), ++x, --y);
             layout2->addWidget(decimationFactorComboBox, x, ++y);
-            connect(decimationFactorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+            QObject::connect(decimationFactorComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
                 scanPlan->Digi_Time_DecimaFactor = static_cast<Instrumentation::ITimeSettings::SamplingDecimationFactor>(decimationFactorComboBox->currentData().toInt());
                 nmainUI::statuslogs::getinstance().logInfo("Decimation Factor changed to " + std::to_string(static_cast<int>(scanPlan->Digi_Time_DecimaFactor)));
                 });
@@ -255,7 +264,7 @@ private:
             BoxPautMode->setCurrentIndex(DeModeid);
             layout4->addWidget(new QLabel("PAUT Mode"), x, y);
             layout4->addWidget(BoxPautMode, x, ++y);
-            connect(BoxPautMode, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+            QObject::connect(BoxPautMode, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
                 ConfigLocator::getInstance().visualConfig->setPautMode = static_cast<PautModeOmni>(BoxPautMode->currentData().toInt());
                 nmainUI::statuslogs::getinstance().logInfo("PAUT Mode changed to " + std::to_string(static_cast<int>(ConfigLocator::getInstance().visualConfig->setPautMode)));
                 });
@@ -285,25 +294,25 @@ private:
         auto setupConfig = OmSetupL::getInstance().OMS;
         return;
     }
-
     void addSettingToGrid(QGridLayout* layout, const QString& label, QWidget* widget, int row, int column) {
         QLabel* labelWidget = new QLabel(label);
         labelWidget->setAlignment(Qt::AlignCenter);
 
-        layout->addWidget(labelWidget, row, column * 2); 
-        layout->addWidget(widget, row, column * 2 + 1); 
+        layout->addWidget(labelWidget, row, column * 2);
+        layout->addWidget(widget, row, column * 2 + 1);
     }
+
     void addSetting(QVBoxLayout* layout, const QString& label, QWidget* widget) {
         QHBoxLayout* hLayout = new QHBoxLayout();
 
         QLabel* labelWidget = new QLabel(label);
-        labelWidget->setAlignment(Qt::AlignCenter); 
+        labelWidget->setAlignment(Qt::AlignCenter);
 
         hLayout->addWidget(labelWidget);
         hLayout->addWidget(widget);
         layout->addLayout(hLayout);
     }
-
 };
+
 
 #endif

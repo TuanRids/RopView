@@ -2,6 +2,7 @@
 #define FACTORYMGR_H
 #include "../pch.h"
 #include "../mainwindow.h"
+
 // forward declaration for fixing Circular reference
 class CviewFrame; // Oxy
 class SviewFrame; // Oyz
@@ -12,7 +13,7 @@ class BviewFrame; // Oxz
 class nFactoryFrame {
 public:
 	static std::shared_ptr<CviewFrame> crCviewFrm();
-    static std::shared_ptr<SviewFrame> crSViewFrm();
+    static std::shared_ptr<SviewFrame> crSViewFrm(QWidget* SscanWidget);
     static std::shared_ptr<AviewFrame> crAviewFrm();
     static std::shared_ptr<BviewFrame> crBviewFrm();
 };

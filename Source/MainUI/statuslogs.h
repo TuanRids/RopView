@@ -104,49 +104,35 @@ namespace nmainUI {
 
 
 
-class recordReadingPAUT
+class ReadStatus
 {
 private:
-    std::atomic<float> throughout;
-    std::atomic<float> readingfps;
+    std::atomic<float> fps_allScan { 0 };
+    std::atomic<float> throughout{ 0 };
+    std::atomic<float> readingfps{ 0 };
+    std::atomic<float> sviewfps{ 0 };
 
-    recordReadingPAUT() : throughout(0) {}
-    ~recordReadingPAUT() = default;
+    ReadStatus() : throughout(0) {}
+    ~ReadStatus() = default;
 
-    recordReadingPAUT(const recordReadingPAUT&) = delete;
-    recordReadingPAUT& operator=(const recordReadingPAUT&) = delete;
+    ReadStatus(const ReadStatus&) = delete;
+    ReadStatus& operator=(const ReadStatus&) = delete;
 
 public:
-    static recordReadingPAUT& getinstance() {
-        static recordReadingPAUT instance;
+    static ReadStatus& getinstance() {
+        static ReadStatus instance;
         return instance;
     }
 
-    void set(float value) { throughout = value; }/* Throughout*/
-    void set_Fps(float value) { readingfps = value; }/* FPS*/
-    float get() { return throughout.load(); } /* Throughout*/
-    float get_FPS() { return readingfps.load(); }/* FPS*/
-};
+    void set_throughout(float value) { throughout = value; }/* Throughout*/
+    void set_readPAUT(float value) { readingfps = value; }/* FPS*/
+    void set_processData(float value) { fps_allScan = value; }
+    void set_sviewfps(float value) { sviewfps = value; }
 
-class recordProcessingData
-{
-private:
-    std::atomic<float> fps_allScan;
-
-    recordProcessingData() {}
-    ~recordProcessingData() = default;
-
-    recordProcessingData(const recordProcessingData&) = delete;
-    recordProcessingData& operator=(const recordProcessingData&) = delete;
-
-public:
-    static recordProcessingData& getinstance() {
-        static recordProcessingData instance;
-        return instance;
-    }
-
-    void set_Fps(float value) { fps_allScan = value; }/* FPS*/
-    float get_FPS() { return fps_allScan.load(); }/* FPS*/
+    float get_throughout() { return throughout.load(); } /* Throughout*/
+    float get_readPAUT() { return readingfps.load(); }/* FPS*/
+    float get_processData() { return fps_allScan.load(); }
+    float get_sviewfps() { return sviewfps.load(); }
 };
 
 

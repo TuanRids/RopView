@@ -29,7 +29,7 @@ QWidget* AviewFrame::createFrame() {
     return frame;
 }
 
-void AviewFrame::update() 
+void AviewFrame::updateOffLine()
 {
     static bool first_flag = false;
     // ********** PARAMETER VALIDATION **********
@@ -91,6 +91,8 @@ void AviewFrame::update()
 
 void AviewFrame::updateRealTime()
 {
+
+    return;
     static bool first_flag = false;
     try {
         if (nAscanCollection.empty()) return;
