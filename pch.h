@@ -23,6 +23,8 @@
 #include <sstream>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <shared_mutex>
+
 
 // ======== Windows-Specific Headers ============
 #include <windows.h>

@@ -12,8 +12,11 @@ private:
     QTimer* offlineTimer;
     std::mutex fpsmutex;
     void notifyRealtimeInternal() {
-        if (observers[0]->bufferSize() < 1) return;
 
+        
+        if (observers[0]->bufferSize() < 1) return;
+        observers[0]->RealDatProcessGPU();
+        
         static QElapsedTimer fpsTimer;
         static int frameCount = 0;
         if (!fpsTimer.isValid()) { fpsTimer.start(); }
@@ -25,9 +28,6 @@ private:
             frameCount = 0;
         }
         frameCount++;
-
-        observers[0]->RealDatProcessGPU();
-        
     }
 
 public:
@@ -71,6 +71,9 @@ public:
                 }
             }
             });
+        for (const auto& object : observers) {
+            object->updateRealTime();
+        }         //  notify once time for switch the graphic viewport
     }
 
     void stopRealtimeUpdate() {
@@ -90,6 +93,7 @@ public:
 
     void stopNotifyTimer() {
         offlineTimer->stop();
+        nmainUI::statuslogs::getinstance().logNotify(" Stop Offline Timer.");
     }
 };
 #endif

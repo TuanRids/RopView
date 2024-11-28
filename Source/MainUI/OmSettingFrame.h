@@ -222,7 +222,7 @@ private:
 
                 });
             // Band Pass Filter
-            createSpinBox(1, 326, scanPlan->Rate, layout2, "Cycle Rate", 3, 1, [=](double value) {
+            createSpinBox(1, 1000, scanPlan->Rate, layout2, "Cycle Rate", 3, 1, [=](double value) {
                 scanPlan->Rate = static_cast<size_t>(value);
                 });
         }

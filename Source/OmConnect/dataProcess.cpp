@@ -71,7 +71,6 @@ void nDataProcess::Run()
             }
             frameCount++;
 
-            std::lock_guard<std::mutex> lock(m_mtx);                   
             auto waitForDataResult = acquisition->WaitForDataEx();
             if ( !acquisition || waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
             {
@@ -79,16 +78,19 @@ void nDataProcess::Run()
                 continue;
             }
             if (waitForDataResult.cycleData == nullptr) continue;   
-            obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+            {
+                // use unique_lock for writing the data
+                std::unique_lock<std::shared_mutex> lock(obser->getCollectionMutex());
+                obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+            }
             readfps->set_throughout(acquisition->GetThroughput());
 
             if (waitForDataResult.cycleData->GetCscanCollection()->GetCount() > 0)
             {
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
-            }       
-            
-       
+            } 
+
             if (isUpdate)
             {
                 acquisition->ApplyConfiguration();
@@ -103,7 +105,6 @@ void nDataProcess::Run()
         cout << "ERROR : " << e.what() << "\n";
         m_running = false;
         acquisition->Stop();
-        std::lock_guard<std::mutex> lock(m_mtx);
         nmainUI::statuslogs::getinstance().logCritical("Exception found: " + std::string(e.what()));
     }
     cout << "Stop " << "\n";

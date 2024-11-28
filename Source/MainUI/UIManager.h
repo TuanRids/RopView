@@ -56,6 +56,10 @@ namespace nmainUI {
         std::shared_ptr<nSubject> nsubject;
         nmainUI::statuslogs* sttlogs = nullptr;
         QSettings* settings = nullptr;
+
+        // multiple functions variables
+        QPushButton* StartOmni;
+
     };
 }
 

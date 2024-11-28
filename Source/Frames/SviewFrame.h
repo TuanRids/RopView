@@ -13,28 +13,26 @@
 class SviewFrame : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core, public nObserver {
     Q_OBJECT
 private:
+    // Functions
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
     void addPoints(bool Cviewlink, int x, int y);
+    std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
+    // View Variables
     std::shared_ptr<XYOverlayGrid> overlay = nullptr;
     std::shared_ptr<QGraphicsScene> scene;
-    std::shared_ptr<QGraphicsView> graphicsView;
-
+    std::shared_ptr<ZoomableGraphicsView> graphicsView;
+    // Offline Variables
     uint64_t ysize, xsize, zsize;
     std::shared_ptr<cv::Mat> orgimage;
     std::shared_ptr<cv::Mat> scaledImage;
-    std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
-    bool isRealTime = false;
-
+    bool isRealTime = true;
+    // RealtimeGPU Variables
+    QVBoxLayout* layout;
     std::unique_ptr<QOpenGLShaderProgram> shaderProgram = nullptr;
     QOpenGLVertexArrayObject vao;
     QOpenGLBuffer vbo;
-    GLuint fbo = 0;
-    GLuint VAO, VBO, EBO, textureID;
-    GLuint texture = 0;
-    GLuint depthBuffer = 0;
     QOffscreenSurface* surface;
-    // sharedptr scaleX Y
-    std::shared_ptr<float> scaleXPtr, scaleYPtr;
+
 public:
     explicit SviewFrame(QWidget* parent = nullptr);
     QWidget* createFrame() override;

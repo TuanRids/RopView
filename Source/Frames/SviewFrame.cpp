@@ -3,16 +3,14 @@
 #include "SystemConfig/ConfigLocator.h"
 
 SviewFrame::SviewFrame(QWidget* parent)
-    : QOpenGLWidget(parent), surface(new QOffscreenSurface), scaleXPtr(nullptr), scaleYPtr(nullptr)
+    : QOpenGLWidget(parent), surface(new QOffscreenSurface)
 {
     QOpenGLWidget::setUpdateBehavior(QOpenGLWidget::PartialUpdate);
-    // connect(this, &SviewFrame::aboutToCompose, this, &SviewFrame::initGLSlot);
-    //connect(this, &SviewFrame::frameSwapped, this, &SviewFrame::paintGLSlot);
 }
 
 QWidget* SviewFrame::createFrame() {
     if (!graphicsView) {
-        graphicsView = std::make_shared<QGraphicsView>();
+        graphicsView = std::make_shared<ZoomableGraphicsView>();
     }
     if (!scene) {
         scene = std::make_shared<QGraphicsScene>();
@@ -22,26 +20,20 @@ QWidget* SviewFrame::createFrame() {
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    QVBoxLayout* layout = new QVBoxLayout();
+    layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-
-    //auto* openglwidget = new QOpenGLWidget(graphicsView.get());
-	//layout->addWidget(openglwidget);
-    
-//    connect(openglwidget, &QOpenGLWidget::aboutToCompose, this, &SviewFrame::initializeGL);
-
     layout->addWidget(this);
     frame->setLayout(layout);
     return frame;
 }
 
-void SviewFrame::initializeGL() {   
+void SviewFrame::initializeGL() {      
     if (!shaderProgram) {
         sttlogs->logNotify("Start initialize OpenGL on GPU for SviewFrame");
         initializeOpenGLFunctions();
-        
+
         std::cout << "OpenGL Context: " << context() << std::endl;
         if (!context()->isValid()) {
             sttlogs->logCritical("OpenGL context is not valid");
@@ -54,54 +46,54 @@ void SviewFrame::initializeGL() {
         shaderProgram = std::make_unique<QOpenGLShaderProgram>();
         shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
             R"(
-            #version 330 core
-            layout (location = 0) in vec2 position;
-            layout (location = 1) in vec3 color;
+        #version 330 core
+        layout (location = 0) in vec2 position;
+        layout (location = 1) in vec3 color;
 
-            uniform vec2 u_Scale;
-            out vec3 vertexColor;
+        uniform vec2 u_Scale;
+        out vec3 vertexColor;
 
-            void main() {
-                gl_Position = vec4(position.x * u_Scale.x, position.y * u_Scale.y , 0.0, 1.0);
-                vertexColor = color;
-            }
-            )");
-        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Geometry,
+        void main() {
+            gl_Position = vec4(position.x * u_Scale.x, position.y * u_Scale.y , 0.0, 1.0);
+            vertexColor = color;
+        }
+
+        )");
+        /*shaderProgram->addShaderFromSourceCode(QOpenGLShader::Geometry,
             R"(
-            #version 330 core
-            layout(points) in;
-            layout(points, max_vertices = 100) out;
+        #version 330 core
+        layout(points) in;
+        layout(points, max_vertices = 100) out;
 
-            in vec3 vertexColor[]; 
-            out vec3 fragColor;   
+        in vec3 vertexColor[]; 
+        out vec3 fragColor;   
 
-            uniform int u_Density; 
+        uniform int u_Density; 
 
-            void main() {
-                float step = 2.0 / (u_Density * gl_in.length());
+        void main() {
+            float step = 2.0 / (u_Density * gl_in.length());
 
-                for (int i = 0; i < u_Density; ++i) {
-                    vec4 newPos = gl_in[0].gl_Position + vec4(step * i, 0.0, 0.0, 0.0); 
-                    gl_Position = newPos;   
-                    fragColor = vertexColor[0]; 
-                    EmitVertex();
-                }
-                EndPrimitive();
-
+            for (int i = 0; i < u_Density; ++i) {
+                vec4 newPos = gl_in[0].gl_Position + vec4(step * i, 0.0, 0.0, 0.0); 
+                gl_Position = newPos;   
+                fragColor = vertexColor[0]; 
+                EmitVertex();
             }
-            )");
+            EndPrimitive();
+
+        }
+        )");*/
 
         shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
             R"(
-            #version 330 core
-            in vec3 fragColor; 
-            out vec4 FragColor;
+        #version 330 core
+        in vec3 vertexColor; 
+        out vec4 FragColor;
 
-            void main() {
-                FragColor = vec4(fragColor, 1.0);
-            }
-
-            )");
+        void main() {
+            FragColor = vec4(vertexColor, 1.0);
+        }
+        )");
         shaderProgram->link();
         shaderProgram->bind();
 
@@ -127,34 +119,29 @@ void SviewFrame::initializeGL() {
         vbo.release();
         shaderProgram->release();
     }
+    
     connect(this, &QOpenGLWidget::frameSwapped, this, [&]() {
         QOpenGLWidget::update();
         });
-
     QOpenGLWidget::update();
 }
 
 void SviewFrame::paintGL() {
     // TODO if zoom: only draw in the visible area for faster rendering
-
-
+    
     static QOpenGLContext* context = QOpenGLContext::currentContext();
     if (!context) {
         sttlogs->logCritical("OpenGL context is not valid");
         return;
     }
-    
 
-    // glViewport(0, 0, width(), height());
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glPointSize(5.0f);
+    glPointSize(3.0f);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     shaderProgram->bind();
 
     shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
-    shaderProgram->setUniformValue("u_Density", 3);
+    //shaderProgram->setUniformValue("u_Density", 1);
 
     if (!vertice_sview.isEmpty()) {
 
@@ -171,7 +158,7 @@ void SviewFrame::paintGL() {
 #endif
         }
         frameCount++;
-        
+
         vao.bind();
         vbo.bind();
 
@@ -181,7 +168,7 @@ void SviewFrame::paintGL() {
 
 #ifdef _DEBUG
         GLenum err = glGetError();
-        if (err != GL_NO_ERROR) { qDebug() << "GL error: " << err ; }
+        if (err != GL_NO_ERROR) { qDebug() << "GL error: " << err; }
 #endif
         // Draw points
         glDrawArrays(GL_POINTS, 0, vertice_sview.size());
@@ -189,20 +176,30 @@ void SviewFrame::paintGL() {
         vao.release();
         vbo.release();
     }
-
     shaderProgram->release();
     glFlush();
-    glFinish();
+    
 }
 
 void SviewFrame::resizeGL(int w, int h) {
     glViewport(0, 0, w, h);
+#ifndef _DEBUG
     std::cout << "Size: " << w << "x" << h << std::endl;
+#endif
 }
 
 void SviewFrame::updateRealTime()
 {    
-
+    if (!isRealTime)
+    {
+        if (graphicsView) {
+            layout->removeWidget(graphicsView.get());
+            graphicsView->hide();
+        }
+        layout->addWidget(this);
+        this->show();
+        isRealTime = true;
+    }
 
     //makeCurrent();
     //paintGL();     
@@ -257,9 +254,16 @@ void SviewFrame::updateRealTime()
 }
 
 
-
 void SviewFrame::updateOffLine() {
-    isRealTime = false;
+    if (isRealTime)
+    {
+        layout->removeWidget(this);
+        this->hide();
+        layout->addWidget(graphicsView.get());
+        graphicsView->show();
+        isRealTime = false;
+    }
+
     if (scandat.Amplitudes.empty()) return;
     zsize = scandat.AmplitudeAxes[0].Quantity;
     ysize = scandat.AmplitudeAxes[1].Quantity;

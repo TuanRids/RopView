@@ -30,20 +30,20 @@ public:
 	void setScandat(const AscanData& dataa) { scandat = dataa; }
 	void clearScandat() { scandat = AscanData(); ArtScan->resetAll(); }
 	void clearBuffer() { nAscanCollection.clear(); }
-	void popFront() {};
+	std::shared_mutex &getCollectionMutex() { return collectionMutex; }
 
 	void RealDatProcess();
 	void RealDatProcessGPU();
 	size_t bufferSize() { return nAscanCollection.size(); }
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {
-		std::lock_guard<std::mutex> lock(collectionMutex);
 		if (!_nAscanCollection) return;
 		nAscanCollection.push_back(_nAscanCollection);		
 	}
 
 protected:
 	static QVector<VertexData> vertice_sview; // temporary
-
+	//static QVector<VertexData> vertice_bview; // temporary
+	static QVector<VertexData> vertice_cview; // temporary
 
 	ConfigLocator* ConfigL = &ConfigLocator::getInstance();
 	OmSetupL oms = OmSetupL::getInstance();
@@ -54,7 +54,9 @@ protected:
 	static deque<shared_ptr<IAscanCollection>> nAscanCollection;
 	std::vector<Color> CreateColorPalette(int gainFactor );
 	static UIArtScan* ArtScan;
-	std::mutex collectionMutex;
+	std::shared_mutex collectionMutex;
+
+	std::mutex ArtScanMutex;
 private:
 	static size_t _buffSize;
 };

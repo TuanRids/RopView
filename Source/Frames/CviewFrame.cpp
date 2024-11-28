@@ -2,53 +2,143 @@
 #include "CviewFrame.h"
 //#include <opencv2/cudawarping.hpp> 
 
+CviewFrame::CviewFrame(QWidget* parent): QOpenGLWidget(parent), surface(new QOffscreenSurface)
+{
+    QOpenGLWidget::setUpdateBehavior(QOpenGLWidget::PartialUpdate);
+}
+
 QWidget* CviewFrame::createFrame(){
-    if (!scene) { scene = new QGraphicsScene; }
-    if (!graphicsView) { graphicsView = new ZoomableGraphicsView; }
-    graphicsView->setScene(scene);
+    if (!graphicsView) {
+        graphicsView = std::make_shared<ZoomableGraphicsView>();
+    }
+    if (!scene) {
+        scene = std::make_shared<QGraphicsScene>();
+    }
+    graphicsView->setScene(scene.get());
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatioByExpanding);
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    //    MouseGetPosXY();
 
-    MouseGetPosXY();
-
-    // Create layout and frame
-    QVBoxLayout* layout = new QVBoxLayout();    
+    layout = new QVBoxLayout();
+    QWidget* frame = new QWidget();
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(graphicsView);
-        
-    // Container
-    QWidget* containerWidget = new QWidget();
-    containerWidget->setLayout(layout);
-    overlay = std::make_shared<XYOverlayGrid>(graphicsView, scene);
-
-    return containerWidget;
-
+    layout->addWidget(this);
+    frame->setLayout(layout);
+    return frame;
 
 }
 
-void CviewFrame::updateOffLine() {
-    isRealTime = false;
-    static int lastResolution = -1;
-    if (scandat.Amplitudes.empty()) { return; }
-    if (lastResolution != ConfigL->sysParams->resolution) {
-        lastResolution = ConfigL->sysParams->resolution;
-        CreateXYview();
-    }
-    // if Bscan and Cscan layer
-    if (ConfigL->sysParams->resolution) {
-        CreateXYview();
+
+void CviewFrame::initializeGL() {
+    if (!shaderProgram) {
+        sttlogs->logNotify("Start initialize OpenGL on GPU for CviewFrame");
+        initializeOpenGLFunctions();
+
+        std::cout << "OpenGL Context: " << context() << std::endl;
+        if (!context()->isValid()) {
+            sttlogs->logCritical("OpenGL context is not valid");
+        }
+
+        // Set clear color (background blue)
+        glClearColor(0.0f, 0.0f, 0.5f, 1.0f);
+
+        // Create shader program
+        shaderProgram = std::make_unique<QOpenGLShaderProgram>();
+        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
+            R"(
+        #version 330 core
+        layout (location = 0) in vec2 position;
+        layout (location = 1) in vec3 color;
+
+        uniform vec2 u_Scale;
+        out vec3 vertexColor;
+
+        void main() {
+            gl_Position = vec4(position.x * u_Scale.x, position.y * u_Scale.y, 0.0, 1.0);
+            vertexColor = color;
+        }
+        )");
+        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
+            R"(
+        #version 330 core
+        in vec3 vertexColor; 
+        out vec4 FragColor;
+
+        void main() {
+            FragColor = vec4(vertexColor, 1.0);
+        }
+        )");
+        shaderProgram->link();
+        shaderProgram->bind();
+
+        // Configure vertex and color attributes
+        int vertexLocation = shaderProgram->attributeLocation("position");
+        int colorLocation = shaderProgram->attributeLocation("color");
+
+        vao.create();
+        vao.bind();
+
+        vbo.create();
+        vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
+        vbo.bind();
+        vbo.allocate(vertice_cview.constData(), vertice_cview.size() * sizeof(VertexData));
+
+        glEnableVertexAttribArray(vertexLocation);
+        glVertexAttribPointer(vertexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, position)));
+
+        glEnableVertexAttribArray(colorLocation);
+        glVertexAttribPointer(colorLocation, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, color)));
+
+        vao.release();
+        vbo.release();
+        shaderProgram->release();
     }
 
-    static bool lastIsCscanLayer = false;
-    if (lastIsCscanLayer != ConfigL->sysParams->isCscanLayer) {
-        lastIsCscanLayer = ConfigL->sysParams->isCscanLayer;
-        CreateXYview();
-    }
-    addPoints(true,-1,-1);
+    connect(this, &QOpenGLWidget::frameSwapped, this, [&]() {
+        QOpenGLWidget::update();
+        });
+    QOpenGLWidget::update();
 }
 
+void CviewFrame::paintGL() {
+    static QOpenGLContext* context = QOpenGLContext::currentContext();
+    if (!context) {
+        sttlogs->logCritical("OpenGL context is not valid");
+        return;
+    }
+
+    glPointSize(5.0f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    shaderProgram->bind();
+
+    shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
+
+    if (!vertice_cview.isEmpty()) {
+        vao.bind();
+        vbo.bind();
+
+        // Update vertex buffer data
+        size_t dataSize = vertice_cview.size() * sizeof(VertexData);
+        glBufferData(GL_ARRAY_BUFFER, dataSize, vertice_cview.constData(), GL_DYNAMIC_DRAW);
+
+#ifdef _DEBUG
+        GLenum err = glGetError();
+        if (err != GL_NO_ERROR) { qDebug() << "GL error: " << err; }
+#endif
+        // Draw points
+        glDrawArrays(GL_POINTS, 0, vertice_cview.size());
+
+        vao.release();
+        vbo.release();
+    }
+
+    shaderProgram->release();
+    glFlush();
+    glFinish();
+}
 void CviewFrame::updateRealTime()
 {
     return;
@@ -81,54 +171,38 @@ void CviewFrame::updateRealTime()
     }
     QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
     artworkItem->setData(0, "artwork");
-    /* TODO OPTIMIZE
-    void CviewFrame::updateRealTime() {
-    if (!isRealTime) {
-        scene->clear();
-        isRealTime = true;
-    }
-
-    orgimage = std::make_shared<cv::Mat>(ArtScan->CViewBuf->clone());
-    if (!orgimage) return;
-
-    scaledImage = std::make_unique<cv::Mat>();
-    int originalWidth = orgimage->cols;
-    int newWidth = graphicsView->size().width();
-    int newHeight = graphicsView->size().height();
-
-    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
-    cv::Mat newCol = cv::Mat(scaledImage->rows, 1, scaledImage->type(), cv::Scalar(0, 0, 255));
-    cv::hconcat(*scaledImage, newCol, *scaledImage);
-
-    QImage qImage(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
-    qImage = qImage.rgbSwapped();
-
-    QGraphicsPixmapItem* artworkItem = nullptr;
-    for (auto item : scene->items()) {
-        if (item->data(0).toString() == "artwork") {
-            artworkItem = dynamic_cast<QGraphicsPixmapItem*>(item);
-            break;
-        }
-    }
-
-    if (!artworkItem) {
-        QPixmap pixmap = QPixmap::fromImage(qImage);
-        artworkItem = scene->addPixmap(pixmap);
-        artworkItem->setData(0, "artwork");
-    } else {
-        QPixmap& pixmap = const_cast<QPixmap&>(artworkItem->pixmap());
-        QPainter painter(&pixmap);
-        painter.drawImage(0, 0, qImage);
-        painter.end();
-    }
 
     graphicsView->update();
 }
-
-    */
-    graphicsView->update();
+void CviewFrame::resizeGL(int width, int height)
+{
+    glViewport(0, 0, width, height);
+#ifndef _DEBUG
+    std::cout << "Size: " << width << "x" << height << std::endl;
+#endif
 }
 
+
+void CviewFrame::updateOffLine() {
+    isRealTime = false;
+    static int lastResolution = -1;
+    if (scandat.Amplitudes.empty()) { return; }
+    if (lastResolution != ConfigL->sysParams->resolution) {
+        lastResolution = ConfigL->sysParams->resolution;
+        CreateXYview();
+    }
+    // if Bscan and Cscan layer
+    if (ConfigL->sysParams->resolution) {
+        CreateXYview();
+    }
+
+    static bool lastIsCscanLayer = false;
+    if (lastIsCscanLayer != ConfigL->sysParams->isCscanLayer) {
+        lastIsCscanLayer = ConfigL->sysParams->isCscanLayer;
+        CreateXYview();
+    }
+    addPoints(true,-1,-1);
+}
 void CviewFrame::CreateXYview() {
     // Declaration and initialization
     if (scandat.Amplitudes.empty()) {
@@ -206,7 +280,6 @@ void CviewFrame::CreateXYview() {
     static bool first_flag = true; if (first_flag) graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio); first_flag = false;
     graphicsView->update();
 }
-
 void CviewFrame::addPoints(bool Cviewlink, int x, int y)
 {
     double pixelX= (Cviewlink) ? static_cast<double>(curpt.x) * scaledImage->cols / xsize : static_cast<double>(x);
@@ -215,7 +288,6 @@ void CviewFrame::addPoints(bool Cviewlink, int x, int y)
     if (overlay) { overlay->updatePoints(pixelX, pixelY, Qt::blue, Qt::red); }
     graphicsView->update();
 }
-
 std::pair<int, int> CviewFrame::calculateOriginalPos(int scaled_x, int scaled_y) {
     if (orgimage == nullptr || scaledImage == nullptr) {
         throw std::exception();
@@ -231,11 +303,10 @@ std::pair<int, int> CviewFrame::calculateOriginalPos(int scaled_x, int scaled_y)
     }
     return { original_x, original_y };
 }
-
 void CviewFrame::MouseGetPosXY()
 {
     static int temX{ 0 }, temY{ 0 };
-    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseMoved, [=](int scaled_x, int scaled_y) {
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseMoved, [=](int scaled_x, int scaled_y) {
         try
         {
             temX = scaled_x; temY = scaled_y;
@@ -249,7 +320,7 @@ void CviewFrame::MouseGetPosXY()
         catch (...) { (void)0; }
         });
 
-    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_y) {
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_y) {
         try
         {
             temX = scaled_x; temY = scaled_y;
@@ -262,11 +333,11 @@ void CviewFrame::MouseGetPosXY()
         });
     
 
-    QObject::connect(graphicsView, &ZoomableGraphicsView::mouseLeftView, [=]() {
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseLeftView, [=]() {
         overlay->ClearLineGroup();
         });
 
-    QObject::connect(graphicsView, &ZoomableGraphicsView::nKeyPressedEvent, [=]() {
+    QObject::connect(graphicsView.get(), &ZoomableGraphicsView::nKeyPressedEvent, [=]() {
         for (auto item : scene->items()) {
             if (item->data(0).toString() == "artwork") {
                 graphicsView->fitInView(item->boundingRect(), Qt::KeepAspectRatio);

@@ -9,7 +9,8 @@
     deque<shared_ptr<IAscanCollection>> nObserver::nAscanCollection = deque<shared_ptr<IAscanCollection>>();
     size_t nObserver::_buffSize = 0;
     UIArtScan* nObserver::ArtScan = nullptr;
-    QVector<VertexData> nObserver::vertice_sview = QVector<VertexData>();
+    QVector<VertexData> nObserver::vertice_sview = QVector<VertexData>(); 
+    QVector<VertexData> nObserver::vertice_cview = QVector<VertexData>();
 // Functions *******************************************************************************
 nObserver::nObserver()
 {
@@ -19,70 +20,57 @@ nObserver::nObserver()
 
 
 
-void nObserver::RealDatProcess()
-{
-     
+void nObserver::RealDatProcess() {
     static auto everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
-    std::lock_guard<std::mutex> lock(collectionMutex);
-    while (nAscanCollection.size() > 5) { nAscanCollection.pop_front(); }
-
-    if (!nAscanCollection.front()) {
+    shared_ptr<IAscanCollection> RawAsanDat;
+    {
+        std::shared_lock<std::shared_mutex> lock(collectionMutex);
+        if (nAscanCollection.empty() || !nAscanCollection.front()) {
+            if (!nAscanCollection.empty()) {
+                nAscanCollection.pop_front();
+            }
+            return;
+        }
+        RawAsanDat = std::move(nAscanCollection.front());
         nAscanCollection.pop_front();
-        return;
     }
-    shared_ptr<IAscanCollection> RawAsanDat = std::move(nAscanCollection.front());
-
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
-    QVector<QPointF> points(zsize);
-    cv::Mat cmat; cv::Mat bmat;
-    // aview and sview would be reset as realtime 
 
+    cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
+    QVector<QPointF> points(zsize);
 
     static uint16_t BCsize = 100;
-    {
-        ArtScan->resetASscan();
-        if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
-        {
-            ArtScan->SViewBuf->create(zsize, ysize + sin(oms.OMS->BeamStartAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
-        }
-        else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial)
-        {
-            ArtScan->SViewBuf->create(zsize, ysize + 2 * tan(oms.OMS->BeamStartAngle * M_PI / 180) * zsize, CV_8UC3); ArtScan->SViewBuf->setTo(cv::Scalar(0, 0, 0));
-        }
-        
-        ArtScan->AViewBuf->clear();
-        if (ArtScan->CViewBuf->empty() || ArtScan->BViewBuf->empty()) {
-            ArtScan->CViewBuf->create(ysize, BCsize, CV_8UC3); ArtScan->CViewBuf->setTo(cv::Scalar(0, 0, 0));
-            cmat.create(ysize, BCsize, CV_8UC3);
-            ArtScan->BViewBuf->create(zsize, BCsize, CV_8UC3); ArtScan->BViewBuf->setTo(cv::Scalar(0, 0, 0));
-            bmat.create(zsize, BCsize, CV_8UC3);
-        }
-        else {
-            cmat.create(ArtScan->CViewBuf->rows, ArtScan->CViewBuf->cols, ArtScan->CViewBuf->type());
-            ArtScan->CViewBuf->copyTo(cmat);
-            bmat.create(ArtScan->BViewBuf->rows, ArtScan->BViewBuf->cols, ArtScan->BViewBuf->type());
-            ArtScan->BViewBuf->copyTo(bmat);
-        }
-    }      
-    // Calc for S-scan
-    int centerX = /*ArtScan->SViewBuf->cols / 2*/0;
-    int centerY = 0;
-    double maxRadius = static_cast<double>(ArtScan->SViewBuf->rows);
+
+    // Create temporary buffers to avoid race conditions
+    tempSViewBuf = cv::Mat::zeros(zsize, ysize + (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear ?
+        sin(oms.OMS->BeamStartAngle * M_PI / 180) * zsize :
+        2 * tan(oms.OMS->BeamStartAngle * M_PI / 180) * zsize), CV_8UC3);
+
+    if (ArtScan->CViewBuf->empty() || ArtScan->BViewBuf->empty()) {
+        tempCViewBuf = cv::Mat::zeros(ysize, BCsize, CV_8UC3);
+        tempBViewBuf = cv::Mat::zeros(zsize, BCsize, CV_8UC3);
+    }
+    else {
+        ArtScan->CViewBuf->copyTo(tempCViewBuf);
+        ArtScan->BViewBuf->copyTo(tempBViewBuf);
+    }
+
+    int centerX = 0, centerY = 0;
+    double maxRadius = static_cast<double>(tempSViewBuf.rows);
     double angle_default = -90;
-    //double angleMax = 30 ;
-    //double angleStep = (angleMax - angleMin) / ysize;
+
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
-        double maxAmplitudeCscan = 0; Color maxColor{};
         const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
         double minAmplitude = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMin();
         double maxAmplitudeSampling = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
         double maxAmplitudeUsable = RawAsanDat->GetAscan(beamID)->GetAmplitudeDataRange()->GetFloatingMax();
-        // TODO 2 GPU with openGL...
-        double angle = oms.OMS->BeamStartAngle + angle_default + beamID /** angleStep*/;
+        double angle = oms.OMS->BeamStartAngle + angle_default + beamID;
         double radian = angle * CV_PI / 180.0;
-#pragma omp simd reduction(max:maxAmplitudeCscan)
+        double maxAmplitudeCscan = 0;
+        Color maxColor{};
+
         for (int z = 0; z < zsize; ++z) {
             double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / maxAmplitudeSampling * maxAmplitudeUsable;
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
@@ -90,73 +78,69 @@ void nObserver::RealDatProcess()
             if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear) {
                 int offsetX = static_cast<int>(z * sin(oms.OMS->BeamStartAngle * M_PI / 180));
                 int adjustedX = beamID + offsetX;
-                if (adjustedX >= 0 && adjustedX < ArtScan->SViewBuf->cols && z >= 0 && z < ArtScan->SViewBuf->rows) {
-                    uchar* row_ptr = ArtScan->SViewBuf->ptr<uchar>(z);
-                    row_ptr[adjustedX * 3 + 0] = color.B;
-                    row_ptr[adjustedX * 3 + 1] = color.G;
-                    row_ptr[adjustedX * 3 + 2] = color.R;
+                if (adjustedX >= 0 && adjustedX < tempSViewBuf.cols && z >= 0 && z < tempSViewBuf.rows) {
+                    auto& pixel = tempSViewBuf.at<cv::Vec3b>(z, adjustedX);
+                    pixel = cv::Vec3b(color.B, color.G, color.R);
                 }
             }
             else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial) {
                 double radius = maxRadius * (static_cast<double>(z) / zsize);
                 int x = centerX + static_cast<int>(radius * cos(radian));
                 int y = centerY - static_cast<int>(radius * sin(radian));
-                if (x >= 0 && x < ArtScan->SViewBuf->cols && y >= 0 && y < ArtScan->SViewBuf->rows) {
-                    uchar* row_ptr = ArtScan->SViewBuf->ptr<uchar>(y);
-                    row_ptr[x * 3 + 0] = color.B;
-                    row_ptr[x * 3 + 1] = color.G;
-                    row_ptr[x * 3 + 2] = color.R;
+                if (x >= 0 && x < tempSViewBuf.cols && y >= 0 && y < tempSViewBuf.rows) {
+                    auto& pixel = tempSViewBuf.at<cv::Vec3b>(y, x);
+                    pixel = cv::Vec3b(color.B, color.G, color.R);
                 }
-                if (beamID+1 < ysize) 
-                {
-                    double nextAngle = oms.OMS->BeamStartAngle + angle_default + beamID + 1;
-                    double nextRadian = nextAngle * CV_PI / 180.0;
-                    int next_x = centerX + static_cast<int>(radius * cos(nextRadian));
-                    int next_y = centerY - static_cast<int>(radius * sin(nextRadian));
-                    cv::line(*ArtScan->SViewBuf, cv::Point(x, y), cv::Point(next_x, next_y), cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_4);
-                    
-                }
+            }
+
+            if (percentAmplitude > maxAmplitudeCscan) {
+                maxAmplitudeCscan = percentAmplitude;
+                maxColor = color;
             }
 
             if (oms.OMS->beamCurrentID == beamID) {
                 points[z] = QPointF(percentAmplitude, static_cast<double>(z));
-                bmat.at<cv::Vec3b>(z, 0) = cv::Vec3b(color.B, color.G, color.R);
+                tempBViewBuf.at<cv::Vec3b>(z, 0) = cv::Vec3b(color.B, color.G, color.R);
             }
-            if (percentAmplitude > maxAmplitudeCscan) { maxColor = color; maxAmplitudeCscan = percentAmplitude; }
         }
-        cmat.at<cv::Vec3b>(beamID, 0) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
+        tempCViewBuf.at<cv::Vec3b>(beamID, 0) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
 
+    // Update ArtScan buffers
+    {
+        std::lock_guard<std::mutex> lock(ArtScanMutex);
+        if (ArtScan->SViewBuf) { ArtScan->SViewBuf = nullptr; }
+        ArtScan->SViewBuf = std::make_shared<cv::Mat>(tempSViewBuf);
+        ArtScan->CViewBuf = std::make_shared<cv::Mat>(tempCViewBuf);
+        ArtScan->BViewBuf = std::make_shared<cv::Mat>(tempBViewBuf);
+        *ArtScan->AViewBuf = points;
+    }
 
-
-    *ArtScan->AViewBuf = points;
-
-    ArtScan->CViewBuf->colRange(0, ArtScan->CViewBuf->cols - 1).copyTo(cmat.colRange(1, cmat.cols));
-    ArtScan->CViewBuf = std::make_shared<cv::Mat>(cmat);
-    ArtScan->BViewBuf->colRange(0, ArtScan->BViewBuf->cols - 1).copyTo(bmat.colRange(1, bmat.cols));
-    ArtScan->BViewBuf = std::make_shared<cv::Mat>(bmat);
     RawAsanDat.reset();
 }
 
 void nObserver::RealDatProcessGPU()
 {
+    
     static auto everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
-    std::lock_guard<std::mutex> lock(collectionMutex);
-    while (nAscanCollection.size() > 5) { nAscanCollection.pop_front(); }
-
-    if (!nAscanCollection.front()) {
+    shared_ptr<IAscanCollection> RawAsanDat;
+    {
+        std::unique_lock<std::shared_mutex> lock(collectionMutex);
+        if (nAscanCollection.empty()) {
+            return;
+        }
+        RawAsanDat = std::move(nAscanCollection.front()); 
         nAscanCollection.pop_front();
-        return;
     }
-
-    shared_ptr<IAscanCollection> RawAsanDat = std::move(nAscanCollection.front());
+    if (!RawAsanDat) { return;	}
 
     int zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
     int ysize = static_cast<int>(RawAsanDat->GetCount());
 
-    QVector<VertexData> vertices;
-    vertices.reserve(zsize * ysize);
-
+    QVector<VertexData> tempt_bView;
+    QVector<VertexData> tempt_cView;
+    tempt_bView.reserve(zsize * ysize);
+    tempt_cView.reserve(ysize);
 
     double angle_default = -90;
 #pragma omp parallel for
@@ -168,39 +152,51 @@ void nObserver::RealDatProcessGPU()
         double angle = oms.OMS->BeamStartAngle + angle_default + beamID;
         double radian = angle * CV_PI / 180.0;
 
+        double maxAmplitudeCscan = 0;
+        Color maxColor{};
+
         for (int z = 0; z < zsize; ++z) {
             double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / maxAmplitudeSampling * maxAmplitudeUsable;
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
 
-            VertexData vertex;            
+            VertexData vertex;
             vertex.color = QVector3D(static_cast<float>(color.R) / 255.0f,
                 static_cast<float>(color.G) / 255.0f,
                 static_cast<float>(color.B) / 255.0f);
-            
 
             if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear) {
                 int offsetX = static_cast<int>(z * sin(oms.OMS->BeamStartAngle * M_PI / 180));
                 int adjustedX = beamID + offsetX;
                 if (adjustedX >= 0 && adjustedX < zsize) {
-                    float normalizedX = static_cast<float>(beamID) / zsize * 2.0f - 1.0f;
+                    float normalizedX = static_cast<float>(beamID) / 10 * 2.0f - 1.0f;
                     float normalizedZ = static_cast<float>(z) / zsize * 2.0f - 1.0f;
 
                     vertex.position = QVector2D(normalizedX, normalizedZ);
-                    vertices.append(vertex);
-
-                    /*vertex.position = QVector2D(adjustedX, z);
-                    vertices.append(vertex);*/
+                    tempt_bView.append(vertex);
                 }
             }
             else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial) {
                 // later
             }
+
+            if (percentAmplitude > maxAmplitudeCscan) {
+                maxAmplitudeCscan = percentAmplitude;
+                maxColor = color;
+            }
         }
+
+        VertexData vertex_Cview;
+        vertex_Cview.position = QVector2D(static_cast<float>(beamID) / ysize * 2.0f - 1.0f, 0.0f);
+        vertex_Cview.color = QVector3D(static_cast<float>(maxColor.R) / 255.0f,
+            static_cast<float>(maxColor.G) / 255.0f,
+            static_cast<float>(maxColor.B) / 255.0f);
+        tempt_cView.append(vertex_Cview);
     }
-    if (vertices.size() != 0) vertice_sview = vertices;    
+
+    if (!tempt_cView.isEmpty()) vertice_cview = tempt_cView;
+    if (!tempt_bView.isEmpty()) vertice_sview = tempt_bView;
     RawAsanDat.reset();
 }
-
 std::vector<Color> nObserver::CreateColorPalette(int gainFactor = 0)
 {
     std::vector<Color> colors;

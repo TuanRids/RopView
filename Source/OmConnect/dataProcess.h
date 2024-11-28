@@ -12,7 +12,7 @@ using namespace Instrumentation;
 class nDataProcess
 {
     // internal properties
-    std::mutex m_mtx; std::mutex m_mtx2;
+    std::mutex m_mtx2;
     bool exceptionFound = false;
     std::atomic<bool> m_running{ false };
     std::future<void> m_future;

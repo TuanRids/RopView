@@ -108,7 +108,8 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
         beamSet->GetBeam(iBeam)->SetAscanLength(omSetCof->BeamAEnd);
     }
     acquisition = IAcquisition::CreateEx(device);
-    acquisition->SetRate(omSetCof->Rate);
+    acquisition->SetRate(omSetCof->Rate);    
+    std::cout << acquisition->GetRate() << std::endl;    
     acquisition->ApplyConfiguration();
     nmainUI::statuslogs::getinstance().logInfo("Configured Setting for the device.");
 	return acquisition;

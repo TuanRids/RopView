@@ -43,6 +43,15 @@ void initSpdLog() {
 
 int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     initSpdLog();
+
+    QSurfaceFormat format;
+    format.setDepthBufferSize(24);
+    format.setStencilBufferSize(8);
+    format.setVersion(3, 3);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    format.setSwapInterval(0);
+    QSurfaceFormat::setDefaultFormat(format);
+
     app = new QApplication(argc, argv);
     nsubject = std::make_shared<nSubject>();
     uiManager.getUIPointers(nsubject);

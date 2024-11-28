@@ -319,7 +319,7 @@ namespace nmainUI {
         QVBoxLayout* layout = new QVBoxLayout(settingsWidget);
         layout->setContentsMargins(1, 1, 1, 1);
 
-        QPushButton* StartOmni = new QPushButton("Start");
+        StartOmni = new QPushButton("Start");
         layout->addWidget(StartOmni);
                 
         // Create a button for STOP action
@@ -342,6 +342,7 @@ namespace nmainUI {
 
         QObject::connect(stopButton, &QPushButton::clicked, [=]() mutable {
             nsubject->stopRealtimeUpdate();
+            nsubject->stopNotifyTimer();
             IOmConnect::ReleaseDevice();
             sttlogs->logNotify("Stop!");
             StartOmni->setText("Start");
@@ -370,7 +371,7 @@ namespace nmainUI {
         logTable->setItem(0, 0, new QTableWidgetItem("Buffer Size"));
         logTable->setItem(1, 0, new QTableWidgetItem("Throughput (MB/s)"));
         logTable->setItem(2, 0, new QTableWidgetItem("Read PAUT (ms)"));
-        logTable->setItem(3, 0, new QTableWidgetItem("Process (ms)"));
+        logTable->setItem(3, 0, new QTableWidgetItem("Process (ms)")); // TODO tips only count if there is data in the process  
         logTable->setItem(4, 0, new QTableWidgetItem("Sview (ms)"));
 
         for (int i = 0; i < table_size; ++i) {
@@ -435,15 +436,7 @@ namespace nmainUI {
         QHBoxLayout* layout = new QHBoxLayout(SscanWidget);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
-
-        QSurfaceFormat format;
-        format.setDepthBufferSize(24);
-        format.setStencilBufferSize(8);
-        format.setVersion(3, 3);
-        format.setProfile(QSurfaceFormat::CoreProfile);
-        format.setSwapInterval(0);
-        QSurfaceFormat::setDefaultFormat(format);
-
+               
         auto sViewFrm = nFactoryFrame::crSViewFrm(SscanWidget);
         nsubject->addObserver(sViewFrm);
         layout->addWidget(sViewFrm->createFrame());
@@ -481,31 +474,33 @@ namespace nmainUI {
         QWidget* VWidget = new QWidget();
         
         // Initialize Vulkan instance
-        QVulkanInstance* inst = new QVulkanInstance();
-        inst->setApiVersion(QVersionNumber::fromString("1.2"));
-        
-        
-        inst->setLayers({ "VK_LAYER_KHRONOS_validation" });
-        if (!inst->create()) {
-            qFatal("Failed to create Vulkan instance");
-        }
-        
-        // Create Vulkan window and set the Vulkan instance
-        vulkanWindow = new VulkanWindow;
-        vulkanWindow->setVulkanInstance(inst);
-        vulkanWindow->GetDeviceInfo();
-         // Set the layout to display the window
-        QVBoxLayout* layout = new QVBoxLayout(VWidget);
-        layout->addWidget(QWidget::createWindowContainer(vulkanWindow));
-        layout->setContentsMargins(0, 0, 0, 0);
-        
+        //QVulkanInstance* inst = new QVulkanInstance();
+        //inst->setApiVersion(QVersionNumber::fromString("1.2"));
+        //
+        //
+        //inst->setLayers({ "VK_LAYER_KHRONOS_validation" });
+        //if (!inst->create()) {
+        //    qFatal("Failed to create Vulkan instance");
+        //}
+        //
+        //// Create Vulkan window and set the Vulkan instance
+        //vulkanWindow = new VulkanWindow;
+        //vulkanWindow->setVulkanInstance(inst);
+        //vulkanWindow->GetDeviceInfo();
+        // // Set the layout to display the window
+        //QVBoxLayout* layout = new QVBoxLayout(VWidget);
+        //layout->addWidget(QWidget::createWindowContainer(vulkanWindow));
+        //layout->setContentsMargins(0, 0, 0, 0);
+        //
         return VWidget;
     }
 
 //============== Internal MenuBar Functions ==============
     void UIManager::onOpenFile()
     {
-        nsubject->stopRealtimeUpdate();
+        IOmConnect::ReleaseDevice();
+        sttlogs->logNotify("Stop!");
+        StartOmni->setText("Start");
         nsubject->startNotifyTimer(52);
         IOmConnect::ReleaseDevice();
         if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
