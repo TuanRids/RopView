@@ -133,6 +133,21 @@
 #include <spdlog/sinks/rotating_file_sink.h> 
 #include <spdlog/fmt/fmt.h> 
 
+// return -1 if no update, otherwise return the Frametime.
+inline float FPS_Calc(QElapsedTimer& fpsTimer, int& frameCount) {
+    if (!fpsTimer.isValid()) {
+        fpsTimer.start();
+    }
+
+    if (fpsTimer.elapsed() >= 1000) {
+        float avgEachFrameTime = static_cast<float>(fpsTimer.elapsed()) / static_cast<float>(frameCount);
+        fpsTimer.restart();
+        frameCount = 0;
+        return avgEachFrameTime; 
+    }
+    frameCount++;
+    return -1.0f; 
+}
 
 
 inline std::filesystem::path getFilePath()

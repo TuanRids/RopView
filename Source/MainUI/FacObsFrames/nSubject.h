@@ -13,19 +13,11 @@ private:
     std::mutex fpsmutex;
     void notifyRealtimeInternal() {            
         if (observers[0]->bufferSize() < 1) return;
+        static QElapsedTimer fpsTimer; static int frameCount = 0;
+        auto ftime = FPS_Calc(fpsTimer, frameCount);
+        if (ftime > 0) { ReadStatus::getinstance().set_processData(ftime+0.01); }
         observers[0]->RealDatProcessGPU();
         
-        static QElapsedTimer fpsTimer;
-        static int frameCount = 0;
-        if (!fpsTimer.isValid()) { fpsTimer.start(); }
-        if (fpsTimer.elapsed() >= 1000) {
-            float avgEachFrameTime = fpsTimer.elapsed() / frameCount;
-            ReadStatus::getinstance().set_processData(avgEachFrameTime);
-
-            fpsTimer.restart();
-            frameCount = 0;
-        }
-        frameCount++;
     }
 
 public:
@@ -71,7 +63,7 @@ public:
             });
         for (const auto& object : observers) {
             object->updateRealTime();
-        }         //  notify once time for switch the graphic viewport
+        }         
     }
 
     void stopRealtimeUpdate() {

@@ -24,7 +24,7 @@ protected:
     IDevicePtr device;
     string ipAddress = "192.168.0.1";
 
-    virtual void DiscoverDevice(IDevicePtr& device) = 0;
+    virtual bool DiscoverDevice(IDevicePtr& device) = 0;
 private:
 
 };

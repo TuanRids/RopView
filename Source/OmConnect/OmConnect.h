@@ -21,7 +21,7 @@ public:
 
 private:
     // private methods
-    void DiscoverDevice(IDevicePtr& device) override;
+    bool DiscoverDevice(IDevicePtr& device) override;
 
     nmainUI::statuslogs* sttlogs;
     IAcquisitionPtr acquisition;

@@ -11,6 +11,7 @@
     UIArtScan* nObserver::ArtScan = nullptr;
     QVector<VertexData> nObserver::vertice_sview = QVector<VertexData>(); 
     QVector<VertexData> nObserver::vertice_cview = QVector<VertexData>();
+    std::atomic<bool> nObserver::nIsGlTexture = false;
 // Functions *******************************************************************************
 nObserver::nObserver()
 {

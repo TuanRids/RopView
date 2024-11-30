@@ -58,18 +58,9 @@ void nDataProcess::Run()
         do
         {
             static double last_beamGain = 0; static int last_InternalDelay = -1; static double last_smoothFilter = -1;
-            
-            static QElapsedTimer fpsTimer;
-            static int frameCount = 0;
-            if (!fpsTimer.isValid()) { fpsTimer.start(); }
-            if (fpsTimer.elapsed() >= 1000) {
-                float avgEachFrameTime = fpsTimer.elapsed() / frameCount;
-                readfps->set_readPAUT(avgEachFrameTime);
-
-                fpsTimer.restart();
-                frameCount = 0;
-            }
-            frameCount++;
+            static QElapsedTimer fpsTimer; static int frameCount = 0;
+            auto ftime = FPS_Calc(fpsTimer, frameCount);
+            if (ftime > 0) { readfps->set_readPAUT(ftime); }
 
             auto waitForDataResult = acquisition->WaitForDataEx();
             if ( !acquisition || waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)

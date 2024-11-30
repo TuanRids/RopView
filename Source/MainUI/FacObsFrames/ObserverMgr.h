@@ -31,6 +31,7 @@ public:
 	void clearScandat() { scandat = AscanData(); ArtScan->resetAll(); }
 	void clearBuffer() { nAscanCollection.clear(); }
 	std::shared_mutex &getCollectionMutex() { return collectionMutex; }
+	bool isGLTexture() { return nIsGlTexture.load(); }
 
 	void RealDatProcess();
 	void RealDatProcessGPU();
@@ -44,6 +45,7 @@ protected:
 	static QVector<VertexData> vertice_sview; // temporary
 	//static QVector<VertexData> vertice_bview; // temporary
 	static QVector<VertexData> vertice_cview; // temporary
+	static std::atomic<bool> nIsGlTexture;
 
 	ConfigLocator* ConfigL = &ConfigLocator::getInstance();
 	OmSetupL oms = OmSetupL::getInstance();

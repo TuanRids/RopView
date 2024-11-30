@@ -35,6 +35,13 @@ private:
     int vertexLocation{ 0 };
     int colorLocation{ 0 };
 
+    // Realtime GPU variables for GLTexture
+    QOpenGLBuffer ebo;      
+    GLuint textureID;        
+    int texWidth;        
+    int texHeight;      
+    unsigned char* textureData; 
+
 public:
     explicit SviewFrame(QWidget* parent = nullptr);
     QWidget* createFrame() override;

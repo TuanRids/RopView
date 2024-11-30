@@ -107,12 +107,12 @@ namespace nmainUI {
 class ReadStatus
 {
 private:
-    std::atomic<float> fps_allScan { 0 };
-    std::atomic<float> throughout{ 0 };
-    std::atomic<float> readingfps{ 0 };
-    std::atomic<float> sviewfps{ 0 };
+    std::atomic<float> Process_FPS { 0 };
+    std::atomic<float> ThroughOut{ 0 };
+    std::atomic<float> PAUT_FPS{ 0 };
+    std::atomic<float> Sview_FPS{ 0 };
 
-    ReadStatus() : throughout(0) {}
+    ReadStatus() : ThroughOut(0) {}
     ~ReadStatus() = default;
 
     ReadStatus(const ReadStatus&) = delete;
@@ -124,15 +124,15 @@ public:
         return instance;
     }
 
-    void set_throughout(float value) { throughout = value; }/* Throughout*/
-    void set_readPAUT(float value) { readingfps = value; }/* FPS*/
-    void set_processData(float value) { fps_allScan = value; }
-    void set_sviewfps(float value) { sviewfps = value; }
+    void set_throughout(float value) { ThroughOut = value; }/* ThroughOut*/
+    void set_readPAUT(float value) { PAUT_FPS = value; }/* FPS*/
+    void set_processData(float value) { Process_FPS = value; }
+    void set_sviewfps(float value) { Sview_FPS = value; }
 
-    float get_throughout() { return throughout.load(); } /* Throughout*/
-    float get_readPAUT() { return readingfps.load(); }/* FPS*/
-    float get_processData() { return fps_allScan.load(); }
-    float get_sviewfps() { return sviewfps.load(); }
+    float get_throughout() { return ThroughOut.load(); } /* ThroughOut*/
+    float get_readPAUT() { return PAUT_FPS.load(); }/* FPS*/
+    float get_processData() { return Process_FPS.load(); }
+    float get_sviewfps() { return Sview_FPS.load(); }
 };
 
 

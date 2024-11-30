@@ -355,28 +355,47 @@ namespace nmainUI {
         auto nmainwd = getMainWindow();
         QDockWidget* logWidget = new QDockWidget("Processing Status", nmainwd);
         logWidget->setObjectName("logBottomUIManagerDockWidget");
-        
+
         QWidget* logContainer = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(logContainer);
         layout->setContentsMargins(0, 0, 0, 0);
         size_t table_size = 5;
-        QTableWidget* logTable = new QTableWidget(table_size, 2, logContainer); // 4 rows, 2 columns
-        logTable->horizontalHeader()->setVisible(false); // Hide header
-        logTable->verticalHeader()->setVisible(false);   // Hide header
+        QTableWidget* logTable = new QTableWidget(table_size, 2, logContainer);
+        logTable->horizontalHeader()->setVisible(false);
+        logTable->verticalHeader()->setVisible(false);
         logTable->setSelectionMode(QAbstractItemView::NoSelection);
         logTable->setFocusPolicy(Qt::NoFocus);
         logTable->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         logTable->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
 
 
-        logTable->setItem(0, 0, new QTableWidgetItem("Buffer Size"));
-        logTable->setItem(1, 0, new QTableWidgetItem("Throughput (MB/s)"));
-        logTable->setItem(2, 0, new QTableWidgetItem("Read PAUT (ms)"));
-        logTable->setItem(3, 0, new QTableWidgetItem("Process (ms)")); // TODO tips only count if there is data in the process  
-        logTable->setItem(4, 0, new QTableWidgetItem("Sview (ms)"));
+
+        logTable->setItem(0, 0, new QTableWidgetItem("BS"));
+        logTable->item(0, 0)->setFlags(logTable->item(0, 0)->flags() & ~Qt::ItemIsEditable);
+        logTable->setItem(1, 0, new QTableWidgetItem("TPS (MB/s)"));
+        logTable->item(1, 0)->setFlags(logTable->item(1, 0)->flags() & ~Qt::ItemIsEditable);
+        logTable->setItem(2, 0, new QTableWidgetItem("(T1) R.PAUT (ms)"));
+        logTable->item(2, 0)->setFlags(logTable->item(2, 0)->flags() & ~Qt::ItemIsEditable);
+        logTable->setItem(3, 0, new QTableWidgetItem("(T2) Proc (ms)"));
+        logTable->item(3, 0)->setFlags(logTable->item(3, 0)->flags() & ~Qt::ItemIsEditable);
+        logTable->setItem(4, 0, new QTableWidgetItem("(GPU) Sview (ms)"));
+        logTable->item(4, 0)->setFlags(logTable->item(4, 0)->flags() & ~Qt::ItemIsEditable);
 
         for (int i = 0; i < table_size; ++i) {
             logTable->setItem(i, 1, new QTableWidgetItem("-"));
+            logTable->item(i, 1)->setFlags(logTable->item(i, 1)->flags() & ~Qt::ItemIsEditable);
+        }
+
+
+        logTable->item(0, 0)->setToolTip("Buffer Size");
+        logTable->item(1, 0)->setToolTip("Throughtput per second (MB/s)");
+        logTable->item(2, 0)->setToolTip("Time spent reading PAUT data (ms)");
+        logTable->item(3, 0)->setToolTip("Processing time in milliseconds (only when data exists)");
+        logTable->item(4, 0)->setToolTip("GPU rendering time for Sview in milliseconds");
+
+        for (int i = 0; i < table_size; ++i) {
+            logTable->setItem(i, 1, new QTableWidgetItem("-"));
+            logTable->item(i, 1)->setFlags(logTable->item(i, 1)->flags() & ~Qt::ItemIsEditable);
         }
 
         layout->addWidget(logTable);
@@ -391,7 +410,7 @@ namespace nmainUI {
             logTable->item(0, 1)->setText(QString::number(static_cast<int>(buffer)));
             logTable->item(1, 1)->setText(QString::number(readStatus->get_throughout(), 'f', 2));
             logTable->item(2, 1)->setText(QString::number(readStatus->get_readPAUT(), 'f', 2));
-            logTable->item(3, 1)->setText(QString::number(readStatus->get_processData(), 'f', 2));
+            logTable->item(3, 1)->setText(QString::number(std::abs(readStatus->get_processData() - readStatus->get_readPAUT()), 'f', 2));
             logTable->item(4, 1)->setText(QString::number(readStatus->get_sviewfps(), 'f', 2));
             //table_size
             });

@@ -29,23 +29,119 @@ QWidget* SviewFrame::createFrame() {
     return frame;
 }
 
-void SviewFrame::initializeGL() {      
-    if (!shaderProgram) {
-        sttlogs->logNotify("Start initialize OpenGL on GPU for SviewFrame");
-        initializeOpenGLFunctions();
+void SviewFrame::initializeGL() {     
+    if (nIsGlTexture) 
+    {
+        if (!shaderProgram) {
+            sttlogs->logNotify("Start initialize OpenGL - GLTexture on GPU for SviewFrame");
+            initializeOpenGLFunctions();
 
-        std::cout << "OpenGL Context: " << context() << std::endl;
-        if (!context()->isValid()) {
-            sttlogs->logCritical("OpenGL context is not valid");
+            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+
+            shaderProgram = std::make_unique<QOpenGLShaderProgram>();
+            shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
+                R"(
+                #version 330 core
+                layout (location = 0) in vec2 position;
+                layout (location = 1) in vec2 texCoord;
+
+                out vec2 fragTexCoord;
+
+                uniform mat4 u_Transform;
+
+                void main() {
+                    gl_Position = u_Transform * vec4(position, 0.0, 1.0);
+                    fragTexCoord = texCoord;
+                }
+                )");
+
+            shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
+                R"(
+                #version 330 core
+                in vec2 fragTexCoord;
+                out vec4 FragColor;
+
+                uniform sampler2D u_Texture;
+
+                void main() {
+                    FragColor = texture(u_Texture, fragTexCoord);
+                }
+                )");
+
+            shaderProgram->link();
+            shaderProgram->bind();
+
+            // Set up texture
+            glGenTextures(1, &textureID);
+            glBindTexture(GL_TEXTURE_2D, textureID);
+
+            // Allocate texture with a default size
+            const int texWidth = 400; // example size
+            const int texHeight = 300; // example size
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            vao.create();
+            vao.bind();
+
+            float vertices[] = {
+                // positions   // texture coords
+                -1.0f, -1.0f, 0.0f, 0.0f,
+                 1.0f, -1.0f, 1.0f, 0.0f,
+                 1.0f,  1.0f, 1.0f, 1.0f,
+                -1.0f,  1.0f, 0.0f, 1.0f
+            };
+
+            unsigned int indices[] = {
+                0, 1, 2,
+                2, 3, 0
+            };
+
+            vbo.create();
+            vbo.bind();
+            vbo.allocate(vertices, sizeof(vertices));
+
+            ebo.create();
+            ebo.bind();
+            ebo.allocate(indices, sizeof(indices));
+
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+            glEnableVertexAttribArray(1);
+
+            vao.release();
+            vbo.release();
+            ebo.release();
+            shaderProgram->release();
         }
 
-        // Set clear color (background red)
-        glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+    }
+    else
+    {
+        if (!shaderProgram) {
+            sttlogs->logNotify("Start initialize OpenGL - glBufferData on GPU for SviewFrame");
+            initializeOpenGLFunctions();
 
-        // Create shader program
-        shaderProgram = std::make_unique<QOpenGLShaderProgram>();
-        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
-            R"(
+            std::cout << "OpenGL Context: " << context() << std::endl;
+            if (!context()->isValid()) {
+                sttlogs->logCritical("OpenGL context is not valid");
+            }
+
+            // Set clear color (background red)
+            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+
+            // Create shader program
+            shaderProgram = std::make_unique<QOpenGLShaderProgram>();
+            shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
+                R"(
         #version 330 core
         layout (location = 0) in vec2 position;
         layout (location = 1) in vec3 color;
@@ -59,8 +155,8 @@ void SviewFrame::initializeGL() {
         }
 
         )");
-        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
-            R"(
+            shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
+                R"(
         #version 330 core
         in vec3 vertexColor; 
         out vec4 FragColor;
@@ -69,35 +165,35 @@ void SviewFrame::initializeGL() {
             FragColor = vec4(vertexColor, 1.0);
         }
         )");
-        shaderProgram->link();
-        shaderProgram->bind();
+            shaderProgram->link();
+            shaderProgram->bind();
 
-        // Configure vertex and color attributes
-        vertexLocation = shaderProgram->attributeLocation("position");
-        colorLocation = shaderProgram->attributeLocation("color");
+            // Configure vertex and color attributes
+            vertexLocation = shaderProgram->attributeLocation("position");
+            colorLocation = shaderProgram->attributeLocation("color");
 
-        vao.create();
-        vao.bind();
+            vao.create();
+            vao.bind();
 
-        vbo.create();
-        vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
-        vbo.bind();
-        const size_t initialBufferSize = 720000 * 1.5 * sizeof(VertexData);
-        vbo.allocate(initialBufferSize);
+            vbo.create();
+            vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
+            vbo.bind();
+            const size_t initialBufferSize = 720000 * 1.5 * sizeof(VertexData);
+            vbo.allocate(initialBufferSize);
 
-        //vbo.allocate(vertice_sview.constData(), vertice_sview.size() * sizeof(VertexData));
+            //vbo.allocate(vertice_sview.constData(), vertice_sview.size() * sizeof(VertexData));
 
-        glEnableVertexAttribArray(vertexLocation);
-        glVertexAttribPointer(vertexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, position)));
+            glEnableVertexAttribArray(vertexLocation);
+            glVertexAttribPointer(vertexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, position)));
 
-        glEnableVertexAttribArray(colorLocation);
-        glVertexAttribPointer(colorLocation, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, color)));
+            glEnableVertexAttribArray(colorLocation);
+            glVertexAttribPointer(colorLocation, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, color)));
 
-        vao.release();
-        vbo.release();
-        shaderProgram->release();
+            vao.release();
+            vbo.release();
+            shaderProgram->release();
+        }
     }
-    
     connect(this, &QOpenGLWidget::frameSwapped, this, [&]() {
         QOpenGLWidget::update();
         });
@@ -110,49 +206,69 @@ void SviewFrame::paintGL() {
         sttlogs->logCritical("OpenGL context is not valid");
         return;
     }
+    if (nIsGlTexture)
+    {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, texWidth, texHeight, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
-    glPointSize(3.0f);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    if (!vertice_sview.isEmpty()) {
-        static QElapsedTimer fpsTimer;
-        static int frameCount = 0;
-        if (!fpsTimer.isValid()) { fpsTimer.start(); }
-        if (fpsTimer.elapsed() >= 1000) {
-            float avgEachFrameTime = fpsTimer.elapsed() / static_cast<float>(frameCount);
-            ReadStatus::getinstance().set_sviewfps(avgEachFrameTime);
-            fpsTimer.restart();
-            frameCount = 0;
-            //clear every 1sec 
-            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        }
-        frameCount++;
-
-        // Update vertex buffer data
-        size_t dataSize = vertice_sview.size() * sizeof(VertexData);
-        vbo.bind();
-        glBufferSubData(GL_ARRAY_BUFFER, 0, dataSize, vertice_sview.constData());
-        vbo.release();
-
-        // Draw
+        // Draw using texture
         shaderProgram->bind();
-        shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
         vao.bind();
 
-        glDrawArrays(GL_POINTS, 0, vertice_sview.size());
+        QMatrix4x4 transform;
+        transform.setToIdentity();
+        transform.scale(1.0, 1.0); // Adjust scale if needed
+        shaderProgram->setUniformValue("u_Transform", transform);
 
-        GLenum error = glGetError();
-        if (error != GL_NO_ERROR) {
-            qDebug() << "OpenGL Error:" << error;
-        }
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         vao.release();
         shaderProgram->release();
 
+
     }
-    shaderProgram->release();
+    else
+    {
+        glPointSize(3.0f);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        if (!vertice_sview.isEmpty()) {
+            static QElapsedTimer fpsTimer; static int frameCount = 0;
+            auto ftime = FPS_Calc(fpsTimer, frameCount);
+            if (ftime > 0) 
+            { 
+                ReadStatus::getinstance().set_sviewfps(ftime);
+                glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            }
+
+            // Update vertex buffer data
+            size_t dataSize = vertice_sview.size() * sizeof(VertexData);
+            vbo.bind();
+            glBufferSubData(GL_ARRAY_BUFFER, 0, dataSize, vertice_sview.constData());
+            vbo.release();
+
+            // Draw
+            shaderProgram->bind();
+            shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
+            vao.bind();
+
+            glDrawArrays(GL_POINTS, 0, vertice_sview.size());
+
+            GLenum error = glGetError();
+            if (error != GL_NO_ERROR) {
+                qDebug() << "OpenGL Error:" << error;
+            }
+
+            vao.release();
+            shaderProgram->release();
+
+        }
+
+    }
     glFlush();
     
 }
