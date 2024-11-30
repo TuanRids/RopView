@@ -19,13 +19,13 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
         {
             DiscoverDevice(device);
             sttlogs->logInfo("Connected to the IP Device: " + ipAddress);
-        }    
-                  
+        }
+
         if (!OmConfig)
         {
             // Init
             OmConfig = std::make_shared<OmConfigSetup>(device);
-            acquisition =  OmConfig->ConfigDeviceSetting();
+            acquisition = OmConfig->ConfigDeviceSetting();
             if (!datProcess) datProcess = std::make_shared<nDataProcess>(acquisition, device);
             sttlogs->logInfo("Complete the initalization; Started.");
         }
@@ -33,14 +33,21 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
         {
             // Update
             if (!device || !acquisition) throw std::exception("Device or acquisition is null");
-            OmConfig->ConfigUpdateSetting();
-			sttlogs->logInfo("Updated the Acquisition.");
-            datProcess->updateRealtimeProcess();
-        }       
-        
+            if (datProcess)
+            {
+                datProcess->Stop(); datProcess = nullptr; acquisition.reset(); acquisition = nullptr;
+                OmConfig->removeAcquisition();
+                sttlogs->logInfo("Stopped the Acquisition.");
+            }
+            device->ResetConfiguration();
+            acquisition = OmConfig->ConfigDeviceSetting();
+            datProcess = std::make_shared<nDataProcess>(acquisition, device);
+            sttlogs->logInfo("Updated the Acquisition.");
+        }
+
     }
     catch (const std::exception& e) {
-        omDisconnectDevice();     
+        omDisconnectDevice();
         sttlogs->logCritical("Standard exception: " + std::string(e.what()));
         return false;
     }
@@ -53,11 +60,11 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
 }
 void OmConnect::omDisconnectDevice()
 {
-    if (datProcess) datProcess->Stop(); datProcess = nullptr; 
+    if (datProcess) datProcess->Stop(); datProcess = nullptr;
 }
-void OmConnect::DiscoverDevice(IDevicePtr &device)
+void OmConnect::DiscoverDevice(IDevicePtr& device)
 {
-    auto wsToString = [](const std::wstring& wstr)->std::string { return std::string(wstr.begin(), wstr.end());};
+    auto wsToString = [](const std::wstring& wstr)->std::string { return std::string(wstr.begin(), wstr.end()); };
     // Discover the Device
     Duration timeout = ConfigLocator::getInstance().settingconf->timeout;
     auto discovery = IDeviceDiscovery::Create(ipAddress.c_str());
@@ -67,6 +74,7 @@ void OmConnect::DiscoverDevice(IDevicePtr &device)
         throw std::runtime_error("# Error IP: No device were found.");
     sttlogs->logInfo("Found Device w Serial: " + result.device->GetInfo()->GetSerialNumber());
     device = result.device;
+
     // Download and start the package
     wstring packageName(L"FocusPxPackage");
     shared_ptr<IFirmwarePackage> package;

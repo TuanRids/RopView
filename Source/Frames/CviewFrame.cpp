@@ -178,7 +178,7 @@ void CviewFrame::resizeGL(int width, int height)
 {
     glViewport(0, 0, width, height);
 #ifndef _DEBUG
-    std::cout << "Size: " << width << "x" << height << std::endl;
+    std::cout << "Cview ReSize: " << width << "x" << height << std::endl;
 #endif
 }
 

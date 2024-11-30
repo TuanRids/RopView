@@ -32,6 +32,8 @@ private:
     QOpenGLVertexArrayObject vao;
     QOpenGLBuffer vbo;
     QOffscreenSurface* surface;
+    int vertexLocation{ 0 };
+    int colorLocation{ 0 };
 
 public:
     explicit SviewFrame(QWidget* parent = nullptr);

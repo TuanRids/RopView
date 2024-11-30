@@ -73,17 +73,20 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     uiManager.createLogWidget();
     auto settingFrame = OmSettingFrame::getInstance();
     QWidget* settingsWidget = settingFrame->getWidget();
-    mainWindow->addDockWidget(Qt::TopDockWidgetArea, new QDockWidget(settingsWidget));
+    QDockWidget* settingsDock = new QDockWidget("Settings Dock", mainWindow);
+    settingsDock->setObjectName("SettingsDock");
+    settingsDock->setWidget(settingsWidget);
+    mainWindow->addDockWidget(Qt::TopDockWidgetArea, settingsDock);
 
      // Top Logs DockWidget
-    QDockWidget* connectDockWidget = new QDockWidget(mainWindow);
+    QDockWidget* connectDockWidget = new QDockWidget("CNT",mainWindow);
         connectDockWidget->setObjectName("MAINUI_connectDockWidget");
         connectDockWidget->setWidget(uiManager.createConnectFrames());
         connectDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
         mainWindow->addDockWidget(Qt::TopDockWidgetArea, connectDockWidget);
 
     // Top Logs DockWidget
-    QDockWidget* logsDockWidget = new QDockWidget(mainWindow);
+    QDockWidget* logsDockWidget = new QDockWidget("Log Dock",mainWindow);
         logsDockWidget->setObjectName("MAINUI_logsDockWidget");
         logsDockWidget->setWidget(uiManager.createLogFrame());
         logsDockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);

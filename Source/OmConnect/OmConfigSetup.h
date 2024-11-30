@@ -17,6 +17,7 @@ public:
 
     IAcquisitionPtr ConfigDeviceSetting();
     void ConfigUpdateSetting();
+    void removeAcquisition();
 private:
     // getter properties
     IAcquisitionPtr acquisition;
@@ -24,8 +25,6 @@ private:
 
     // Internal Properties
     std::shared_ptr<Om_Settup_Config> omSetCof;
-    Instrumentation::IUltrasoundConfigurationPtr ultrasoundConfig;
-    IConfigurationPtr config;
     IBeamSetPtr beamSet;
     shared_ptr<spdlog::logger> debugLogger;
     // Internal Methods

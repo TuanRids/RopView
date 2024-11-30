@@ -25,10 +25,6 @@ private:
         isreal = true;
         auto mainWindow = getMainWindow();
 
-        QDockWidget* dockWidget = new QDockWidget(mainWindow);
-        dockWidget->setWindowTitle("Settings");
-        dockWidget->setObjectName("SettingsUIManagerDockWidget");
-        dockWidget->setMaximumHeight(250);
 
         widgetContainer = new QWidget();
         QVBoxLayout* mainLayout = new QVBoxLayout(widgetContainer);
@@ -50,10 +46,6 @@ private:
         mainLayout->addWidget(settingModeWidget);
         widgetContainer->setLayout(mainLayout);
 
-        dockWidget->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::TopDockWidgetArea);
-        dockWidget->setWidget(widgetContainer);
-        mainWindow->addDockWidget(Qt::TopDockWidgetArea, dockWidget);
-        dockWidget->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     }
 
     unsigned int cwidth = 300;

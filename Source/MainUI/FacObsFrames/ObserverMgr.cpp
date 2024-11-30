@@ -168,7 +168,7 @@ void nObserver::RealDatProcessGPU()
                 int offsetX = static_cast<int>(z * sin(oms.OMS->BeamStartAngle * M_PI / 180));
                 int adjustedX = beamID + offsetX;
                 if (adjustedX >= 0 && adjustedX < zsize) {
-                    float normalizedX = static_cast<float>(beamID) / 10 * 2.0f - 1.0f;
+                    float normalizedX = static_cast<float>(beamID)  / zsize * 2.0f - 1.0f;
                     float normalizedZ = static_cast<float>(z) / zsize * 2.0f - 1.0f;
 
                     vertex.position = QVector2D(normalizedX, normalizedZ);

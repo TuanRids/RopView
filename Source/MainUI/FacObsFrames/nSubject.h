@@ -11,9 +11,7 @@ private:
     std::thread realtimeThread;
     QTimer* offlineTimer;
     std::mutex fpsmutex;
-    void notifyRealtimeInternal() {
-
-        
+    void notifyRealtimeInternal() {            
         if (observers[0]->bufferSize() < 1) return;
         observers[0]->RealDatProcessGPU();
         

@@ -36,7 +36,7 @@ void nDataProcess::Stop()
 {
     m_running = false;
     if (m_future.valid()) {
-        acquisition->Stop();  
+        if (acquisition) acquisition->Stop(); acquisition.reset(); acquisition = nullptr;
         m_future.wait();
     }
 
@@ -90,13 +90,6 @@ void nDataProcess::Run()
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             } 
-
-            if (isUpdate)
-            {
-                acquisition->ApplyConfiguration();
-                isUpdate = false;
-            }
-
         } while ((m_running));
 
     }
@@ -107,8 +100,8 @@ void nDataProcess::Run()
         acquisition->Stop();
         nmainUI::statuslogs::getinstance().logCritical("Exception found: " + std::string(e.what()));
     }
-    cout << "Stop " << "\n";
-    acquisition->Stop();
+    cout << ">>Stop PAUT RUNNING" << "\n";
+    if (acquisition) acquisition->Stop();  acquisition.reset(); acquisition = nullptr;
     m_running = false;
 }
 

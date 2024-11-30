@@ -3,10 +3,10 @@
 
 
 OmConfigSetup::OmConfigSetup(IDevicePtr ndevice) :
-    device(ndevice), ultrasoundConfig(nullptr), beamSet(nullptr), config(nullptr), debugLogger(nullptr)
+    device(ndevice), beamSet(nullptr), debugLogger(nullptr)
 {
     if (!omSetCof) omSetCof = OmSetupL::getInstance().OMS;
-    if (!ultrasoundConfig) ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
+    //if (!ultrasoundConfig) ultrasoundConfig = ndevice->GetConfiguration()->GetUltrasoundConfiguration();
     debugLogger = spdlog::get("file_logger");
 }
 
@@ -65,6 +65,15 @@ void OmConfigSetup::ConfigUpdateSetting()
     acquisition->SetRate(omSetCof->Rate);
 }
 
+void OmConfigSetup::removeAcquisition()
+{
+    if (acquisition)
+    {
+        std::cout << "Acquistion number: " << acquisition.use_count() << std::endl;
+        acquisition.reset(); acquisition = nullptr;
+    }
+}
+
 
 
 IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
@@ -91,7 +100,7 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
     default:
         throw std::runtime_error("Unknown PAUT mode");
     }
-
+    beamSet = nullptr;
     beamSet = phasedArrayFactory->CreateBeamSetPhasedArray(L"LinearPhasedArray", beamFormations);
 
     // Configure for digitizing.
@@ -107,19 +116,20 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
         beamSet->GetBeam(iBeam)->SetAscanStart(omSetCof->BeamAStart);
         beamSet->GetBeam(iBeam)->SetAscanLength(omSetCof->BeamAEnd);
     }
+
     acquisition = IAcquisition::CreateEx(device);
-    acquisition->SetRate(omSetCof->Rate);    
-    std::cout << acquisition->GetRate() << std::endl;    
+
+    acquisition->SetRate(omSetCof->Rate);
     acquisition->ApplyConfiguration();
     nmainUI::statuslogs::getinstance().logInfo("Configured Setting for the device.");
-	return acquisition;
+    return acquisition;
 }
 
 void OmConfigSetup::ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations)
 {
     std::string logger = fmt::format("Configure: LinearBeam\n");
     double focus = omSetCof->FocusLength; // m
-    if (focus > 0 ) // If Focus, the number of elements should be odd
+    if (focus > 0) // If Focus, the number of elements should be odd
     {
         if (omSetCof->EleQuantity % 2 == 0) {
             if (omSetCof->EleQuantity < 32) omSetCof->EleQuantity += 1;
@@ -152,8 +162,8 @@ void OmConfigSetup::ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSe
                 unsigned int mid_elem = 0;
                 if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
                 double nth = (elementIdx > mid_elem) ? omSetCof->EleQuantity - elementIdx - 1 : elementIdx;
-                double delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);  
-                if (delay_noFocus > 0) delay = delay_noFocus - delta_n; 
+                double delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
+                if (delay_noFocus > 0) delay = delay_noFocus - delta_n;
                 logger += fmt::format("{:>5} {:>10.3f} {:>10.3f} {:>10.3f}\n", VirAperture, delay_noFocus, delta_n, delay);
             }
 
@@ -166,7 +176,7 @@ void OmConfigSetup::ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSe
                 iBeam = omSetCof->beamNumber;
                 break;
             }
-        } 
+        }
         beamFormations->Add(beamFormation);
     }
     logger += std::string(40, '-') + "\n";
@@ -198,7 +208,7 @@ void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBea
 
         logger += fmt::format("iBeam: {}\n", iBeam);
         for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
-            double delay{ 0 }; 
+            double delay{ 0 };
             if (focus == 0) {
                 delay = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
                 logger += fmt::format("{:>5} {:>10.3f}\n", VirAperture, delay);
@@ -223,7 +233,7 @@ void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBea
                 iBeam = omSetCof->beamNumber;
                 break;
             }
-        } 
+        }
         beamFormations->Add(beamFormation);
     }
     logger += std::string(40, '-') + "\n";

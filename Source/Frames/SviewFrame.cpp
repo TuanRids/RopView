@@ -54,36 +54,11 @@ void SviewFrame::initializeGL() {
         out vec3 vertexColor;
 
         void main() {
-            gl_Position = vec4(position.x * u_Scale.x, position.y * u_Scale.y , 0.0, 1.0);
+            gl_Position = vec4(position.x * u_Scale.x, -position.y * u_Scale.y , 0.0, 1.0);
             vertexColor = color;
         }
 
         )");
-        /*shaderProgram->addShaderFromSourceCode(QOpenGLShader::Geometry,
-            R"(
-        #version 330 core
-        layout(points) in;
-        layout(points, max_vertices = 100) out;
-
-        in vec3 vertexColor[]; 
-        out vec3 fragColor;   
-
-        uniform int u_Density; 
-
-        void main() {
-            float step = 2.0 / (u_Density * gl_in.length());
-
-            for (int i = 0; i < u_Density; ++i) {
-                vec4 newPos = gl_in[0].gl_Position + vec4(step * i, 0.0, 0.0, 0.0); 
-                gl_Position = newPos;   
-                fragColor = vertexColor[0]; 
-                EmitVertex();
-            }
-            EndPrimitive();
-
-        }
-        )");*/
-
         shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
             R"(
         #version 330 core
@@ -98,8 +73,8 @@ void SviewFrame::initializeGL() {
         shaderProgram->bind();
 
         // Configure vertex and color attributes
-        int vertexLocation = shaderProgram->attributeLocation("position");
-        int colorLocation = shaderProgram->attributeLocation("color");
+        vertexLocation = shaderProgram->attributeLocation("position");
+        colorLocation = shaderProgram->attributeLocation("color");
 
         vao.create();
         vao.bind();
@@ -107,7 +82,10 @@ void SviewFrame::initializeGL() {
         vbo.create();
         vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
         vbo.bind();
-        vbo.allocate(vertice_sview.constData(), vertice_sview.size() * sizeof(VertexData));
+        const size_t initialBufferSize = 720000 * 1.5 * sizeof(VertexData);
+        vbo.allocate(initialBufferSize);
+
+        //vbo.allocate(vertice_sview.constData(), vertice_sview.size() * sizeof(VertexData));
 
         glEnableVertexAttribArray(vertexLocation);
         glVertexAttribPointer(vertexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, position)));
@@ -126,9 +104,7 @@ void SviewFrame::initializeGL() {
     QOpenGLWidget::update();
 }
 
-void SviewFrame::paintGL() {
-    // TODO if zoom: only draw in the visible area for faster rendering
-    
+void SviewFrame::paintGL() {   
     static QOpenGLContext* context = QOpenGLContext::currentContext();
     if (!context) {
         sttlogs->logCritical("OpenGL context is not valid");
@@ -138,13 +114,8 @@ void SviewFrame::paintGL() {
     glPointSize(3.0f);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    shaderProgram->bind();
-
-    shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
-    //shaderProgram->setUniformValue("u_Density", 1);
 
     if (!vertice_sview.isEmpty()) {
-
         static QElapsedTimer fpsTimer;
         static int frameCount = 0;
         if (!fpsTimer.isValid()) { fpsTimer.start(); }
@@ -153,28 +124,33 @@ void SviewFrame::paintGL() {
             ReadStatus::getinstance().set_sviewfps(avgEachFrameTime);
             fpsTimer.restart();
             frameCount = 0;
-#ifdef _DEBUG
-            std::cout << "size: " << vertice_sview.size() << std::endl;
-#endif
+            //clear every 1sec 
+            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
         frameCount++;
 
-        vao.bind();
-        vbo.bind();
-
         // Update vertex buffer data
         size_t dataSize = vertice_sview.size() * sizeof(VertexData);
-        glBufferData(GL_ARRAY_BUFFER, dataSize, vertice_sview.constData(), GL_DYNAMIC_DRAW);
+        vbo.bind();
+        glBufferSubData(GL_ARRAY_BUFFER, 0, dataSize, vertice_sview.constData());
+        vbo.release();
 
-#ifdef _DEBUG
-        GLenum err = glGetError();
-        if (err != GL_NO_ERROR) { qDebug() << "GL error: " << err; }
-#endif
-        // Draw points
+        // Draw
+        shaderProgram->bind();
+        shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
+        vao.bind();
+
         glDrawArrays(GL_POINTS, 0, vertice_sview.size());
 
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            qDebug() << "OpenGL Error:" << error;
+        }
+
         vao.release();
-        vbo.release();
+        shaderProgram->release();
+
     }
     shaderProgram->release();
     glFlush();
@@ -184,7 +160,7 @@ void SviewFrame::paintGL() {
 void SviewFrame::resizeGL(int w, int h) {
     glViewport(0, 0, w, h);
 #ifndef _DEBUG
-    std::cout << "Size: " << w << "x" << h << std::endl;
+    std::cout << "Sview ReSize: " << w << "x" << h << std::endl;
 #endif
 }
 

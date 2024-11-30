@@ -167,7 +167,7 @@ namespace nmainUI {
         auto currentSettings = ConfigLocator::getInstance().settingconf;
 
         QDialog settingsDialog;
-        settingsDialog.setWindowTitle("Settings");
+        settingsDialog.setWindowTitle("Other Settings");
 
         QHBoxLayout* mainLayout = new QHBoxLayout(&settingsDialog);
 
@@ -299,7 +299,6 @@ namespace nmainUI {
 
 
 //============== Create Settings Frame Widgets ==============
-
     QWidget* UIManager::createLogFrame() {
         QWidget* logWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(logWidget);
@@ -319,14 +318,15 @@ namespace nmainUI {
         QVBoxLayout* layout = new QVBoxLayout(settingsWidget);
         layout->setContentsMargins(1, 1, 1, 1);
 
-        StartOmni = new QPushButton("Start");
+        QPushButton* StartOmni = new QPushButton("Start");
         layout->addWidget(StartOmni);
-                
+
         // Create a button for STOP action
         QPushButton* stopButton = new QPushButton("Stop");
         layout->addWidget(stopButton);
 
         QObject::connect(StartOmni, &QPushButton::clicked, [=]() mutable {
+            nsubject->stopRealtimeUpdate();
             nsubject->stopNotifyTimer();
             if (IOmConnect::Create()->omConnectDevice(ConnectMode::SetupFileMode)) {
                 sttlogs->logNotify("Start connecting to the device!");
@@ -337,6 +337,7 @@ namespace nmainUI {
                 sttlogs->logWarning("Release device! Check your configuration.");
                 StartOmni->setText("Start");
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             nsubject->startRealtimeUpdate();
             });
 
@@ -401,7 +402,6 @@ namespace nmainUI {
     }
 
 //============== Create Frame Widgets ==============
-
     QWidget* UIManager::addFrameName(const QString& name, QWidget* frame) {
         if (!frame->layout()) {
             QVBoxLayout* layout = new QVBoxLayout(frame);
@@ -500,7 +500,7 @@ namespace nmainUI {
     {
         IOmConnect::ReleaseDevice();
         sttlogs->logNotify("Stop!");
-        StartOmni->setText("Start");
+        if (StartOmni) StartOmni->setText("Start");
         nsubject->startNotifyTimer(52);
         IOmConnect::ReleaseDevice();
         if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
