@@ -9,6 +9,7 @@ This project focuses on real-time 3D visualization of Phased Array Ultrasonic Te
 - Full rendering and handling of A, B, S, and C-scan data.
 - 3D data visualization using Vulkan.
 - **Results**:
+   ![realtimePAUT_withoutoptimization](https://github.com/user-attachments/assets/b0baf511-1284-461f-88f8-cce91b33ea4b)
   - Achieved ~1.8 ms per frame (~500 FPS), bottleneck at PAUT device.
   - Resolutions: Cview 920x373, Bview 920x372, Sview 722x373, Aview 722x372 (total ~2 million pixels).
   - Total frametime: ~2 ms (~500 FPS).
