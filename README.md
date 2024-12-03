@@ -4,12 +4,12 @@
 This project focuses on real-time 3D visualization of Phased Array Ultrasonic Testing (PAUT) data and integrates it with robotic control for industrial applications. It leverages Vulkan for high-performance rendering and includes plans for AI-based optimization in the future.
 
 ## Key Features
+
 ### 1. Phased Array Ultrasound in Realtime
 - Real-time control and processing of OmniScan PAUT data.
 - Full rendering and handling of A, B, S, and C-scan data.
 - 3D data visualization using Vulkan.
 - **Performance**:
-   ![realtimePAUT_withoutoptimization](https://github.com/user-attachments/assets/b0baf511-1284-461f-88f8-cce91b33ea4b)
   - Rendered **1,508,832 pixels** across 4 buffers:
     - **SViewBuf**: 292,666 pixels
     - **CViewBuf**: 49,000 pixels
@@ -42,10 +42,24 @@ This project focuses on real-time 3D visualization of Phased Array Ultrasonic Te
 - **AI (Planned)**: AI optimization and real-time detection.
 
 ## Results (Ongoing)
-- **Read PAUT Data**: Achieved ~1.8 ms per frame (~500 FPS), bottleneck at PAUT device.
-- **Render and Process Images**:
-  - Resolutions: Cview 920x373, Bview 920x372, Sview 722x373, Aview 722x372.
-  - Total frametime: ~2 ms (~500 FPS).
-- **Performance**: Highly efficient for real-time industrial use cases.
+   ![realtimePAUT_withoutoptimization](https://github.com/user-attachments/assets/b0baf511-1284-461f-88f8-cce91b33ea4b)
+- **Render Performance**:
+  - Successfully rendered **~1.5 million pixels** in **2ms** (~500 FPS).
+  - Exceeds real-time industrial standards (60-120 FPS).
+- **Buffer Details**:
+  - **SViewBuf**: 292,666 pixels
+  - **CViewBuf**: 49,000 pixels
+  - **BViewBuf**: 1,166,000 pixels
+  - **AViewBuf**: 1,166 pixels
+- **Efficiency**:
+  - Maintains high scalability and GPU utilization.
+  - Provides a strong foundation for integrating additional features like AI and FEM.
 
-This system combines real-time robotics, advanced 3D rendering, and scalable data processing to support high-performance industrial applications.
+## Applications
+- Real-time robotics control and monitoring.
+- Advanced NDT (Non-Destructive Testing) applications.
+- Autonomous industrial inspections with enhanced AI integration.
+
+---
+
+This project combines real-time robotics, advanced 3D rendering, and scalable data processing to support high-performance industrial applications.
