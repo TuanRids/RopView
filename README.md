@@ -1,48 +1,65 @@
 # 3D PAUT Visualization and Real-time Robotics Integration
 
 ## Overview
-This project provides real-time 3D visualization of **Phased Array Ultrasonic Testing (PAUT)** data using **Vulkan**, integrated with **Finite Element Method (FEM)** analysis. It also incorporates real-time control of a **robot** to scan objects using **OmniScan**, and includes future plans for **AI**-based optimization in FEM processing.
+This project focuses on real-time 3D visualization of Phased Array Ultrasonic Testing (PAUT) data and integrates it with robotic control for industrial applications. It leverages Vulkan for high-performance rendering and includes plans for AI-based optimization in the future.
 
 ## Key Features
 
 ### 1. Phased Array Ultrasound in Realtime
-- Real-time controlling and processing of the OmniScan data.
-- Calculate, control, and render PAUT data.
-- 3D data processing from **Ultrasound results**.
-- Uses **Vulkan** to create a real-time 3D environment.
-- Full handling of **A, B, S, and C-scan** data.
+- Real-time control and processing of OmniScan PAUT data.
+- Full rendering and handling of A, B, S, and C-scan data.
+- 3D data visualization using Vulkan.
+- **Performance**:
+  - Rendered **1,508,832 pixels** across 4 buffers:
+    - **SViewBuf**: 292,666 pixels
+    - **CViewBuf**: 49,000 pixels
+    - **BViewBuf**: 1,166,000 pixels
+    - **AViewBuf**: 1,166 pixels
+  - Achieved **2ms total frame time** (~500 FPS), meeting industrial-grade real-time requirements.
+  - System demonstrates excellent GPU utilization and optimized data processing pipeline.
+- Designed for high scalability with support for increased resolution and advanced features.
 
 ### 2. Robot Control in Realtime
-- Real-time robot control and visualization using **IPC** or **pure C++**.
-- **Vision detection** integrated to assist in autonomous PAUT scanning.
-  
-### 3. AI Application (Upcoming)
-- AI integration planned to enhance FEM analysis and optimize performance:
-- **Method Summary:**
-- Use OpenGL/Vulkan for rendering PAUT data at super high fps (every 3-6 ms).
-- Pass the rendered TextureID to OpenCV for AI detection at 60 fps (every 16 ms).
-- **Key Steps:**
-- Use OpenGL/Vulkan to continuously load PAUT data onto GPU and render it in real-time.
-- Extract TextureID from GPU to pass it to OpenCV for AI processing on a separate layer.
-- **Pros and Cons:**
-- Pros: Efficient resource allocation, high rendering speed (100-150 fps), separate layers for rendering and AI, ensuring optimal performance for each.
-- Cons: Requires careful GPU resource management, synchronization between layers may add complexity.
+- Real-time robotic arm control with IPC and C++.
+- Vision-based detection for autonomous PAUT scanning.
+
+### 3. AI Application (Planned)
+- AI integration to enhance FEM analysis and optimize performance.
+- Plans to use GPU-based rendering and OpenCV for AI detection at high frame rates.
 
 ### 4. FEM Integration
-- **Finite Element Method (FEM)** applied to the processed PAUT data.
-- Use CUDA for calculating.
-- Integrated into the Vulkan 3D viewport for accurate simulation.
+- Finite Element Method (FEM) applied to processed PAUT data.
+- CUDA acceleration for FEM calculations.
+- Integrated into Vulkan viewport for simulation.
 
-  
-## Main Technologies Used
-- **PAUT**: Phased Array Ultrasound (C++)
-- **ROBOT**: Robot Arm Yaskawa (C++)
-- **Vulkan**: Real-time 3D rendering and viewport creation (C++)
-- **C++**: Core development language for real-time control and data processing (C++)
-- **IPC**: For real-time communication between systems (C++)
-- **FEM**: Applied for accurate simulation based on PAUT data (C++)
-- **AI (Planned)**: Future integration to optimize FEM processing (C++)
-- **CUDA**: For applying FEM Integration (C++)
-- OThers...
+## Technologies Used
+- **PAUT**: Real-time Phased Array Ultrasound processing (C++)
+- **Robotics**: Real-time Yaskawa robot arm control (C++)
+- **Vulkan**: High-performance 3D rendering (C++)
+- **IPC**: Inter-process communication for real-time systems (C++)
+- **FEM**: Finite Element Method simulation (C++)
+- **CUDA**: Accelerated FEM computation (C++)
+- **AI (Planned)**: AI optimization and real-time detection.
 
-This project combines cutting-edge techniques in **real-time 3D graphics**, **robotics**, and **data processing**, with plans for **AI**-based analysis enhancements. The system is designed for scalability and advanced use cases, such as real-time industrial applications.
+## Results (Ongoing)
+   ![realtimePAUT_withoutoptimization](https://github.com/user-attachments/assets/b0baf511-1284-461f-88f8-cce91b33ea4b)
+- **Render Performance**:
+  - Successfully rendered **~1.5 million pixels** in **2ms** (~500 FPS).
+  - Exceeds real-time industrial standards (60-120 FPS).
+- **Buffer Details**:
+  - **SViewBuf**: 292,666 pixels
+  - **CViewBuf**: 49,000 pixels
+  - **BViewBuf**: 1,166,000 pixels
+  - **AViewBuf**: 1,166 pixels
+- **Efficiency**:
+  - Maintains high scalability and GPU utilization.
+  - Provides a strong foundation for integrating additional features like AI and FEM.
+
+## Applications
+- Real-time robotics control and monitoring.
+- Advanced NDT (Non-Destructive Testing) applications.
+- Autonomous industrial inspections with enhanced AI integration.
+
+---
+
+This project combines real-time robotics, advanced 3D rendering, and scalable data processing to support high-performance industrial applications.
