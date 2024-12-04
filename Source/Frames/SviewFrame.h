@@ -37,10 +37,7 @@ private:
 
     // Realtime GPU variables for GLTexture
     QOpenGLBuffer ebo;      
-    GLuint textureID;        
-    int texWidth;        
-    int texHeight;      
-    unsigned char* textureData; 
+    GLuint textureID;          
 
 public:
     explicit SviewFrame(QWidget* parent = nullptr);
@@ -51,6 +48,7 @@ protected:
     void initializeGL() override;
     void paintGL() override;
     void resizeGL(int width, int height) override;
+    void Wait3DScreen();
 };
 
 

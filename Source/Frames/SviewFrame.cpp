@@ -5,7 +5,7 @@
 SviewFrame::SviewFrame(QWidget* parent)
     : QOpenGLWidget(parent), surface(new QOffscreenSurface)
 {
-    QOpenGLWidget::setUpdateBehavior(QOpenGLWidget::PartialUpdate);
+    QOpenGLWidget::setUpdateBehavior(QOpenGLWidget::PartialUpdate); 
 }
 
 QWidget* SviewFrame::createFrame() {
@@ -29,15 +29,31 @@ QWidget* SviewFrame::createFrame() {
     return frame;
 }
 
+extern "C" {
+    __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
+
+
+
 void SviewFrame::initializeGL() {     
+    initializeOpenGLFunctions();
+    glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
     if (nIsGlTexture) 
     {
         if (!shaderProgram) {
-            sttlogs->logNotify("Start initialize OpenGL - GLTexture on GPU for SviewFrame");
-            initializeOpenGLFunctions();
+            sttlogs->logInfo("Start initialize OpenGL - GLTexture on GPU for SviewFrame");
+            // Create texture
+            glGenTextures(1, &textureID);
+            glBindTexture(GL_TEXTURE_2D, textureID);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
-            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
-
+            // Load and compile shaders
             shaderProgram = std::make_unique<QOpenGLShaderProgram>();
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
                 R"(
@@ -47,14 +63,12 @@ void SviewFrame::initializeGL() {
 
                 out vec2 fragTexCoord;
 
-                uniform mat4 u_Transform;
-
                 void main() {
-                    gl_Position = u_Transform * vec4(position, 0.0, 1.0);
-                    fragTexCoord = texCoord;
+                    gl_Position = vec4(position, 0.0, 1.0);
+                    fragTexCoord = vec2( texCoord.x, 1.0 - texCoord.y);
+
                 }
                 )");
-
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
                 R"(
                 #version 330 core
@@ -67,104 +81,40 @@ void SviewFrame::initializeGL() {
                     FragColor = texture(u_Texture, fragTexCoord);
                 }
                 )");
-
             shaderProgram->link();
-            shaderProgram->bind();
-
-            // Set up texture
-            glGenTextures(1, &textureID);
-            glBindTexture(GL_TEXTURE_2D, textureID);
-
-            // Allocate texture with a default size
-            const int texWidth = 400; // example size
-            const int texHeight = 300; // example size
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glBindTexture(GL_TEXTURE_2D, 0);
-
-            vao.create();
-            vao.bind();
-
-            float vertices[] = {
-                // positions   // texture coords
-                -1.0f, -1.0f, 0.0f, 0.0f,
-                 1.0f, -1.0f, 1.0f, 0.0f,
-                 1.0f,  1.0f, 1.0f, 1.0f,
-                -1.0f,  1.0f, 0.0f, 1.0f
-            };
-
-            unsigned int indices[] = {
-                0, 1, 2,
-                2, 3, 0
-            };
-
-            vbo.create();
-            vbo.bind();
-            vbo.allocate(vertices, sizeof(vertices));
-
-            ebo.create();
-            ebo.bind();
-            ebo.allocate(indices, sizeof(indices));
-
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
-
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-            glEnableVertexAttribArray(1);
-
-            vao.release();
-            vbo.release();
-            ebo.release();
-            shaderProgram->release();
         }
-
     }
     else
     {
         if (!shaderProgram) {
             sttlogs->logNotify("Start initialize OpenGL - glBufferData on GPU for SviewFrame");
-            initializeOpenGLFunctions();
-
-            std::cout << "OpenGL Context: " << context() << std::endl;
-            if (!context()->isValid()) {
-                sttlogs->logCritical("OpenGL context is not valid");
-            }
-
-            // Set clear color (background red)
-            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
-
             // Create shader program
             shaderProgram = std::make_unique<QOpenGLShaderProgram>();
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
                 R"(
-        #version 330 core
-        layout (location = 0) in vec2 position;
-        layout (location = 1) in vec3 color;
+                #version 330 core
+                layout (location = 0) in vec2 position;
+                layout (location = 1) in vec3 color;
 
-        uniform vec2 u_Scale;
-        out vec3 vertexColor;
+                uniform vec2 u_Scale;
+                out vec3 vertexColor;
 
-        void main() {
-            gl_Position = vec4(position.x * u_Scale.x, -position.y * u_Scale.y , 0.0, 1.0);
-            vertexColor = color;
-        }
+                void main() {
+                    gl_Position = vec4(position.x * u_Scale.x, -position.y * u_Scale.y , 0.0, 1.0);
+                    vertexColor = color;
+                }
 
-        )");
+                )");
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
                 R"(
-        #version 330 core
-        in vec3 vertexColor; 
-        out vec4 FragColor;
+                #version 330 core
+                in vec3 vertexColor; 
+                out vec4 FragColor;
 
-        void main() {
-            FragColor = vec4(vertexColor, 1.0);
-        }
-        )");
+                void main() {
+                    FragColor = vec4(vertexColor, 1.0);
+                }
+                )");
             shaderProgram->link();
             shaderProgram->bind();
 
@@ -199,52 +149,76 @@ void SviewFrame::initializeGL() {
         });
     QOpenGLWidget::update();
 }
-
+void SviewFrame::Wait3DScreen() {};
 void SviewFrame::paintGL() {   
-    static QOpenGLContext* context = QOpenGLContext::currentContext();
-    if (!context) {
-        sttlogs->logCritical("OpenGL context is not valid");
-        return;
-    }
-    if (nIsGlTexture)
+    static QElapsedTimer fpsTimer; static int frameCount = 0;
+    auto ftime = FPS_Calc(fpsTimer, frameCount);
+    if (ftime > 0) { ReadStatus::getinstance().set_sviewfps(ftime); }
+    if (nIsGlTexture && ArtScan->SViewBuf) 
     {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, texWidth, texHeight, GL_RGB, GL_UNSIGNED_BYTE, textureData);
-        glBindTexture(GL_TEXTURE_2D, 0);
+        {
+            std::lock_guard<std::mutex> lock(ArtScanMutex); 
+            orgimage = std::make_shared<cv::Mat>(ArtScan->SViewBuf->clone());
+            ArtScan->SViewBuf = nullptr; 
+            if (orgimage->size().width == 0 || orgimage->size().height == 0) return;
+        }
+        glBindTexture(GL_TEXTURE_2D, textureID); 
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-        // Draw using texture
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, orgimage->cols, orgimage->rows, 0, GL_BGR, GL_UNSIGNED_BYTE, orgimage->data); // Upload texture data to GPU
+        float aspectRatio = 1.0f;
+        if (ArtScan->SViewBuf->rows != 0) float aspectRatio = static_cast<float>(ArtScan->SViewBuf->cols) / ArtScan->SViewBuf->rows;
         shaderProgram->bind();
-        vao.bind();
+        static const GLfloat vertices[] = {
+            -1.0f, -1.0f,  0.0f, 0.0f,
+             1.0f, -1.0f ,  1.0f, 0.0f, 
+             1.0f,  1.0f ,  1.0f, 1.0f, 
+            -1.0f,  1.0f ,  0.0f, 1.0f 
 
-        QMatrix4x4 transform;
-        transform.setToIdentity();
-        transform.scale(1.0, 1.0); // Adjust scale if needed
-        shaderProgram->setUniformValue("u_Transform", transform);
+        };
+        static const GLuint indices[] = { 0, 1, 2, 2, 3, 0 };
 
-        glBindTexture(GL_TEXTURE_2D, textureID);
+        GLuint vao, vbo, ebo;
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+        glGenBuffers(1, &ebo);
+
+        glBindVertexArray(vao);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(1);
+
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-        vao.release();
-        shaderProgram->release();
+        glBindVertexArray(0);
+
+        glDeleteBuffers(1, &vbo);
+        glDeleteBuffers(1, &ebo);
+        glDeleteVertexArrays(1, &vao);
 
 
+        shaderProgram->release(); // Release the shader program
     }
-    else
+    else if (!nIsGlTexture)
     {
+        if (ftime > 0)
+        {
+            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        }
         glPointSize(3.0f);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if (!vertice_sview.isEmpty()) {
-            static QElapsedTimer fpsTimer; static int frameCount = 0;
-            auto ftime = FPS_Calc(fpsTimer, frameCount);
-            if (ftime > 0) 
-            { 
-                ReadStatus::getinstance().set_sviewfps(ftime);
-                glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            }
-
+        if (!vertice_sview.isEmpty()) {           
             // Update vertex buffer data
             size_t dataSize = vertice_sview.size() * sizeof(VertexData);
             vbo.bind();
@@ -257,17 +231,13 @@ void SviewFrame::paintGL() {
             vao.bind();
 
             glDrawArrays(GL_POINTS, 0, vertice_sview.size());
-
             GLenum error = glGetError();
             if (error != GL_NO_ERROR) {
                 qDebug() << "OpenGL Error:" << error;
             }
-
             vao.release();
             shaderProgram->release();
-
         }
-
     }
     glFlush();
     
@@ -292,57 +262,6 @@ void SviewFrame::updateRealTime()
         this->show();
         isRealTime = true;
     }
-
-    //makeCurrent();
-    //paintGL();     
-    //doneCurrent(); 
-    //emit frameSwapped();
-    //context()->swapBuffers(context()->surface());
-    /*
-    try {
-        if (!isRealTime) { scene->clear(); isRealTime = true; }
-        orgimage = std::make_shared<cv::Mat>(ArtScan->SViewBuf->clone());
-        if (!orgimage) return;
-        for (auto item : scene->items()) {
-            if (item->data(0).toString() == "artwork") {
-                scene->removeItem(item);
-                delete item;
-                break;
-            }
-        }
-        auto ScaleRatio = orgimage->rows/graphicsView->size().height();
-        int frameWidth = graphicsView->size().width() * ScaleRatio;
-        int frameHeight = graphicsView->size().height() * ScaleRatio;
-
-        if (ConfigL->visualConfig->setPautMode == PautModeOmni::Linear)
-        {
-            // MXU is scaled
-            scaledImage = std::make_unique<cv::Mat>();
-            cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);//INTER_NEAREST
-            //scaledImage = orgimage;
-        }
-        else if (ConfigL->visualConfig->setPautMode == PautModeOmni::Sectorial)
-        {
-            scaledImage = std::make_unique<cv::Mat>();
-            cv::resize(*orgimage, *scaledImage, cv::Size(frameWidth, frameHeight), 0, 0, cv::INTER_LINEAR);//INTER_NEAREST
-            //scaledImage = orgimage;
-        }
-        //cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), cv::BORDER_CONSTANT);
-
-        auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
-
-        *qImage = qImage->rgbSwapped();  
-        QPixmap pixmap = QPixmap::fromImage(*qImage);
-
-        auto pixmapItem = scene->addPixmap(pixmap);
-        pixmapItem->setZValue(-1);
-        pixmapItem->setData(0, "artwork");
-                
-        graphicsView->update();
-    }
-	catch (exception& e)
-	{ std::cout << e.what() << std::endl; return; } 
-    */
 }
 
 

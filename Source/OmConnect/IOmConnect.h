@@ -16,6 +16,7 @@ public:
     virtual bool omConnectDevice(ConnectMode mode) = 0;
     static std::shared_ptr<IOmConnect> Create(); /*Factory Method*/
     static void ReleaseDevice();
+    static atomic<bool> isUpdate;
 protected:
     IOmConnect() : device(nullptr) {}
     virtual void omDisconnectDevice() = 0;

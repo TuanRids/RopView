@@ -124,7 +124,7 @@
 #include <QVector3D>
 #include <QOpenGLWindow>
 #include <QOpenGLFunctions_3_3_Core>
-
+#include <QOpenGLFunctions_4_3_Core> 
 
 // ======== Logs ============
 #include <spdlog/spdlog.h>

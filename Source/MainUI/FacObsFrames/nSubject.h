@@ -8,7 +8,7 @@ class nSubject {
 private:
     std::vector<std::shared_ptr<nObserver>> observers;
     std::atomic<bool> runRealtime{ false };
-    std::thread realtimeThread;
+    std::jthread realtimeThread;
     QTimer* offlineTimer;
     std::mutex fpsmutex;
     void notifyRealtimeInternal() {            
@@ -16,8 +16,9 @@ private:
         static QElapsedTimer fpsTimer; static int frameCount = 0;
         auto ftime = FPS_Calc(fpsTimer, frameCount);
         if (ftime > 0) { ReadStatus::getinstance().set_processData(ftime+0.01); }
-        observers[0]->RealDatProcessGPU();
-        
+
+        if (observers[0]->isGLTexture()) observers[0]->RealDatProcess();
+        else observers[0]->RealDatProcessGPU();        
     }
 
 public:
@@ -49,28 +50,31 @@ public:
     void startRealtimeUpdate() {
         if (runRealtime) return; // Avoid duplicate threads
         runRealtime = true;
-        realtimeThread = std::thread([this]() {
-            while (runRealtime) {
+        realtimeThread = std::jthread([this](std::stop_token stopToken) {
+            while (runRealtime && !stopToken.stop_requested()) {
                 try {
                     notifyRealtimeInternal();
                 }
                 catch (const std::exception& e) {
                     nmainUI::statuslogs::getinstance().logCritical(e.what());
-                    stopRealtimeUpdate();
                     IOmConnect::ReleaseDevice();
+                    runRealtime = false;
                 }
             }
             });
+
         for (const auto& object : observers) {
             object->updateRealTime();
         }         
     }
 
     void stopRealtimeUpdate() {
+        if (!runRealtime) return; // If already stopped, do nothing
         runRealtime = false;
         if (realtimeThread.joinable()) {
-            realtimeThread.join();
+            realtimeThread.request_stop(); 
         }
+
         if (!observers.empty()) {
             observers[0]->clearBuffer();
             observers[0]->clearScandat();

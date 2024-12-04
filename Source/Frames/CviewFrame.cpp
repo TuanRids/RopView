@@ -32,147 +32,170 @@ QWidget* CviewFrame::createFrame(){
 
 
 void CviewFrame::initializeGL() {
-    if (!shaderProgram) {
-        sttlogs->logNotify("Start initialize OpenGL on GPU for CviewFrame");
-        initializeOpenGLFunctions();
+    initializeOpenGLFunctions();
+    glClearColor(0.3f, 0.4f, 0.0f, 1.0f);
+    if (nIsGlTexture)
+    {
+        if (!shaderProgram) {
+            sttlogs->logInfo("Start initialize OpenGL - GLTexture on GPU for CviewFrame");
+            // Create texture
+            glGenTextures(1, &textureID);
+            glBindTexture(GL_TEXTURE_2D, textureID);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
-        std::cout << "OpenGL Context: " << context() << std::endl;
-        if (!context()->isValid()) {
-            sttlogs->logCritical("OpenGL context is not valid");
+
+            // Load and compile shaders
+            shaderProgram = std::make_unique<QOpenGLShaderProgram>();
+            shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
+                R"(
+                #version 330 core
+                layout (location = 0) in vec2 position;
+                layout (location = 1) in vec2 texCoord;
+
+                out vec2 fragTexCoord;
+
+                void main() {
+                    gl_Position = vec4(position, 0.0, 1.0);
+                    fragTexCoord = vec2( texCoord.x, 1.0 - texCoord.y);
+
+                }
+                )");
+            shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
+                R"(
+                #version 330 core
+                in vec2 fragTexCoord;
+                out vec4 FragColor;
+
+                uniform sampler2D u_Texture;
+
+                void main() {
+                    FragColor = texture(u_Texture, fragTexCoord);
+                }
+                )");
+            shaderProgram->link();
+
         }
-
-        // Set clear color (background blue)
-        glClearColor(0.0f, 0.0f, 0.5f, 1.0f);
-
-        // Create shader program
-        shaderProgram = std::make_unique<QOpenGLShaderProgram>();
-        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
-            R"(
-        #version 330 core
-        layout (location = 0) in vec2 position;
-        layout (location = 1) in vec3 color;
-
-        uniform vec2 u_Scale;
-        out vec3 vertexColor;
-
-        void main() {
-            gl_Position = vec4(position.x * u_Scale.x, position.y * u_Scale.y, 0.0, 1.0);
-            vertexColor = color;
-        }
-        )");
-        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
-            R"(
-        #version 330 core
-        in vec3 vertexColor; 
-        out vec4 FragColor;
-
-        void main() {
-            FragColor = vec4(vertexColor, 1.0);
-        }
-        )");
-        shaderProgram->link();
-        shaderProgram->bind();
-
-        // Configure vertex and color attributes
-        int vertexLocation = shaderProgram->attributeLocation("position");
-        int colorLocation = shaderProgram->attributeLocation("color");
-
-        vao.create();
-        vao.bind();
-
-        vbo.create();
-        vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
-        vbo.bind();
-        vbo.allocate(vertice_cview.constData(), vertice_cview.size() * sizeof(VertexData));
-
-        glEnableVertexAttribArray(vertexLocation);
-        glVertexAttribPointer(vertexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, position)));
-
-        glEnableVertexAttribArray(colorLocation);
-        glVertexAttribPointer(colorLocation, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, color)));
-
-        vao.release();
-        vbo.release();
-        shaderProgram->release();
     }
-
     connect(this, &QOpenGLWidget::frameSwapped, this, [&]() {
         QOpenGLWidget::update();
         });
     QOpenGLWidget::update();
 }
-
 void CviewFrame::paintGL() {
     static QOpenGLContext* context = QOpenGLContext::currentContext();
     if (!context) {
         sttlogs->logCritical("OpenGL context is not valid");
         return;
     }
-
-    glPointSize(5.0f);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    shaderProgram->bind();
-
-    shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
-
-    if (!vertice_cview.isEmpty()) {
-        vao.bind();
-        vbo.bind();
-
-        // Update vertex buffer data
-        size_t dataSize = vertice_cview.size() * sizeof(VertexData);
-        glBufferData(GL_ARRAY_BUFFER, dataSize, vertice_cview.constData(), GL_DYNAMIC_DRAW);
-
-#ifdef _DEBUG
-        GLenum err = glGetError();
-        if (err != GL_NO_ERROR) { qDebug() << "GL error: " << err; }
-#endif
-        // Draw points
-        glDrawArrays(GL_POINTS, 0, vertice_cview.size());
-
-        vao.release();
-        vbo.release();
+    static QElapsedTimer fpsTimer; static int frameCount = 0;
+    auto ftime = FPS_Calc(fpsTimer, frameCount);
+    if (ftime > 0)
+    {
+        ReadStatus::getinstance().set_sviewfps(ftime);
     }
+    if (nIsGlTexture && ArtScan->CViewBuf) // Check if OpenGL texture rendering is enabled and SViewBuf is valid
+    {
+        {
+            std::lock_guard<std::mutex> lock(ArtScanMutex); 
+            orgimage = std::make_shared<cv::Mat>(ArtScan->CViewBuf->clone()); 
+            //ArtScan->CViewBuf = nullptr;
+            if (orgimage->size().width == 0 || orgimage->size().height == 0) return;
+        }
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    shaderProgram->release();
-    glFlush();
-    glFinish();
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, orgimage->cols, orgimage->rows, 0, GL_BGR, GL_UNSIGNED_BYTE, orgimage->data); 
+        float aspectRatio = 1.0f;
+        if (ArtScan->SViewBuf->rows != 0) float aspectRatio = static_cast<float>(ArtScan->SViewBuf->cols) / ArtScan->SViewBuf->rows;
+        shaderProgram->bind(); //
+
+        static const GLfloat vertices[] = {
+            -1.0f, -1.0f,  0.0f, 0.0f, // Bottom-left corner
+             1.0f, -1.0f ,  1.0f, 0.0f, // Bottom-right corner
+             1.0f,  1.0f ,  1.0f, 1.0f, // Top-right corner
+            -1.0f,  1.0f ,  0.0f, 1.0f  // Top-left corner
+
+        };
+        static const GLuint indices[] = { 0, 1, 2, 2, 3, 0 };
+
+        GLuint vao, vbo, ebo;
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+        glGenBuffers(1, &ebo);
+
+        glBindVertexArray(vao);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(1);
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        glBindVertexArray(0);
+
+        glDeleteBuffers(1, &vbo);
+        glDeleteBuffers(1, &ebo);
+        glDeleteVertexArrays(1, &vao);
+
+
+        shaderProgram->release(); // Release the shader program
+    }
+    else if (!nIsGlTexture)
+    {
+        glPointSize(5.0f);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        shaderProgram->bind();
+
+        shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
+
+        if (!vertice_cview.isEmpty()) {
+            vao.bind();
+            vbo.bind();
+
+            // Update vertex buffer data
+            size_t dataSize = vertice_cview.size() * sizeof(VertexData);
+            glBufferData(GL_ARRAY_BUFFER, dataSize, vertice_cview.constData(), GL_DYNAMIC_DRAW);
+
+            // Draw points
+            glDrawArrays(GL_POINTS, 0, vertice_cview.size());
+
+            vao.release();
+            vbo.release();
+        }
+
+        shaderProgram->release();
+        glFlush();
+        glFinish(); 
+    }
 }
+
+
+
 void CviewFrame::updateRealTime()
 {
-    return;
-    if (!isRealTime) {
-        scene->clear();
+    if (!isRealTime)
+    {
+        if (graphicsView) {
+            layout->removeWidget(graphicsView.get());
+            graphicsView->hide();
+        }
+        layout->addWidget(this);
+        this->show();
         isRealTime = true;
     }
-    orgimage = std::make_shared<cv::Mat>(ArtScan->CViewBuf->clone());
-    if (!orgimage) return;
-
-    scaledImage = std::make_unique<cv::Mat>();
-
-    int originalWidth = orgimage->cols;
-    int newWidth = graphicsView->size().width();
-
-    int newHeight = graphicsView->size().height();
-
-    cv::resize(*orgimage, *scaledImage, cv::Size(newWidth, newHeight), 0, 0, cv::INTER_LINEAR);
-    cv::flip(*scaledImage, *scaledImage, 1);
-    auto qImage = std::make_shared<QImage>(scaledImage->data, scaledImage->cols, scaledImage->rows, scaledImage->step, QImage::Format_RGB888);
-    *qImage = qImage->rgbSwapped();
-
-    QPixmap pixmap = QPixmap::fromImage(*qImage);
-    for (auto item : scene->items()) {
-        if (item->data(0).toString() == "artwork") {
-            scene->removeItem(item);
-            delete item;
-            break;
-        }
-    }
-    QGraphicsPixmapItem* artworkItem = scene->addPixmap(pixmap);
-    artworkItem->setData(0, "artwork");
-
-    graphicsView->update();
 }
 void CviewFrame::resizeGL(int width, int height)
 {
@@ -184,7 +207,15 @@ void CviewFrame::resizeGL(int width, int height)
 
 
 void CviewFrame::updateOffLine() {
-    isRealTime = false;
+    if (isRealTime)
+    {
+        layout->removeWidget(this);
+        this->hide();
+        layout->addWidget(graphicsView.get());
+        graphicsView->show();
+        isRealTime = false;
+    }
+
     static int lastResolution = -1;
     if (scandat.Amplitudes.empty()) { return; }
     if (lastResolution != ConfigL->sysParams->resolution) {

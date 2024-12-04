@@ -10,27 +10,155 @@ int getRandomNumber(int min, int max) {
     std::uniform_int_distribution<> distrib(min, max);
     return distrib(gen);
 }
+AviewFrame::AviewFrame(QWidget* parent) : QOpenGLWidget(parent), surface(new QOffscreenSurface)
+{
+    QOpenGLWidget::setUpdateBehavior(QOpenGLWidget::PartialUpdate);
+}
+
 QWidget* AviewFrame::createFrame() {
-    scene = std::make_shared<QGraphicsScene>();
-    graphicsView = std::make_shared<QGraphicsView>();
+    if (!graphicsView) {
+        graphicsView = std::make_shared<ZoomableGraphicsView>();
+    }
+    if (!scene) {
+        scene = std::make_shared<QGraphicsScene>();
+    }
     graphicsView->setScene(scene.get());
     graphicsView->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatioByExpanding);
     graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    //    MouseGetPosXY();
 
-    QVBoxLayout* layout = new QVBoxLayout();
+    layout = new QVBoxLayout();
     QWidget* frame = new QWidget();
-    layout->addWidget(graphicsView.get());
-
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0); 
+    layout->setSpacing(0);
+    layout->addWidget(this);
     frame->setLayout(layout);
-
     return frame;
+}
+void AviewFrame::initializeGL() {
+    initializeOpenGLFunctions();
+    glClearColor(0.3f, 0.4f, 0.2f, 1.0f);
+    if (!shaderProgram) {
+        QOffscreenSurface ggsurface;
+        ggsurface.create();
+
+        QOpenGLContext ggcontext;
+        ggcontext.create();
+        QString gpuVendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
+        QString gpuRenderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+        sttlogs->logNotify("GPU Vendor: " + gpuVendor.toStdString() + "\nGPU Renderer: " + gpuRenderer.toStdString());
+
+        initializeOpenGLFunctions();
+        sttlogs->logInfo("Start initialize OpenGL - GLDataBuffer on GPU for AviewFrame");
+        glClearColor(0.3f, 0.4f, 0.2f, 1.0f);
+
+        shaderProgram = std::make_unique<QOpenGLShaderProgram>();
+        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
+            R"(
+            #version 330 core
+            layout (location = 0) in vec2 position;
+
+            void main() {
+                gl_Position = vec4(position.x, position.y, 0.0, 1.0);
+            }
+            )");
+        shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
+            R"(
+            #version 330 core
+            out vec4 FragColor;
+
+            void main() {
+                FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White line
+            }
+            )");
+        shaderProgram->link();
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        glEnable(GL_LINE_SMOOTH); // Enable line smoothing
+        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST); // Hint to make smoothing as nice as possible
+        // Create buffers
+        vao.create();
+        vao.bind();
+
+        vbo.create();
+        vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
+        vbo.bind();
+
+        // Set vertex attributes
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), nullptr);
+
+        vao.release();
+        vbo.release();
+
+    }
+    
+    connect(this, &QOpenGLWidget::frameSwapped, this, [&]() {
+        QOpenGLWidget::update();
+        });
+    QOpenGLWidget::update();
+}
+void AviewFrame::paintGL() {
+    static QOpenGLContext* context = QOpenGLContext::currentContext();
+    if (!context) {
+        sttlogs->logCritical("OpenGL context is not valid");
+        return;
+    }
+
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    shaderProgram->bind();
+
+    if (ArtScan->AViewBuf && !ArtScan->AViewBuf->isEmpty()) {
+        vao.bind();
+        vbo.bind();
+
+        // Update VBO with current data
+        glBufferData(GL_ARRAY_BUFFER, ArtScan->AViewBuf->size() * sizeof(glm::vec2), ArtScan->AViewBuf->constData(), GL_DYNAMIC_DRAW);
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            qDebug() << "OpenGL Error:" << error;
+        }
+
+        // Draw line strip
+        glDrawArrays(GL_LINE_STRIP, 0, ArtScan->AViewBuf->size());
+        error = glGetError();
+        if (error != GL_NO_ERROR) {
+            qDebug() << "OpenGL Error:" << error;
+        }
+
+        vao.release();
+        vbo.release();
+    }
+
+    shaderProgram->release();
+
+}
+
+void AviewFrame::updateRealTime()
+{
+    if (!isRealTime)
+    {
+        if (graphicsView) {
+            layout->removeWidget(graphicsView.get());
+            graphicsView->hide();
+        }
+        layout->addWidget(this);
+        this->show();
+        isRealTime = true;
+    }
+}
+void AviewFrame::resizeGL(int width, int height)
+{
+    glViewport(0, 0, width, height);
+    std::cout << "Aview ReSize: " << width << "x" << height << std::endl;
 }
 
 void AviewFrame::updateOffLine()
 {
+    isRealTime = false;
     static bool first_flag = false;
     // ********** PARAMETER VALIDATION **********
     if (scandat.Amplitudes.empty()) {
@@ -88,40 +216,6 @@ void AviewFrame::updateOffLine()
         }
     }
 }
-
-void AviewFrame::updateRealTime()
-{
-
-    return;
-    static bool first_flag = false;
-    try {
-        if (nAscanCollection.empty()) return;
-        if (!lineSeries)  RenderFrame(); 
-        points = *ArtScan->AViewBuf;
-        size_t dataSize = points.size();
-
-        lineSeries->clear();  
-        lineSeries->replace(points); 
-        if (!axisX || !first_flag)
-        {
-            first_flag = true;
-            axisY->setRange(0, static_cast<int>(dataSize));
-            axisX->setRange(0,100);
-        }
-        axisY->setReverse(true);
-        static size_t lastpos = curpt.y;
-        if (oms.OMS->beamCurrentID != lastpos)
-        {
-            lastpos = oms.OMS->beamCurrentID;
-            if (!sttlogs) { sttlogs = &nmainUI::statuslogs::getinstance(); }
-            sttlogs->logInfo("Beam Position: " + std::to_string(lastpos));
-        }
-    }
-    catch (exception& e)
-    { std::cout << "ESCAN ERROR: " << e.what() << std::endl; return; }
-}
-
-
 void AviewFrame::RenderFrame()
 {
     // ********** INITIALIZATION & SETTINGS **********
@@ -196,6 +290,3 @@ void AviewFrame::RenderFrame()
     chartView->setGeometry(-10, 10, viewWidth, viewHeight);
     graphicsView->update();
 }
-
-
-

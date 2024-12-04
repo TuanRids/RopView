@@ -3,6 +3,7 @@
 #include "OmConnect.h"
 
 static std::shared_ptr<OmConnect> omc = nullptr;
+atomic<bool> IOmConnect::isUpdate = false;
 IOmConnect::~IOmConnect() {}
 std::shared_ptr<IOmConnect> IOmConnect::Create()
 {

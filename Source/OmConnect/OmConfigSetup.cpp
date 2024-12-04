@@ -55,12 +55,13 @@ void OmConfigSetup::ConfigUpdateSetting()
     bandpass->GetHighCutOffFrequency(); bandpass->GetLowCutOffFrequency(); bandpass->GetCharacteristic();
     digitizingSettings->GetFilterSettings()->SetDigitalBandPassFilter(bandpass);
 
-
+    double calAscanStart = 2 * omSetCof->BeamAStart * 1e6 / omSetCof->Velocity;
+    double calAscanLength = 2 * omSetCof->BeamAEnd * 1e6 / omSetCof->Velocity;
     for (size_t iBeam(0); iBeam < beamSet->GetBeamCount(); ++iBeam)
     {
         beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->BeamGain /*+ 2.2*/);
-        beamSet->GetBeam(iBeam)->SetAscanStart(omSetCof->BeamAStart);
-        beamSet->GetBeam(iBeam)->SetAscanLength(omSetCof->BeamAEnd);
+        beamSet->GetBeam(iBeam)->SetAscanStart(calAscanStart);
+        beamSet->GetBeam(iBeam)->SetAscanLength(calAscanLength);
     }
     acquisition->SetRate(omSetCof->Rate);
 }
@@ -110,11 +111,15 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
     // ============== Bind to conntector of the device
     shared_ptr<IConnector> connector = digitizerTechnology->GetConnectorCollection()->GetPulseConnector();
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
+    double calAscanStart = 2 * omSetCof->BeamAStart * 1e6 / omSetCof->Velocity;
+    double calAscanLength = 2 * omSetCof->BeamAEnd * 1e6 / omSetCof->Velocity;
+    std::cout << "calAscanStart: " << calAscanStart << " calAscanLength: " << calAscanLength << std::endl;
+
     for (size_t iBeam(0); iBeam < beamSet->GetBeamCount(); ++iBeam)
     {
         beamSet->GetBeam(iBeam)->SetGainEx(omSetCof->BeamGain /*+ 2.2*/);
-        beamSet->GetBeam(iBeam)->SetAscanStart(omSetCof->BeamAStart);
-        beamSet->GetBeam(iBeam)->SetAscanLength(omSetCof->BeamAEnd);
+        beamSet->GetBeam(iBeam)->SetAscanStart(calAscanStart);
+        beamSet->GetBeam(iBeam)->SetAscanLength(calAscanLength);
     }
 
     acquisition = IAcquisition::CreateEx(device);

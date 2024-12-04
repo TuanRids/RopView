@@ -1,7 +1,6 @@
 #include "../pch.h"
 #include "mainwindow.h"
 #include "FacObsFrames/ObserverMgr.h"
-#include "FacObsFrames/FactoryMgr.h"
 #include "UIManager.h"
 #include "Frames/CviewFrame.h"
 #include "Frames/SviewFrame.h"
@@ -10,11 +9,18 @@
 #include "MainUI/OmSettingFrame.h"
 
 nmainUI::UIManager uiManager;
-nmainUI::UIFrame::UIFrame() {}
+nmainUI::UIFrame::UIFrame() {
+    nsubject = std::make_shared<nSubject>();
+}
+
+nmainUI::UIFrame::~UIFrame()
+{
+    nsubject->stopRealtimeUpdate();
+}
 
 
 
-std::shared_ptr<nSubject> nsubject;
+
 
 void initSpdLog() {
     auto now = std::time(nullptr);
@@ -53,7 +59,6 @@ int nmainUI::UIFrame::mainloop(int argc, char* argv[]) {
     QSurfaceFormat::setDefaultFormat(format);
 
     app = new QApplication(argc, argv);
-    nsubject = std::make_shared<nSubject>();
     uiManager.getUIPointers(nsubject);
     app->setWindowIcon(QIcon(uiManager.loadLogoFromResource()));
     uiManager.UISETTING();

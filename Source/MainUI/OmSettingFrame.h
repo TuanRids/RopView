@@ -228,11 +228,11 @@ private:
                 scanPlan->BeamGain = value;
                 });
 
-            createSpinBox(0, 164800, scanPlan->BeamAStart, layout3, "A Start", ++x, y, [=](double value) {
+            createSpinBox(0, 150, scanPlan->BeamAStart, layout3, "A Start", ++x, y, [=](double value) {
                 scanPlan->BeamAStart = value;
                 });
 
-            createSpinBox(0, 164800, scanPlan->BeamAEnd, layout3, "A End", ++x, y, [=](double value) {
+            createSpinBox(0, 1000, scanPlan->BeamAEnd, layout3, "A End", ++x, y, [=](double value) {
                 scanPlan->BeamAEnd = value;
                 });
             x = 0; y++;

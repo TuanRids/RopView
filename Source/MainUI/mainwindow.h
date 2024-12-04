@@ -11,7 +11,7 @@
 #include "OmConnect/IOmConnect.h"
 #include "SystemConfig/ConfigLocator.h"
 
-
+class nSubject;
 namespace nmainUI {
     class UIFrame { 
     public:
@@ -19,10 +19,10 @@ namespace nmainUI {
         int mainloop(int argc, char* argv[]);
     private:
         UIFrame();
-        ~UIFrame() = default;
+        ~UIFrame();
         nmainUI::statuslogs* sttlogs = nullptr;
         QApplication* app;
-
+        std::shared_ptr<nSubject> nsubject;
     };
 
 }

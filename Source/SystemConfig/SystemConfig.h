@@ -39,7 +39,7 @@ struct Om_Settup_Config
 {
     // === Configure a phased array BeamSet
     // Phased Array BeamFormation
-    unsigned int beamNumber     = 30;
+    unsigned int beamNumber     = 60;
     unsigned int EleStep        = 1; // If EleStep is too high, take that FocusLength with the high EleStep could increase the pitch virtual, then the beam could cause Lobes: pv > 1/2*(lambda)
     unsigned int EleQuantity    = 16; // Active elements
     unsigned int EleFirst       = 1;    // Starting element
@@ -49,24 +49,24 @@ struct Om_Settup_Config
     double BeamStartAngle = 10;
     // Focus Length only work as near field (about under 40mm). If Focus Length is too high, the Beam symmetry will like a constant Linear Beam, then it will changed to noFocus
     // Focus = 0 is No Focus
-    double FocusLength = 45;
-    double Velocity = 6500;
+    double FocusLength = 0;
+    double Velocity = 6750;
 
     // === Phased Array Digitizer
     Instrumentation::IAmplitudeSettings::AscanDataSize Digi_Ampli_AscanSize = Instrumentation::IAmplitudeSettings::AscanDataSize::TwelveBits; // 8 default 12 16
     Instrumentation::IAmplitudeSettings::RectificationType Digi_Ampli_rectification = Instrumentation::IAmplitudeSettings::RectificationType::Full; // full negavite none possitive 
     Instrumentation::IAmplitudeSettings::ScalingType Digi_Ampli_Scaling = Instrumentation::IAmplitudeSettings::ScalingType::Linear; // full negavite none possitive 
-    int Digi_Time_CompressFactor = 10;
+    int Digi_Time_CompressFactor = 3;
     Instrumentation::ITimeSettings::AscanSynchroMode Digi_Time_Synch = Instrumentation::ITimeSettings::AscanSynchroMode::Absolute;
     Instrumentation::ITimeSettings::SamplingDecimationFactor Digi_Time_DecimaFactor = Instrumentation::ITimeSettings::SamplingDecimationFactor::One;
     int Digi_BandPassFilter = 10;
     
     // === Each Individual Beam
     double BeamGain = 35.0;
-    double BeamAStart = 4000; // 4000
-    double BeamAEnd = 35000; // 35000 ns
+    double BeamAStart = 0; // mm 
+    double BeamAEnd = 100; // mm
     
-    int Rate = 245; // 120 Hz screen
+    int Rate = 120; // 120 Hz screen
 
     // === Used for ScanSection
     int beamCurrentID = 0;             // Current ID

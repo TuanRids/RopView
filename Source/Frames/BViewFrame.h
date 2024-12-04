@@ -11,7 +11,7 @@
 
 
 // Graphics Frame
-class BviewFrame : public nObserver {
+class BviewFrame : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core, public nObserver {
 private:
     void CreateArtFrame();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
@@ -26,11 +26,26 @@ private:
     std::shared_ptr<cv::Mat> orgimage;
     std::shared_ptr<cv::Mat> scaledImage;
     bool isRealTime = false;
-public:
+
+    // RealtimeGPU Variables
+    QVBoxLayout* layout;
+    std::unique_ptr<QOpenGLShaderProgram> shaderProgram = nullptr;
+    QOpenGLVertexArrayObject vao;
+    QOpenGLBuffer vbo;
+    QOffscreenSurface* surface;
+
+    // Realtime GPU variables for GLTexture
+    QOpenGLBuffer ebo;
+    GLuint textureID;
+public:    
+    explicit BviewFrame(QWidget* parent = nullptr);
     QWidget* createFrame() override;
     void updateOffLine() override;
     void updateRealTime() override;
-
+protected:
+    void initializeGL() override;
+    void paintGL() override;
+    void resizeGL(int width, int height) override;
 };
 
 #endif

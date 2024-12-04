@@ -410,7 +410,7 @@ namespace nmainUI {
             logTable->item(0, 1)->setText(QString::number(static_cast<int>(buffer)));
             logTable->item(1, 1)->setText(QString::number(readStatus->get_throughout(), 'f', 2));
             logTable->item(2, 1)->setText(QString::number(readStatus->get_readPAUT(), 'f', 2));
-            logTable->item(3, 1)->setText(QString::number(std::abs(readStatus->get_processData() - readStatus->get_readPAUT()), 'f', 2));
+            logTable->item(3, 1)->setText(QString::number(readStatus->get_processData(), 'f', 2));
             logTable->item(4, 1)->setText(QString::number(readStatus->get_sviewfps(), 'f', 2));
             //table_size
             });

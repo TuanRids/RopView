@@ -89,6 +89,7 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
             acquisition = OmConfig->ConfigDeviceSetting();
             datProcess = std::make_shared<nDataProcess>(acquisition, device);
             sttlogs->logInfo("Updated the Acquisition.");
+            IOmConnect::isUpdate = true;
         }
 
     }

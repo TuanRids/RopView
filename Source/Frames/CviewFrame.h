@@ -33,6 +33,11 @@ private:
     QOpenGLVertexArrayObject vao;
     QOpenGLBuffer vbo;
     QOffscreenSurface* surface;
+
+    // Realtime GPU variables for GLTexture
+    QOpenGLBuffer ebo;
+    GLuint textureID;
+
 public:
     explicit CviewFrame(QWidget* parent = nullptr);
     QWidget* createFrame() override;

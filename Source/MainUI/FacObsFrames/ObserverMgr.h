@@ -58,9 +58,62 @@ protected:
 	static UIArtScan* ArtScan;
 	std::shared_mutex collectionMutex;
 
-	std::mutex ArtScanMutex;
+	static std::mutex ArtScanMutex;
+
 private:
 	static size_t _buffSize;
+	std::vector<Color> everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
+	static std::vector<std::vector<cv::Point>> xySectorial;
+};
+
+
+class GPUProcessor : public QOpenGLFunctions_4_3_Core {
+public:
+	GLuint rawDataBuffer;     
+	GLuint processedDataBuffer;
+	QOpenGLShaderProgram computeShaderProgram;
+
+	void initGPU() {
+		initializeOpenGLFunctions();
+
+		glGenBuffers(1, &rawDataBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, rawDataBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, 0, nullptr, GL_DYNAMIC_COPY); 
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+		glGenBuffers(1, &processedDataBuffer);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, processedDataBuffer);
+		glBufferData(GL_SHADER_STORAGE_BUFFER, 0, nullptr, GL_DYNAMIC_COPY); 
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+		computeShaderProgram.addShaderFromSourceCode(QOpenGLShader::Compute,
+			R"(
+            #version 430 core
+
+            layout(local_size_x = 16, local_size_y = 16) in;
+
+            layout(std430, binding = 0) buffer InputData {
+                int rawData[];
+            };
+
+            layout(std430, binding = 1) buffer OutputData {
+                float processedData[];
+            };
+
+            uniform float minAmplitude;
+            uniform float maxAmplitudeSampling;
+            uniform float maxAmplitudeUsable;
+
+            void main() {
+                uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_NumWorkGroups.x;
+
+                // Normalize and process raw data
+                float amplitude = abs(rawData[idx] - minAmplitude) / maxAmplitudeSampling * maxAmplitudeUsable;
+                processedData[idx] = amplitude;
+            }
+            )");
+		computeShaderProgram.link();
+	}
 };
 
 
