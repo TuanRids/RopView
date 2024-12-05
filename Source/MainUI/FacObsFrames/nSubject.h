@@ -57,7 +57,7 @@ public:
                 }
                 catch (const std::exception& e) {
                     nmainUI::statuslogs::getinstance().logCritical(e.what());
-                    IOmConnect::ReleaseDevice();
+                    //IOmConnect::ReleaseDevice();
                     runRealtime = false;
                 }
             }

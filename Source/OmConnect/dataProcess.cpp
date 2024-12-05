@@ -22,8 +22,8 @@ nDataProcess::~nDataProcess()
 
 bool nDataProcess::Start()
 {
-    if (m_running) return true;
-    m_running = true;
+    if (*m_running) return true;
+    *m_running = true;
     m_future = std::async(std::launch::async, [this]() {
         std::string name = "Data Acquisition Thread";
         SetThreadDescription(GetCurrentThread(), std::wstring(name.begin(), name.end()).c_str());
@@ -34,7 +34,8 @@ bool nDataProcess::Start()
 
 void nDataProcess::Stop()
 {
-    m_running = false;
+    if (!m_running) return;
+    *m_running = false;
     if (m_future.valid()) {
         if (acquisition) acquisition->Stop(); acquisition.reset(); acquisition = nullptr;
         m_future.wait();
@@ -81,19 +82,19 @@ void nDataProcess::Run()
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             } 
-        } while ((m_running));
+        } while ((*m_running));
 
     }
     catch (const exception& e)
     {
         cout << "ERROR : " << e.what() << "\n";
-        m_running = false;
+        *m_running = false;
         acquisition->Stop();
         nmainUI::statuslogs::getinstance().logCritical("Exception found: " + std::string(e.what()));
     }
     cout << ">>Stop PAUT RUNNING" << "\n";
     if (acquisition) acquisition->Stop();  acquisition.reset(); acquisition = nullptr;
-    m_running = false;
+    *m_running = false;
 }
 
 

@@ -33,11 +33,21 @@ public:
 	std::shared_mutex &getCollectionMutex() { return collectionMutex; }
 	bool isGLTexture() { return nIsGlTexture.load(); }
 
+	
 	void RealDatProcess();
 	void RealDatProcessGPU();
+	void processOnGPU();
+
+
 	size_t bufferSize() { return nAscanCollection.size(); }
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection) {
 		if (!_nAscanCollection) return;
+		if (nAscanCollection.size() > 500) {
+			nAscanCollection.clear();
+			throw std::runtime_error("buffer overflow");
+			return;
+			// sleep to stop PAUT device automatically
+		}
 		nAscanCollection.push_back(_nAscanCollection);		
 	}
 
@@ -57,7 +67,6 @@ protected:
 	std::vector<Color> CreateColorPalette(int gainFactor );
 	static UIArtScan* ArtScan;
 	std::shared_mutex collectionMutex;
-
 	static std::mutex ArtScanMutex;
 
 private:

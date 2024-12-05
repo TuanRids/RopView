@@ -53,7 +53,6 @@ void preXYsectorial(
     }
 }
 
-
 void nObserver::RealDatProcess() {
     shared_ptr<IAscanCollection> RawAsanDat;    
     static const uint16_t BCsize = 1000;
@@ -61,6 +60,12 @@ void nObserver::RealDatProcess() {
     static double angStart { oms.OMS->BeamStartAngle };
     static double angEnd { oms.OMS->beamNumber + oms.OMS->BeamStartAngle };
     static PautModeOmni pautmode = ConfigL->visualConfig->setPautMode;
+    static int sview_x = -1;
+
+    static double minAmplitude = 1000.0f;
+    static double maxAmplitudeSampling = -1.0f;
+    static double maxAmplitudeUsable = -1.0f;
+
     cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
     {
         std::shared_lock<std::shared_mutex> lock(collectionMutex);
@@ -101,18 +106,26 @@ void nObserver::RealDatProcess() {
                 xySectorial[beamID][z] = cv::Point(x, y);
             }
         }
+        sview_x = (pautmode == PautModeOmni::Linear) ?
+            ysize + std::abs(sin(angStart * M_PI / 180) * zsize) :
+            angStart < 0 ?
+                (sin(((-angStart) * M_PI / 180)) + sin((angEnd)*M_PI / 180)) * zsize :
+                sin((angEnd)*M_PI / 180) * zsize;
+
+        minAmplitude = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMin();
+        maxAmplitudeSampling = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
+        maxAmplitudeUsable = RawAsanDat->GetAscan(0)->GetAmplitudeDataRange()->GetFloatingMax();
+
+        sttlogs->logInfo("Update Amplitude Range: \nminAmplitude: " + std::to_string(minAmplitude) + " maxAmplitudeSampling: " + std::to_string(maxAmplitudeSampling) +
+            " maxAmplitudeUsable: " + std::to_string(maxAmplitudeUsable));
+
         IOmConnect::isUpdate = false;
         return;
     }
 
     //*****************************************************************************************
     // Process
-    int sview_x = pautmode == PautModeOmni::Linear ?
-         sin(angStart * M_PI / 180) * zsize : angStart < 0 ?
-         (sin(((-angStart) * M_PI / 180)) + sin((angEnd) * M_PI / 180)) * zsize :
-         sin((angEnd) * M_PI / 180) * zsize;
-
-    tempSViewBuf = cv::Mat::zeros( zsize, sview_x, CV_8UC3);
+    tempSViewBuf = cv::Mat::zeros(zsize, sview_x, CV_8UC3);
     tempSViewBuf.setTo(cv::Vec3b(255, 0, 0));
 
     if (!ArtScan->CViewBuf || ArtScan->CViewBuf->empty() || ArtScan->BViewBuf->empty()) {
@@ -131,28 +144,23 @@ void nObserver::RealDatProcess() {
         }
     }
     QVector<glm::vec2> points(zsize);
-
 #pragma omp parallel for
     for (int beamID = 0; beamID < ysize; ++beamID) {
         double maxAmplitudeCscan = 0;
         Color maxColor{};
 
         const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
-        double minAmplitude = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMin();
-        double maxAmplitudeSampling = RawAsanDat->GetAscan(beamID)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
-        double maxAmplitudeUsable = RawAsanDat->GetAscan(beamID)->GetAmplitudeDataRange()->GetFloatingMax();
-
         for (int z = 0; z < zsize; ++z) {
             double percentAmplitude = std::abs(ascanData[z] - minAmplitude) / maxAmplitudeSampling * maxAmplitudeUsable;
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
 
             if (pautmode == PautModeOmni::Linear) {
-                int offsetX = static_cast<int>(z * sin(angStart * M_PI / 180));
+                int offsetX = std::abs(static_cast<int>(z * sin(angStart * M_PI / 180)));
                 int adjustedX = beamID + offsetX;
                 if (adjustedX >= 0 && adjustedX < tempSViewBuf.cols && z >= 0 && z < tempSViewBuf.rows) {
                     auto& pixel = tempSViewBuf.at<cv::Vec3b>(z, adjustedX);
                     pixel = cv::Vec3b(color.B, color.G, color.R);
-                }
+                }                
             }
             
             else if (pautmode == PautModeOmni::Sectorial) {
@@ -169,6 +177,7 @@ void nObserver::RealDatProcess() {
                 if (beamID + 1 < ysize)
                 {
                     const cv::Point& nextPoint = xySectorial[beamID + 1][z];
+                    // currently use too much time to process, low performance TODO optimize for highest resolution
                     cv::line(tempSViewBuf, point, nextPoint, cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_4);
                 }
             }
@@ -186,6 +195,7 @@ void nObserver::RealDatProcess() {
 
         tempCViewBuf.at<cv::Vec3b>(beamID, 0) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
     }
+    if (angStart < 0) cv::flip(tempSViewBuf, tempSViewBuf, 1);
     {
         std::lock_guard<std::mutex> lock(ArtScanMutex);
         if (ArtScan->SViewBuf) { ArtScan->SViewBuf = nullptr; }
@@ -196,24 +206,6 @@ void nObserver::RealDatProcess() {
         ArtScan->BViewBuf = std::make_shared<cv::Mat>(tempBViewBuf);
         ArtScan->BViewBuf->colRange(0, ArtScan->BViewBuf->cols - 1).copyTo(tempBViewBuf.colRange(1, tempBViewBuf.cols));
         *ArtScan->AViewBuf = points;
-
-        static int lastYSize = -1;
-        if (lastYSize != ysize) {
-            size_t totalPixelsSView = ArtScan->SViewBuf->rows * ArtScan->SViewBuf->cols;
-            size_t totalPixelsCView = ArtScan->CViewBuf->rows * ArtScan->CViewBuf->cols;
-            size_t totalPixelsBView = ArtScan->BViewBuf->rows * ArtScan->BViewBuf->cols;
-            size_t totalPixelsAView = ArtScan->AViewBuf->size();
-            size_t totalPixels = totalPixelsSView + totalPixelsCView + totalPixelsBView + totalPixelsAView;
-            std::stringstream ss;
-            ss << "Total pixel count:\n";
-            ss << "   SViewBuf: " << totalPixelsSView << " pixels\n";
-            ss << "   CViewBuf: " << totalPixelsCView << " pixels\n";
-            ss << "   BViewBuf: " << totalPixelsBView << " pixels\n";
-            ss << "   AViewBuf: " << totalPixelsAView << " pixels\n";
-            ss << "   Total: " << totalPixels << " pixels\n";
-            sttlogs->logInfo(ss.str());
-            lastYSize = ysize;
-        }
     }
     RawAsanDat.reset();
 }

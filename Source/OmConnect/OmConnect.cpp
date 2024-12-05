@@ -67,7 +67,7 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
             }
         }
 
-        if (!OmConfig)
+        if (!OmConfig || !acquisition)
         {
             // Init
             OmConfig = std::make_shared<OmConfigSetup>(device);
@@ -94,12 +94,12 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
 
     }
     catch (const std::exception& e) {
-        omDisconnectDevice();
+        if (datProcess) datProcess->Stop();
         sttlogs->logCritical("Standard exception: " + std::string(e.what()));
         return false;
     }
     catch (...) {
-        omDisconnectDevice();
+        datProcess->Stop();
         sttlogs->logCritical("Unexpected exception thrown.");
         return false;
     }

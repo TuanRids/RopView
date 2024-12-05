@@ -333,9 +333,8 @@ namespace nmainUI {
                 StartOmni->setText("Update");
             }
             else {
-                IOmConnect::ReleaseDevice();
-                sttlogs->logWarning("Release device! Check your configuration.");
-                StartOmni->setText("Start");
+                sttlogs->logWarning("Check your configuration.");
+                // StartOmni->setText("Start");
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             nsubject->startRealtimeUpdate();
@@ -345,7 +344,7 @@ namespace nmainUI {
             nsubject->stopRealtimeUpdate();
             nsubject->stopNotifyTimer();
             IOmConnect::ReleaseDevice();
-            sttlogs->logNotify("Stop!");
+            sttlogs->logNotify("Release device!");
             StartOmni->setText("Start");
             });
 

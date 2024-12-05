@@ -14,7 +14,7 @@ class nDataProcess
     // internal properties
     std::mutex m_mtx2;
     bool exceptionFound = false;
-    std::atomic<bool> m_running{ false };
+    std::unique_ptr<std::atomic<bool>> m_running = std::make_unique<std::atomic<bool>>(false);
     std::future<void> m_future;
     ConfigLocator* configL;
     std::shared_ptr<Om_Settup_Config> omSetCof;
