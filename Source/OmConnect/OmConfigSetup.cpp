@@ -237,7 +237,7 @@ void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBea
 
 void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations)
 {
-    std::string logger = fmt::format("Configure: SectorialBeam\n");
+    std::string logger = fmt::format("Configure: Compound\n");
     logger += std::string(40, '-') + "\n";
     logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "VirA", "delay_nF", "Delta_n", "Final Delay");
 
@@ -251,7 +251,6 @@ void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeam
     }
     int mid_elem = 0;
     if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
-
     for (unsigned int iBeam = 0; iBeam < omSetCof->beamNumber; ++iBeam) {
         shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
@@ -263,7 +262,7 @@ void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeam
             double delay{ 0 };
             if (focus == 0) { delay = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500); }
             else { // ************* Focus
-                delay_noFocus = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);                               
+                delay_noFocus = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
                 int nth =/* mid_elem -*/ std::abs(elementIdx - mid_elem);
                 delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
                 delay = delay_noFocus - delta_n;
@@ -273,7 +272,6 @@ void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeam
             pulserDelays->GetElementDelay(elementIdx)->SetDelay(delay);
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             receiverDelays->GetElementDelay(elementIdx)->SetDelay(500 + delay);
-
             appendLog(logger, VirAperture, delay_noFocus, delta_n, delay);
             VirAperture += omSetCof->EleStep;
             if (VirAperture > omSetCof->EleLast) {
@@ -298,7 +296,7 @@ void OmConfigSetup::ConfigureDigitizingSettings(IDigitizerTechnologyPtr digitize
     }
     digitizerTechnology->SetPulserVoltage(HigherVoltage);
 
-    auto digitizingSettings = beamSet->GetDigitizingSettings();
+    Instrumentation::IDigitizingSettingsPtr digitizingSettings = beamSet->GetDigitizingSettings();
     digitizingSettings->GetAmplitudeSettings()->SetAscanDataSize(omSetCof->Digi_Ampli_AscanSize);
     digitizingSettings->GetAmplitudeSettings()->SetAscanRectification(omSetCof->Digi_Ampli_rectification);
     digitizingSettings->GetAmplitudeSettings()->SetScalingType(omSetCof->Digi_Ampli_Scaling);

@@ -106,23 +106,23 @@ void AviewFrame::paintGL() {
     }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     shaderProgram->bind();
-    if (!nIsGlTexture)
+    if (!isGLTexture())
     {
         return;
     }
-    if (ArtScan->AViewBuf && !ArtScan->AViewBuf->size() < 1) {
+    if (prosdt.ArtScan->AViewBuf && !prosdt.ArtScan->AViewBuf->size() < 1) {
         vao.bind();
         vbo.bind();
 
         // Update VBO with current data
-        glBufferData(GL_ARRAY_BUFFER, ArtScan->AViewBuf->size() * sizeof(glm::vec2), ArtScan->AViewBuf->data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, prosdt.ArtScan->AViewBuf->size() * sizeof(glm::vec2), prosdt.ArtScan->AViewBuf->data(), GL_DYNAMIC_DRAW);
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
             qDebug() << "OpenGL Error:" << error;
         }
 
         // Draw line strip
-        glDrawArrays(GL_LINE_STRIP, 0, ArtScan->AViewBuf->size());
+        glDrawArrays(GL_LINE_STRIP, 0, prosdt.ArtScan->AViewBuf->size());
         error = glGetError();
         if (error != GL_NO_ERROR) {
             qDebug() << "OpenGL Error:" << error;
@@ -169,7 +169,7 @@ void AviewFrame::updateOffLine()
         isRealTime = false;
     }    static bool first_flag = false;
     // ********** PARAMETER VALIDATION **********
-    if (scandat.Amplitudes.empty()) {
+    if (prosdt.scandat.Amplitudes.empty()) {
         if (sttlogs) {
             sttlogs->logWarning("No amplitude data available");
         }
@@ -179,9 +179,9 @@ void AviewFrame::updateOffLine()
     // ********** PARAMETER PROCESSING **********
     if (!lineSeries) RenderFrame();
 
-    uint64_t zsize = scandat.AmplitudeAxes[0].Quantity;
-    uint64_t ysize = scandat.AmplitudeAxes[1].Quantity;
-    uint64_t xsize = scandat.AmplitudeAxes[2].Quantity;
+    uint64_t zsize = prosdt.scandat.AmplitudeAxes[0].Quantity;
+    uint64_t ysize = prosdt.scandat.AmplitudeAxes[1].Quantity;
+    uint64_t xsize = prosdt.scandat.AmplitudeAxes[2].Quantity;
 
     points.clear();
     points.reserve(zsize);
@@ -190,14 +190,14 @@ void AviewFrame::updateOffLine()
     double maxY = std::numeric_limits<double>::min();
 
     for (uint64_t z = 0; z < zsize; ++z) {
-        uint64_t index = z * (xsize * ysize) + curpt[1] * xsize + curpt[0];
+        uint64_t index = z * (xsize * ysize) + prosdt.curpt[1] * xsize + prosdt.curpt[0];
 
-        if (index >= scandat.Amplitudes.size()) {
-            sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(scandat.Amplitudes.size()));
+        if (index >= prosdt.scandat.Amplitudes.size()) {
+            sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(prosdt.scandat.Amplitudes.size()));
             return;
         }
 
-        int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
+        int16_t samplingAmplitude = std::abs(prosdt.scandat.Amplitudes[index]);
         double percentAmplitude = samplingAmplitude / (32768 / 100.0);
 
         minY = std::min(minY, percentAmplitude);
@@ -215,13 +215,13 @@ void AviewFrame::updateOffLine()
         axisY->setReverse(true);
     }
 
-    if (!isPanning)
+    if (!prosdt.isPanning)
     {
-        static int lastpos[3] = { curpt[0], curpt[1], curpt[2]};
-        if (curpt[0] != lastpos[0] || curpt[1] != lastpos[1] || curpt[2] != lastpos[2])
+        static int lastpos[3] = { prosdt.curpt[0], prosdt.curpt[1], prosdt.curpt[2]};
+        if (prosdt.curpt[0] != lastpos[0] || prosdt.curpt[1] != lastpos[1] || prosdt.curpt[2] != lastpos[2])
         {
-            lastpos[0] = curpt[0]; lastpos[1] = curpt[1]; lastpos[2] = curpt[2];
-            sttlogs->logInfo("Coord x: " + std::to_string(curpt[0]) + " - Coord y: " + std::to_string(curpt[1]) + " Coord z: " + std::to_string(curpt[2]) + ".");
+            lastpos[0] = prosdt.curpt[0]; lastpos[1] = prosdt.curpt[1]; lastpos[2] = prosdt.curpt[2];
+            sttlogs->logInfo("Coord x: " + std::to_string(prosdt.curpt[0]) + " - Coord y: " + std::to_string(prosdt.curpt[1]) + " Coord z: " + std::to_string(prosdt.curpt[2]) + ".");
         }
     }
 }

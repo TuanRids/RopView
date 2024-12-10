@@ -537,7 +537,7 @@ namespace nmainUI {
         if (processor)
         {
             auto factframe = nFactoryFrame::crCviewFrm();
-            factframe->clearScandat();
+            factframe->clearAll();
             auto res = processor->analyze(&*factframe);
             if (res) { sttlogs->logInfo("Scanning Data is Loaded."); }
             factframe->setter_Curpt(1, 1, 1);

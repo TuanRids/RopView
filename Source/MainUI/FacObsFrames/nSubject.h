@@ -76,8 +76,7 @@ public:
         }
 
         if (!observers.empty()) {
-            observers[0]->clearBuffer();
-            observers[0]->clearScandat();
+            observers[0]->clearAll();
         }
     }
 

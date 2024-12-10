@@ -7,13 +7,9 @@
 #include "event/ZoomableGraphicsView.h"
 #include "OmConnect/BeamSet.h"
 #include "Instrumentation/IAScanCollection.h"
-#include "SystemConfig/ConfigLocator.h"
 #include <mutex>
+#include "ObserverStruct.hpp"
 
-struct VertexData {
-	QVector2D position;  
-	QVector3D color;    
-};
 
 using namespace std;
 class nObserver {
@@ -25,47 +21,32 @@ public:
 	virtual void updateOffLine() = 0;
 	virtual void updateRealTime() = 0;
 
-
-	void setScandat(const AscanData& dataa) { scandat = dataa; }
-	void clearScandat() { scandat = AscanData(); ArtScan->resetAll(); }
-	void clearBuffer() { nAscanCollection.clear(); }
-	std::shared_mutex &getCollectionMutex() { return collectionMutex; }
-	bool isGLTexture() { return nIsGlTexture.load(); }
-
-	
+	//process
 	void RealDatProcess();
-	void RealDatProcessGPU();
-	void processOnGPU();
+	void processOnGPU(); // use childClass to process by OpenGL4_3 for avoiding multi inhertitance
 
-	size_t bufferSize() { return nAscanCollection.size(); }
+	//setter
+	void setScandat(const AscanData& dataa) { prosdt.scandat = dataa; }
+	void clearAll() { prosdt.scandat = AscanData(); prosdt.ArtScan->resetAll(); prosdt.nAscanCollection.clear(); }
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection);
+	
+	// getter & check
+	bool isGLTexture() { std::cout << prosdt.nIsGlTexture.load() << std::endl; return prosdt.nIsGlTexture.load(); }
+	std::shared_mutex &getCollectionMutex() { return collectionMutex; }
+	size_t bufferSize() { return prosdt.nAscanCollection.size(); }
 
 protected:
-	static QVector<VertexData> vertice_sview; // temporary
-	//static QVector<VertexData> vertice_bview; // temporary
-	static QVector<VertexData> vertice_cview; // temporary
-	static std::atomic<bool> nIsGlTexture;
-
+	void updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat);
+	static ProcessingContext prosdt;	
 	ConfigLocator* ConfigL = &ConfigLocator::getInstance();
 	OmSetupL oms = OmSetupL::getInstance();
+
 	static nmainUI::statuslogs* sttlogs;
-
-	// Offline process variable
-	static bool isPanning;
-	static int curpt[3];
-	static AscanData scandat;
-
-	// Realtime Process variable glTexture2D
-	static deque<shared_ptr<IAscanCollection>> nAscanCollection;
-	static UIArtScan* ArtScan;
 	std::shared_mutex collectionMutex;
-	static std::mutex ArtScanMutex;
-
+	std::mutex ArtScanMutex;
 	//Realtime Process variable glDatabuffer Processes
-	static GLuint sectorialBuffer;
 	std::vector<Color> everyColors;
-	static std::vector<std::vector<cv::Point>> xySectorial;
-
+	
 };
 
 class upFrame: public nObserver, public QOpenGLFunctions_4_3_Core {
@@ -75,5 +56,6 @@ class upFrame: public nObserver, public QOpenGLFunctions_4_3_Core {
 public:
 	void processOnGPU() ;
 };
+
 
 #endif // NOBSERVER_H

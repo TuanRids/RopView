@@ -38,7 +38,7 @@ public:
 class OmSetupL {
 private:
     OmSetupL() {
-        OMS = std::make_shared<Om_Settup_Config>();
+        if (!OMS) OMS = std::make_shared<Om_Settup_Config>();
     }
 public:
     static OmSetupL& getInstance() {

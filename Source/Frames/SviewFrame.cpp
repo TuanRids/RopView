@@ -44,7 +44,7 @@ void SviewFrame::Wait3DScreen() {
 void SviewFrame::initializeGL() {     
     initializeOpenGLFunctions();
     glClearColor(0.09f, 0.09f, 0.09f, 1.0f);
-    if (nIsGlTexture) 
+    if (isGLTexture())
     {
         if (!shaderProgram) {
             sttlogs->logInfo("Start initialize OpenGL - GLTexture on GPU for SviewFrame");
@@ -143,7 +143,7 @@ void SviewFrame::initializeGL() {
             const size_t initialBufferSize = 720000 * 1.5 * sizeof(VertexData);
             vbo.allocate(initialBufferSize);
 
-            //vbo.allocate(vertice_sview.constData(), vertice_sview.size() * sizeof(VertexData));
+            //vbo.allocate(prosdt.vertice_sview.constData(), prosdt.vertice_sview.size() * sizeof(VertexData));
 
             glEnableVertexAttribArray(vertexLocation);
             glVertexAttribPointer(vertexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, position)));
@@ -172,13 +172,13 @@ void SviewFrame::paintGL() {
         Wait3DScreen();
     }
     // Render by GlTexture
-    if (nIsGlTexture && ArtScan->SViewBuf) 
+    if (isGLTexture() && prosdt.ArtScan->SViewBuf)
     {
         startFlag = true;
         {
             std::lock_guard<std::mutex> lock(ArtScanMutex); 
-            orgimage = std::make_shared<cv::Mat>(ArtScan->SViewBuf->clone());
-            ArtScan->SViewBuf = nullptr; 
+            orgimage = std::make_shared<cv::Mat>(prosdt.ArtScan->SViewBuf->clone());
+            prosdt.ArtScan->SViewBuf = nullptr; 
             if (orgimage->size().width == 0 || orgimage->size().height == 0) return;
         }
         glBindTexture(GL_TEXTURE_2D, textureID); 
@@ -192,7 +192,7 @@ void SviewFrame::paintGL() {
         shaderProgram->release();
 
     } // Render by GlBufferData
-    else if (!nIsGlTexture)
+    else if (!isGLTexture())
     {
 
         startFlag = true;
@@ -204,11 +204,11 @@ void SviewFrame::paintGL() {
         glPointSize(3.0f);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if (!vertice_sview.isEmpty()) {           
+        if (!prosdt.vertice_sview.isEmpty()) {           
             // Update vertex buffer data
-            size_t dataSize = vertice_sview.size() * sizeof(VertexData);
+            size_t dataSize = prosdt.vertice_sview.size() * sizeof(VertexData);
             vbo.bind();
-            glBufferSubData(GL_ARRAY_BUFFER, 0, dataSize, vertice_sview.constData());
+            glBufferSubData(GL_ARRAY_BUFFER, 0, dataSize, prosdt.vertice_sview.constData());
             vbo.release();
 
             // Draw
@@ -216,7 +216,7 @@ void SviewFrame::paintGL() {
             shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
             vao.bind();
 
-            glDrawArrays(GL_POINTS, 0, vertice_sview.size());
+            glDrawArrays(GL_POINTS, 0, prosdt.vertice_sview.size());
             GLenum error = glGetError();
             if (error != GL_NO_ERROR) {
                 qDebug() << "OpenGL Error:" << error;
@@ -346,10 +346,10 @@ void SviewFrame::updateOffLine() {
         isRealTime = false;
     }
 
-    if (scandat.Amplitudes.empty()) return;
-    zsize = scandat.AmplitudeAxes[0].Quantity;
-    ysize = scandat.AmplitudeAxes[1].Quantity;
-    xsize = scandat.AmplitudeAxes[2].Quantity;
+    if (prosdt.scandat.Amplitudes.empty()) return;
+    zsize = prosdt.scandat.AmplitudeAxes[0].Quantity;
+    ysize = prosdt.scandat.AmplitudeAxes[1].Quantity;
+    xsize = prosdt.scandat.AmplitudeAxes[2].Quantity;
 
     orgimage = std::make_unique<cv::Mat>(zsize, ysize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
@@ -357,12 +357,12 @@ void SviewFrame::updateOffLine() {
 #pragma omp parallel for
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {
-            uint64_t index = z * (xsize * ysize) + y * xsize + curpt[0];
-            if (index >= scandat.Amplitudes.size()) {
+            uint64_t index = z * (xsize * ysize) + y * xsize + prosdt.curpt[0];
+            if (index >= prosdt.scandat.Amplitudes.size()) {
                 sttlogs->logWarning("[Bscan] Out of range data: " + std::to_string(index));
                 return;
             }
-            double percentAmplitude = std::abs(scandat.Amplitudes[index]) / (32768 / 100.0);
+            double percentAmplitude = std::abs(prosdt.scandat.Amplitudes[index]) / (32768 / 100.0);
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
             orgimage->at<cv::Vec3b>(z, y) = cv::Vec3b(color.B, color.G, color.R);
         }
@@ -374,7 +374,7 @@ void SviewFrame::updateOffLine() {
     int newWidth = (frameRatio > imageRatio) ? static_cast<int>(orgimage->rows * frameRatio) : orgimage->cols;
     int newHeight = (frameRatio > imageRatio) ? orgimage->rows : static_cast<int>(orgimage->cols / frameRatio);
 
-    int scaleFactor = (!isPanning || ConfigL->settingconf->bhighResBscan) ? ConfigL->sysParams->resolution : 1;
+    int scaleFactor = (!prosdt.isPanning || ConfigL->settingconf->bhighResBscan) ? ConfigL->sysParams->resolution : 1;
     cv::resize(*orgimage, *scaledImage, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), 0);
@@ -408,12 +408,12 @@ void SviewFrame::addPoints(bool Cviewlink, int x, int y)
     double pixelY, pixelZ;
     if (!isRealTime)
     {
-        pixelY = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->cols / ysize : static_cast<double>(x);
-        pixelZ = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->rows / zsize : static_cast<double>(y);
+        pixelY = (Cviewlink) ? static_cast<double>(prosdt.curpt[1]) * scaledImage->cols / ysize : static_cast<double>(x);
+        pixelZ = (Cviewlink) ? static_cast<double>(prosdt.curpt[1]) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     else {
         pixelY = (Cviewlink) ? static_cast<double>(oms.OMS->beamCurrentID) * scaledImage->cols / ysize : static_cast<double>(x);
-        pixelZ = (Cviewlink) ? static_cast<double>(curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
+        pixelZ = (Cviewlink) ? static_cast<double>(prosdt.curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     if (overlay) overlay->updatePoints(pixelY, pixelZ, Qt::red, Qt::color0);
     graphicsView->update();
@@ -445,14 +445,14 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
             if (!isRealTime)
             {
                 auto [original_y, original_z] = calculateOriginalPos(scaled_y, scaled_z);
-                QToolTip::showText(QCursor::pos(), QString("X: %1\nY: %2\nZ: %3").arg(curpt[0]).arg(original_y).arg(original_z));
+                QToolTip::showText(QCursor::pos(), QString("X: %1\nY: %2\nZ: %3").arg(prosdt.curpt[0]).arg(original_y).arg(original_z));
                 overlay->updateOverlay(scaled_y, scaled_z, scaledImage->cols, scaledImage->rows);
                 graphicsView->update();
             }
             else
             {
                 int newy;
-                //std::tie(newy, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
+                //std::tie(newy, prosdt.curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
                 if (!scaledImage) return;                
                 QString tooltipText = QString("X: %1\nY: %2\nZ: %3")
                     .arg("...")
@@ -471,15 +471,15 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         {
             if (!isRealTime)
             {
-                std::tie(curpt[1], curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
-                isPanning = false;
+                std::tie(prosdt.curpt[1], prosdt.curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
+                prosdt.isPanning = false;
                 addPoints(false, scaled_y, scaled_z);
 
             }
             else
             {
-                std::tie(oms.OMS->beamCurrentID, curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
-                isPanning = false;
+                std::tie(oms.OMS->beamCurrentID, prosdt.curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
+                prosdt.isPanning = false;
                 addPoints(false, scaled_y, scaled_z);
             }
         }
