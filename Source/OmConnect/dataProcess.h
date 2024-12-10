@@ -28,7 +28,7 @@ public:
     nDataProcess(IAcquisitionPtr gacquisition, IDevicePtr gdevice);
     ~nDataProcess();
 
-    void Stop();
+    void FStop();
     void updateRealtimeProcess();
 
 private:

@@ -32,6 +32,7 @@ private:
     void ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations);
     void ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations);
     void ConfigureDigitizingSettings(IDigitizerTechnologyPtr digitizerTechnology);
+    std::string appendLog(std::string& logger, unsigned int VirAperture, double delayNoFocus , double deltaN, double delay );
 
 };
 

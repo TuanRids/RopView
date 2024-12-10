@@ -17,7 +17,7 @@ nDataProcess::nDataProcess(IAcquisitionPtr gacquisition, IDevicePtr gdevice)
 
 nDataProcess::~nDataProcess()
 {
-    Stop();
+   FStop();
 }
 
 bool nDataProcess::Start()
@@ -32,12 +32,18 @@ bool nDataProcess::Start()
 	return true;
 }
 
-void nDataProcess::Stop()
+void nDataProcess::FStop()
 {
     if (!m_running) return;
     *m_running = false;
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     if (m_future.valid()) {
-        if (acquisition) acquisition->Stop(); acquisition.reset(); acquisition = nullptr;
+        if (acquisition )
+        {
+            if (acquisition->GetState() != Instrumentation::IAcquisition::State::Stopped) acquisition->Stop();
+            acquisition.reset();
+            acquisition = nullptr;
+        }
         m_future.wait();
     }
 
@@ -89,7 +95,11 @@ void nDataProcess::Run()
     {
         cout << "ERROR : " << e.what() << "\n";
         *m_running = false;
-        acquisition->Stop();
+        if (acquisition)
+        {
+            acquisition->Stop(); acquisition.reset();
+            acquisition = nullptr;
+        }
         nmainUI::statuslogs::getinstance().logCritical("Exception found: " + std::string(e.what()));
     }
     cout << ">>Stop PAUT RUNNING" << "\n";

@@ -38,7 +38,7 @@ QWidget* AviewFrame::createFrame() {
 }
 void AviewFrame::initializeGL() {
     initializeOpenGLFunctions();
-    glClearColor(0.3f, 0.4f, 0.2f, 1.0f);
+    glClearColor(0.09f, 0.09f, 0.09f, 1.0f);
     if (!shaderProgram) {
         QOffscreenSurface ggsurface;
         ggsurface.create();
@@ -48,28 +48,25 @@ void AviewFrame::initializeGL() {
         QString gpuVendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
         QString gpuRenderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
         sttlogs->logNotify("GPU Vendor: " + gpuVendor.toStdString() + "\nGPU Renderer: " + gpuRenderer.toStdString());
-
-        initializeOpenGLFunctions();
         sttlogs->logInfo("Start initialize OpenGL - GLDataBuffer on GPU for AviewFrame");
-        glClearColor(0.3f, 0.4f, 0.2f, 1.0f);
 
         shaderProgram = std::make_unique<QOpenGLShaderProgram>();
         shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
             R"(
-            #version 330 core
+            #version 430 core
             layout (location = 0) in vec2 position;
 
             void main() {
-                gl_Position = vec4(position.x, position.y, 0.0, 1.0);
+                gl_Position = vec4(position.x, -position.y, 0.0, 1.0);
             }
             )");
         shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
             R"(
-            #version 330 core
+            #version 430 core
             out vec4 FragColor;
 
             void main() {
-                FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White line
+                FragColor = vec4(1.0, 0.5, 0.0, 1.0); // White line
             }
             )");
         shaderProgram->link();
@@ -92,6 +89,7 @@ void AviewFrame::initializeGL() {
 
         vao.release();
         vbo.release();
+        glClearColor(0.09f, 0.09f, 0.09f, 1.0f);
 
     }
     
@@ -106,17 +104,18 @@ void AviewFrame::paintGL() {
         sttlogs->logCritical("OpenGL context is not valid");
         return;
     }
-
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     shaderProgram->bind();
-
-    if (ArtScan->AViewBuf && !ArtScan->AViewBuf->isEmpty()) {
+    if (!nIsGlTexture)
+    {
+        return;
+    }
+    if (ArtScan->AViewBuf && !ArtScan->AViewBuf->size() < 1) {
         vao.bind();
         vbo.bind();
 
         // Update VBO with current data
-        glBufferData(GL_ARRAY_BUFFER, ArtScan->AViewBuf->size() * sizeof(glm::vec2), ArtScan->AViewBuf->constData(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, ArtScan->AViewBuf->size() * sizeof(glm::vec2), ArtScan->AViewBuf->data(), GL_DYNAMIC_DRAW);
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
             qDebug() << "OpenGL Error:" << error;
@@ -156,10 +155,19 @@ void AviewFrame::resizeGL(int width, int height)
     std::cout << "Aview ReSize: " << width << "x" << height << std::endl;
 }
 
+// ********************************************
+// Offline Reading
+// TODO: Optimize into GPU Rendering
 void AviewFrame::updateOffLine()
 {
-    isRealTime = false;
-    static bool first_flag = false;
+    if (isRealTime)
+    {
+        layout->removeWidget(this);
+        this->hide();
+        layout->addWidget(graphicsView.get());
+        graphicsView->show();
+        isRealTime = false;
+    }    static bool first_flag = false;
     // ********** PARAMETER VALIDATION **********
     if (scandat.Amplitudes.empty()) {
         if (sttlogs) {
@@ -182,7 +190,7 @@ void AviewFrame::updateOffLine()
     double maxY = std::numeric_limits<double>::min();
 
     for (uint64_t z = 0; z < zsize; ++z) {
-        uint64_t index = z * (xsize * ysize) + curpt.y * xsize + curpt.x;
+        uint64_t index = z * (xsize * ysize) + curpt[1] * xsize + curpt[0];
 
         if (index >= scandat.Amplitudes.size()) {
             sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(scandat.Amplitudes.size()));
@@ -196,6 +204,7 @@ void AviewFrame::updateOffLine()
         maxY = std::max(maxY, percentAmplitude);
         points.append(QPointF(percentAmplitude, z));
     }
+    if (!lineSeries) RenderFrame();
     lineSeries->clear();
     lineSeries->replace(points);
     if (!axisX || !first_flag)
@@ -208,11 +217,11 @@ void AviewFrame::updateOffLine()
 
     if (!isPanning)
     {
-        static int lastpos[3] = { curpt.x, curpt.y, curpt.z };
-        if (curpt.x != lastpos[0] || curpt.y != lastpos[1] || curpt.z != lastpos[2])
+        static int lastpos[3] = { curpt[0], curpt[1], curpt[2]};
+        if (curpt[0] != lastpos[0] || curpt[1] != lastpos[1] || curpt[2] != lastpos[2])
         {
-            lastpos[0] = curpt.x; lastpos[1] = curpt.y; lastpos[2] = curpt.z;
-            sttlogs->logInfo("Coord x: " + std::to_string(curpt.x) + " - Coord y: " + std::to_string(curpt.y) + " Coord z: " + std::to_string(curpt.z) + ".");
+            lastpos[0] = curpt[0]; lastpos[1] = curpt[1]; lastpos[2] = curpt[2];
+            sttlogs->logInfo("Coord x: " + std::to_string(curpt[0]) + " - Coord y: " + std::to_string(curpt[1]) + " Coord z: " + std::to_string(curpt[2]) + ".");
         }
     }
 }

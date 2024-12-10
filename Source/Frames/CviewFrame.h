@@ -22,7 +22,7 @@ private:
     std::shared_ptr<QGraphicsScene> scene;
     std::shared_ptr<ZoomableGraphicsView> graphicsView;
     std::shared_ptr<XYOverlayGrid> overlay = nullptr;
-    bool isRealTime = false;
+    bool isRealTime = true;
     // Offline Variables
     uint64_t ysize, xsize, zsize;
     std::shared_ptr<cv::Mat> orgimage;
@@ -43,7 +43,7 @@ public:
     QWidget* createFrame() override;
     void updateOffLine() override;
     void updateRealTime() override;
-    void setter_Curpt(int x, int y, int z) {curpt.x = x; curpt.y = y; curpt.z = z;}
+    void setter_Curpt(int x, int y, int z) { curpt[0] = x; curpt[1] = y; curpt[2] = z; }
 protected:
     void initializeGL() override;
     void paintGL() override;

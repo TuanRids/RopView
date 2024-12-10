@@ -10,13 +10,14 @@
 #include "event/XYOverlayGrid.h"
 
 // Graphics Frame
-class SviewFrame : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core, public nObserver {
+class SviewFrame : public QOpenGLWidget, public QOpenGLFunctions_4_3_Core, public nObserver {
     Q_OBJECT
 private:
     // Functions
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
     void addPoints(bool Cviewlink, int x, int y);
     std::pair<int, int> calculateOriginalPos(int scaled_y, int scaled_z);
+    void renderQuad();
     // View Variables
     std::shared_ptr<XYOverlayGrid> overlay = nullptr;
     std::shared_ptr<QGraphicsScene> scene;
@@ -49,6 +50,12 @@ protected:
     void paintGL() override;
     void resizeGL(int width, int height) override;
     void Wait3DScreen();
+    void mousePressEvent(QMouseEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event);
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    QVector2D zoomCenter;
+    float zoomRatio = 1.0f;
 };
 
 

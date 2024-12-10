@@ -152,6 +152,20 @@ inline float FPS_Calc(QElapsedTimer& fpsTimer, int& frameCount) {
     frameCount++;
     return -1.0f; 
 }
+// return Loger File_Logger for recording.
+// can recheck the loger file in the folder.
+inline std::shared_ptr<spdlog::logger> CoutLogger() {
+    static std::shared_ptr<spdlog::logger> debugLogger = nullptr;
+
+    if (!debugLogger) {
+        debugLogger = spdlog::get("file_logger");
+        if (!debugLogger) {
+            std::cerr << "Could not find logger 'file_logger'" << std::endl;
+            return nullptr;
+        }
+    }
+    return debugLogger;
+}
 
 
 inline std::filesystem::path getFilePath()

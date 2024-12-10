@@ -77,6 +77,19 @@ private:
         addSettingToGrid(layout, name, doubleSpinBox,row, column);
         return doubleSpinBox;
     }
+    QSlider* createSlider(int min, int max, int value, QGridLayout* layout, QString name, int row, int column, std::function<void(int)> slotFunction) {
+        QSlider* slider = new QSlider(Qt::Horizontal); 
+        slider->setRange(min, max);
+        slider->setValue(value);
+        slider->setTickInterval(1); 
+        slider->setTickPosition(QSlider::TicksBelow);
+        slider->setMinimumWidth(80);
+        slider->setMinimumHeight(20); 
+        QObject::connect(slider, &QSlider::valueChanged, slotFunction);
+
+        addSettingToGrid(layout, name, slider, row, column);
+        return slider;
+    }
 
         
     void setupScanPlanTab(QHBoxLayout* layout) {
@@ -235,6 +248,10 @@ private:
             createSpinBox(0, 1000, scanPlan->BeamAEnd, layout3, "A End", ++x, y, [=](double value) {
                 scanPlan->BeamAEnd = value;
                 });
+            createSlider(0, 120, scanPlan->beamCurrentID, layout3, "BeamID", ++x, y, [=](int value) {
+                scanPlan->beamCurrentID = value;
+                });
+
             x = 0; y++;
 
         }
@@ -245,8 +262,8 @@ private:
             QComboBox* BoxPautMode = new QComboBox(); auto DeModeid = 0;
             BoxPautMode->addItem("Linear", static_cast<int>(PautModeOmni::Linear));
             BoxPautMode->addItem("Sectorial", static_cast<int>(PautModeOmni::Sectorial));
-            BoxPautMode->addItem("Sectorial", static_cast<int>(PautModeOmni::Compound));
-            BoxPautMode->addItem("Sectorial", static_cast<int>(PautModeOmni::TFM));
+            BoxPautMode->addItem("Compound", static_cast<int>(PautModeOmni::Compound));
+            BoxPautMode->addItem("X TFM X", static_cast<int>(PautModeOmni::TFM));
             switch (ConfigLocator::getInstance().visualConfig->setPautMode) {
             case PautModeOmni::Linear: DeModeid = 0; break;
             case PautModeOmni::Sectorial: DeModeid = 1; break;

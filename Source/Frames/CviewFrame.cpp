@@ -6,7 +6,6 @@ CviewFrame::CviewFrame(QWidget* parent): QOpenGLWidget(parent), surface(new QOff
 {
     QOpenGLWidget::setUpdateBehavior(QOpenGLWidget::PartialUpdate);
 }
-
 QWidget* CviewFrame::createFrame(){
     if (!graphicsView) {
         graphicsView = std::make_shared<ZoomableGraphicsView>();
@@ -30,7 +29,6 @@ QWidget* CviewFrame::createFrame(){
 
 }
 
-
 void CviewFrame::initializeGL() {
     initializeOpenGLFunctions();
     glClearColor(0.3f, 0.4f, 0.0f, 1.0f);
@@ -52,7 +50,7 @@ void CviewFrame::initializeGL() {
             shaderProgram = std::make_unique<QOpenGLShaderProgram>();
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
                 R"(
-                #version 330 core
+                #version 430 core
                 layout (location = 0) in vec2 position;
                 layout (location = 1) in vec2 texCoord;
 
@@ -66,7 +64,7 @@ void CviewFrame::initializeGL() {
                 )");
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
                 R"(
-                #version 330 core
+                #version 430 core
                 in vec2 fragTexCoord;
                 out vec4 FragColor;
 
@@ -109,8 +107,6 @@ void CviewFrame::paintGL() {
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, orgimage->cols, orgimage->rows, 0, GL_BGR, GL_UNSIGNED_BYTE, orgimage->data); 
-        float aspectRatio = 1.0f;
-        if (ArtScan->SViewBuf->rows != 0) float aspectRatio = static_cast<float>(ArtScan->SViewBuf->cols) / ArtScan->SViewBuf->rows;
         shaderProgram->bind(); //
 
         static const GLfloat vertices[] = {
@@ -154,6 +150,7 @@ void CviewFrame::paintGL() {
     }
     else if (!nIsGlTexture)
     {
+        return;
         glPointSize(5.0f);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -182,8 +179,6 @@ void CviewFrame::paintGL() {
     }
 }
 
-
-
 void CviewFrame::updateRealTime()
 {
     if (!isRealTime)
@@ -205,7 +200,9 @@ void CviewFrame::resizeGL(int width, int height)
 #endif
 }
 
-
+// ********************************************
+// Offline Reading
+// TODO: Optimize into GPU Rendering
 void CviewFrame::updateOffLine() {
     if (isRealTime)
     {
@@ -247,8 +244,7 @@ void CviewFrame::CreateXYview() {
     orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    std::vector<Color> everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
-    uint64_t z_offset = curpt.z * (xsize * ysize);
+    uint64_t z_offset = curpt[2] * (xsize * ysize);
     double percentAmplitude;
 
     // Processing amplitude data to assign colors
@@ -313,8 +309,8 @@ void CviewFrame::CreateXYview() {
 }
 void CviewFrame::addPoints(bool Cviewlink, int x, int y)
 {
-    double pixelX= (Cviewlink) ? static_cast<double>(curpt.x) * scaledImage->cols / xsize : static_cast<double>(x);
-    double pixelY = (Cviewlink) ? static_cast<double>(curpt.y) * scaledImage->rows / ysize : static_cast<double>(y);
+    double pixelX= (Cviewlink) ? static_cast<double>(curpt[0]) * scaledImage->cols / xsize : static_cast<double>(x);
+    double pixelY = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->rows / ysize : static_cast<double>(y);
 
     if (overlay) { overlay->updatePoints(pixelX, pixelY, Qt::blue, Qt::red); }
     graphicsView->update();
@@ -342,7 +338,7 @@ void CviewFrame::MouseGetPosXY()
         {
             temX = scaled_x; temY = scaled_y;
             auto [original_x, original_y] = calculateOriginalPos(scaled_x, scaled_y);
-            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(original_y).arg(curpt.z);
+            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(original_y).arg(curpt[2]);
             QToolTip::showText(QCursor::pos(), tooltipText);
             overlay->updateOverlay(scaled_x, scaled_y, scaledImage->cols, scaledImage->rows);
             graphicsView->update();
@@ -355,7 +351,7 @@ void CviewFrame::MouseGetPosXY()
         try
         {
             temX = scaled_x; temY = scaled_y;
-            std::tie(curpt.x, curpt.y) = calculateOriginalPos(scaled_x, scaled_y);
+            std::tie(curpt[0], curpt[1]) = calculateOriginalPos(scaled_x, scaled_y);
             isPanning = false;
 
             addPoints(false, scaled_x, scaled_y);

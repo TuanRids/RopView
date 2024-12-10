@@ -8,7 +8,7 @@
 #include "MainUI/mainwindow.h"
 
 // Aview Frame
-class AviewFrame : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core, public nObserver {
+class AviewFrame : public QOpenGLWidget, public QOpenGLFunctions_4_3_Core, public nObserver {
 private:
     //************** Method
     void RenderFrame();
@@ -24,7 +24,7 @@ private:
     QChart* chart;
     QSplineSeries* lineSeries;
     QChartView* chartView;
-    bool isRealTime = false;
+    bool isRealTime = true;
 
     // RealtimeGPU Variables
     QVBoxLayout* layout;

@@ -57,7 +57,7 @@ private:
         SViewBuf = std::make_shared<cv::Mat>();
         BViewBuf = std::make_shared<cv::Mat>(cv::Mat());
         CViewBuf = std::make_shared<cv::Mat>(cv::Mat());
-        AViewBuf = std::make_shared<QVector<glm::vec2>>();
+        AViewBuf = std::make_shared<std::vector<glm::vec2>>();
     }
 public:
     static UIArtScan& getInstance() {
@@ -67,19 +67,19 @@ public:
     void resetASscan() {
         SViewBuf.reset();  AViewBuf.reset();
         SViewBuf = std::make_shared<cv::Mat>();
-        AViewBuf = std::make_shared<QVector<glm::vec2>>();
+        AViewBuf = std::make_shared<std::vector<glm::vec2>>();
     }
     void resetAll()
     {
         if (SViewBuf) SViewBuf.reset(); SViewBuf = std::make_shared<cv::Mat>();
 		if (BViewBuf) BViewBuf.reset(); BViewBuf = std::make_shared<cv::Mat>(cv::Mat());
 		if (CViewBuf) CViewBuf.reset(); CViewBuf = std::make_shared<cv::Mat>(cv::Mat());
-		if (AViewBuf) AViewBuf.reset(); AViewBuf = std::make_shared<QVector<glm::vec2>>();
+		if (AViewBuf) AViewBuf.reset(); AViewBuf = std::make_shared<std::vector<glm::vec2>>();
     }
     std::shared_ptr<cv::Mat> SViewBuf;
     std::shared_ptr<cv::Mat> BViewBuf;
     std::shared_ptr<cv::Mat> CViewBuf;
-    std::shared_ptr<QVector<glm::vec2>> AViewBuf;
+    std::shared_ptr<std::vector<glm::vec2>> AViewBuf;
 };
 
 

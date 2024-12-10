@@ -159,7 +159,16 @@ namespace nmainUI {
             }
             });
 
-        logUpdateTimer->start(1000);
+        QObject::connect(logDockWidget, &QDockWidget::visibilityChanged, [logUpdateTimer](bool visible) {
+            if (visible) {
+                logUpdateTimer->start(1000);
+            }
+            else {
+                logUpdateTimer->stop();
+                lastPos = 0;
+            }
+            });
+
         logDockWidget->show();
 
     }
@@ -299,6 +308,7 @@ namespace nmainUI {
 
 
 //============== Create Settings Frame Widgets ==============
+    int MarginSize = 3;
     QWidget* UIManager::createLogFrame() {
         QWidget* logWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(logWidget);
@@ -438,7 +448,7 @@ namespace nmainUI {
         // Create Ascan Frame layout
         QWidget* ascanWidget = new QWidget();
         QVBoxLayout* layout = new QVBoxLayout(ascanWidget);
-        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setContentsMargins(MarginSize, MarginSize, MarginSize, MarginSize);
         layout->setSpacing(0);
 
         auto aScanFrm = nFactoryFrame::crAviewFrm();
@@ -452,7 +462,7 @@ namespace nmainUI {
     {
         QWidget* SscanWidget = new QWidget();
         QHBoxLayout* layout = new QHBoxLayout(SscanWidget);
-        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setContentsMargins(MarginSize, MarginSize, MarginSize, MarginSize);
         layout->setSpacing(0);
                
         auto sViewFrm = nFactoryFrame::crSViewFrm(SscanWidget);
@@ -466,7 +476,7 @@ namespace nmainUI {
     {
         QWidget* cscanWidget = new QWidget();
         QHBoxLayout* layout = new QHBoxLayout(cscanWidget);
-        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setContentsMargins(MarginSize, MarginSize, MarginSize, MarginSize);
         layout->setSpacing(0);
 
         auto cScanFrm = nFactoryFrame::crCviewFrm();
@@ -479,7 +489,7 @@ namespace nmainUI {
     {
         QWidget* Bview = new QWidget();
         QHBoxLayout* layout = new QHBoxLayout(Bview);
-        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setContentsMargins(MarginSize, MarginSize, MarginSize, MarginSize);
         //layout->setSpacing(0);
 
         auto BFrame = nFactoryFrame::crBviewFrm();

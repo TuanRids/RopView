@@ -48,7 +48,7 @@ void BviewFrame::initializeGL() {
             shaderProgram = std::make_unique<QOpenGLShaderProgram>();
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
                 R"(
-                #version 330 core
+                #version 430 core
                 layout (location = 0) in vec2 position;
                 layout (location = 1) in vec2 texCoord;
 
@@ -62,7 +62,7 @@ void BviewFrame::initializeGL() {
                 )");
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
                 R"(
-                #version 330 core
+                #version 430 core
                 in vec2 fragTexCoord;
                 out vec4 FragColor;
 
@@ -104,8 +104,6 @@ void BviewFrame::paintGL() {
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, orgimage->cols, orgimage->rows, 0, GL_BGR, GL_UNSIGNED_BYTE, orgimage->data);
-        float aspectRatio = 1.0f;
-        if (ArtScan->SViewBuf->rows != 0) float aspectRatio = static_cast<float>(ArtScan->SViewBuf->cols) / ArtScan->SViewBuf->rows;
         shaderProgram->bind(); //
 
         static const GLfloat vertices[] = {
@@ -149,6 +147,7 @@ void BviewFrame::paintGL() {
     }
     else if (!nIsGlTexture)
     {
+        return;
         glPointSize(5.0f);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -176,7 +175,6 @@ void BviewFrame::paintGL() {
         glFinish();
     }
 }
-
 void BviewFrame::updateRealTime()
 {
     if (!isRealTime)
@@ -196,9 +194,18 @@ void BviewFrame::resizeGL(int width, int height)
     std::cout << "Bview ReSize: " << width << "x" << height << std::endl;
 }
 
-
+// ********************************************
+// Offline Reading
+// TODO: Optimize into GPU Rendering
 void BviewFrame::updateOffLine() {
-    if (isRealTime) isRealTime = false;
+    if (isRealTime)
+    {
+        layout->removeWidget(this);
+        this->hide();
+        layout->addWidget(graphicsView.get());
+        graphicsView->show();
+        isRealTime = false;
+    }
     if (scandat.Amplitudes.empty()) return;
 
     CreateArtFrame();    
@@ -215,11 +222,9 @@ void BviewFrame::CreateArtFrame()
     orgimage = std::make_unique<cv::Mat>(zsize, xsize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    auto everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
-
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t x = 0; x < xsize; ++x) {
-            uint64_t index = z * (xsize * ysize) + curpt.y * xsize + x;
+            uint64_t index = z * (xsize * ysize) + curpt[1] * xsize + x;
             if (index >= scandat.Amplitudes.size()) {
                 sttlogs->logWarning("[Bscan] Out of range data: " + std::to_string(index));
                 return;
@@ -278,8 +283,8 @@ void BviewFrame::addPoints(bool Cviewlink, int x, int y)
     gpen.setWidth(3);
     gpen.setCosmetic(true);
 
-    double pixelX = (Cviewlink) ? static_cast<double>(curpt.x) * scaledImage->cols / xsize : static_cast<double>(x);
-    double pixelZ = (Cviewlink) ? static_cast<double>(curpt.z) * scaledImage->rows / zsize : static_cast<double>(y);
+    double pixelX = (Cviewlink) ? static_cast<double>(curpt[0]) * scaledImage->cols / xsize : static_cast<double>(x);
+    double pixelZ = (Cviewlink) ? static_cast<double>(curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
 
     auto* verticalLine = new QGraphicsLineItem(pixelX, 0, pixelX, scaledImage->rows);
     verticalLine->setPen(gpen);
@@ -304,7 +309,7 @@ void BviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         try
         {
             auto [original_x, original_z] = calculateOriginalPos(scaled_x, scaled_z);
-            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(curpt.y).arg(original_z);
+            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(curpt[1]).arg(original_z);
             QToolTip::showText(QCursor::pos(), tooltipText);
             overlay->updateOverlay(scaled_x, scaled_z, scaledImage->cols, scaledImage->rows);
             graphicsView->update();
@@ -316,7 +321,7 @@ void BviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_z) {
         try
         {
-            std::tie(curpt.x, curpt.z) = calculateOriginalPos(scaled_x, scaled_z);
+            std::tie(curpt[0], curpt[2]) = calculateOriginalPos(scaled_x, scaled_z);
 
             isPanning = false;
             addPoints(false, scaled_x, scaled_z);

@@ -81,7 +81,7 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
             if (!device || !acquisition) throw std::exception("Device or acquisition is null");
             if (datProcess)
             {
-                datProcess->Stop(); datProcess = nullptr; acquisition.reset(); acquisition = nullptr;
+                datProcess->FStop(); datProcess = nullptr; acquisition.reset(); acquisition = nullptr;
                 OmConfig->removeAcquisition();
                 sttlogs->logInfo("Stopped the Acquisition.");
             }
@@ -94,12 +94,12 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
 
     }
     catch (const std::exception& e) {
-        if (datProcess) datProcess->Stop();
+        if (datProcess) datProcess->FStop();
         sttlogs->logCritical("Standard exception: " + std::string(e.what()));
         return false;
     }
     catch (...) {
-        datProcess->Stop();
+        datProcess->FStop();
         sttlogs->logCritical("Unexpected exception thrown.");
         return false;
     }
@@ -107,7 +107,7 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
 }
 void OmConnect::omDisconnectDevice()
 {
-    if (datProcess) datProcess->Stop(); datProcess = nullptr;
+    if (datProcess) datProcess->FStop(); datProcess = nullptr;
 }
 bool OmConnect::DiscoverDevice(IDevicePtr& device)
 {

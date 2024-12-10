@@ -65,7 +65,6 @@ void OmConfigSetup::ConfigUpdateSetting()
     }
     acquisition->SetRate(omSetCof->Rate);
 }
-
 void OmConfigSetup::removeAcquisition()
 {
     if (acquisition)
@@ -76,6 +75,12 @@ void OmConfigSetup::removeAcquisition()
 }
 
 
+std::string OmConfigSetup::appendLog(std::string& logger, unsigned int VirAperture, double delayNoFocus = 0, double deltaN = 0, double delay = 0) {
+    if (omSetCof->FocusLength == 0) {
+        logger += fmt::format("{:>5} {:>10.3f}\n", VirAperture, delay);
+    }
+    else logger += fmt::format("{:>5} {:>10.3f} {:>10.3f} {:>10.3f}\n", VirAperture, delayNoFocus, deltaN, delay);
+}
 
 IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
 {
@@ -133,6 +138,9 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
 void OmConfigSetup::ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations)
 {
     std::string logger = fmt::format("Configure: LinearBeam\n");
+    logger += std::string(40, '-') + "\n";
+    logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "VirA", "delay_nF", "Delta_n", "Final Delay");
+
     double focus = omSetCof->FocusLength; // m
     if (focus > 0) // If Focus, the number of elements should be odd
     {
@@ -140,42 +148,33 @@ void OmConfigSetup::ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSe
             if (omSetCof->EleQuantity < 32) omSetCof->EleQuantity += 1;
             else if (omSetCof->EleQuantity >= 32) omSetCof->EleQuantity -= 1;
         }
-        logger += std::string(40, '-') + "\n";
-        logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "VirA", "delay_nF", "Delta_n", "Final Delay");
     }
-    else
-    {
-        logger += fmt::format("{:>5} {:>10} \n", "VirA", "delay_nF");
-    }
-    for (unsigned int iBeam(0); iBeam < omSetCof->beamNumber; ++iBeam) {
+    int mid_elem = 0;
+    if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
+    for (unsigned int iBeam = 0; iBeam < omSetCof->beamNumber; iBeam++) {
+        logger += fmt::format("iBeam: {}\n", iBeam);
         shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
+        double delay_noFocus = 0, delta_n = 0;
+        double delay = 0 ;
+
         unsigned int VirAperture = omSetCof->EleFirst + iBeam;
 
-        logger += fmt::format("iBeam: {}\n", iBeam);
-
-        for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
-            double delay{ 0 };
-            if (focus == 0) {
-                delay = elementIdx * 0.6 * 1e6 * sin(omSetCof->BeamStartAngle * M_PI / 180) / (6500);
-                logger += fmt::format("{:>5} {:>10.3f}\n", VirAperture, delay);
+        for (int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) { // from 0 to 16
+            if (focus == 0) { delay = elementIdx * 0.6 * 1e6 * sin(omSetCof->BeamStartAngle * M_PI / 180) / (6500);             }
+            else { // ************* Focus
+                delay_noFocus = elementIdx * 0.6 * 1e6 * sin(omSetCof->BeamStartAngle * M_PI / 180) / (6500);
+                int nth =/* mid_elem -*/ std::abs(elementIdx - mid_elem);
+                delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
+                delay = delay_noFocus - delta_n;
             }
-            else {
-                auto delay_noFocus = elementIdx * 0.6 * 1e6 * sin(omSetCof->BeamStartAngle * M_PI / 180) / (6500);
-                // ************* Focus
-                unsigned int mid_elem = 0;
-                if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
-                double nth = (elementIdx > mid_elem) ? omSetCof->EleQuantity - elementIdx - 1 : elementIdx;
-                double delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
-                if (delay_noFocus > 0) delay = delay_noFocus - delta_n;
-                logger += fmt::format("{:>5} {:>10.3f} {:>10.3f} {:>10.3f}\n", VirAperture, delay_noFocus, delta_n, delay);
-            }
-
+            delay += 500;
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             pulserDelays->GetElementDelay(elementIdx)->SetDelay(delay);
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             receiverDelays->GetElementDelay(elementIdx)->SetDelay(500 + delay);
+            appendLog(logger, VirAperture, delay_noFocus, delta_n, delay);
             VirAperture += omSetCof->EleStep;
             if (VirAperture > omSetCof->EleLast) {
                 iBeam = omSetCof->beamNumber;
@@ -184,13 +183,15 @@ void OmConfigSetup::ConfigureLinearBeam(std::shared_ptr<Instrumentation::IBeamSe
         }
         beamFormations->Add(beamFormation);
     }
-    logger += std::string(40, '-') + "\n";
-    debugLogger->debug(logger);
+    debugLogger->debug(logger + std::string(40, '-') + "\n");
 }
 
 void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations)
 {
     std::string logger = fmt::format("Configure: SectorialBeam\n");
+    logger += std::string(40, '-') + "\n";
+    logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "VirA", "delay_nF", "Delta_n", "Final Delay");
+
     double focus = omSetCof->FocusLength; // m
     if (focus > 0) // If Focus, the number of elements should be odd
     {
@@ -198,41 +199,31 @@ void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBea
             if (omSetCof->EleQuantity < 32) omSetCof->EleQuantity += 1;
             else if (omSetCof->EleQuantity >= 32) omSetCof->EleQuantity -= 1;
         }
-        logger += std::string(40, '-') + "\n";
-        logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "VirA", "delay_nF", "Delta_n", "Final Delay");
     }
-    else
-    {
-        logger += fmt::format("{:>5} {:>10} \n", "VirA", "delay_nF");
-    }
+    int mid_elem = 0;
+    if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
     for (unsigned int iBeam = 0; iBeam < omSetCof->beamNumber; ++iBeam) {
         shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
         unsigned int VirAperture = omSetCof->EleFirst;
-
+        double delay_noFocus = 0, delta_n = 0;
         logger += fmt::format("iBeam: {}\n", iBeam);
-        for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
+        for (int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
             double delay{ 0 };
-            if (focus == 0) {
-                delay = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
-                logger += fmt::format("{:>5} {:>10.3f}\n", VirAperture, delay);
+            if (focus == 0) { delay = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500); }
+            else { // ************* Focus
+                delay_noFocus = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
+                int nth =/* mid_elem -*/ std::abs(elementIdx - mid_elem);
+                delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
+                delay = delay_noFocus - delta_n;
             }
-            else {
-                auto delay_noFocus = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
-                // ************* Focus
-                unsigned int mid_elem = 0;
-                if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
-                double nth = (elementIdx > mid_elem) ? omSetCof->EleQuantity - elementIdx - 1 : elementIdx;
-                double delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
-                if (delay_noFocus > 0) delay = delay_noFocus - delta_n;
-                logger += fmt::format("{:>5} {:>10.3f} {:>10.3f} {:>10.3f}\n", VirAperture, delay_noFocus, delta_n, delay);
-            }
-
+            delay += 500;
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             pulserDelays->GetElementDelay(elementIdx)->SetDelay(delay);
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             receiverDelays->GetElementDelay(elementIdx)->SetDelay(500 + delay);
+            appendLog(logger, VirAperture, delay_noFocus, delta_n, delay);
             VirAperture += omSetCof->EleStep;
             if (VirAperture > omSetCof->EleLast) {
                 iBeam = omSetCof->beamNumber;
@@ -241,13 +232,15 @@ void OmConfigSetup::ConfigureSectorialBeam(std::shared_ptr<Instrumentation::IBea
         }
         beamFormations->Add(beamFormation);
     }
-    logger += std::string(40, '-') + "\n";
-    debugLogger->debug(logger);
+    debugLogger->debug(logger + std::string(40, '-') + "\n");
 }
 
 void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations)
 {
-    std::string logger = fmt::format("Configure: CompundBeam\n");
+    std::string logger = fmt::format("Configure: SectorialBeam\n");
+    logger += std::string(40, '-') + "\n";
+    logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "VirA", "delay_nF", "Delta_n", "Final Delay");
+
     double focus = omSetCof->FocusLength; // m
     if (focus > 0) // If Focus, the number of elements should be odd
     {
@@ -255,49 +248,42 @@ void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeam
             if (omSetCof->EleQuantity < 32) omSetCof->EleQuantity += 1;
             else if (omSetCof->EleQuantity >= 32) omSetCof->EleQuantity -= 1;
         }
-        logger += std::string(40, '-') + "\n";
-        logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "VirA", "delay_nF", "Delta_n", "Final Delay");
     }
-    else
-    {
-        logger += fmt::format("{:>5} {:>10} \n", "VirA", "delay_nF");
-    }
+    int mid_elem = 0;
+    if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
+
     for (unsigned int iBeam = 0; iBeam < omSetCof->beamNumber; ++iBeam) {
         shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(omSetCof->EleQuantity, omSetCof->EleQuantity);
         auto pulserDelays = beamFormation->GetPulserDelayCollection();
         auto receiverDelays = beamFormation->GetReceiverDelayCollection();
-        unsigned int VirAperture = omSetCof->EleFirst;
-
-        for (unsigned int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
+        unsigned int VirAperture = omSetCof->EleFirst + iBeam;
+        double delay_noFocus = 0, delta_n = 0;
+        logger += fmt::format("iBeam: {}\n", iBeam);
+        for (int elementIdx = 0; elementIdx < omSetCof->EleQuantity; ++elementIdx) {
             double delay{ 0 };
-            if (focus == 0) {
-                delay = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
-                logger += fmt::format("{:>5} {:>10.3f}\n", VirAperture, delay);
+            if (focus == 0) { delay = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500); }
+            else { // ************* Focus
+                delay_noFocus = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);                               
+                int nth =/* mid_elem -*/ std::abs(elementIdx - mid_elem);
+                delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
+                delay = delay_noFocus - delta_n;
             }
-            else {
-                auto delay_noFocus = elementIdx * 0.6 * 1e6 * sin((omSetCof->BeamStartAngle + iBeam) * M_PI / 180) / (6500);
-                // ************* Focus
-                unsigned int mid_elem = 0;
-                if (omSetCof->EleQuantity > 2 && mid_elem == 0) { mid_elem = (omSetCof->EleQuantity - 1) / 2; }
-                double nth = (elementIdx > mid_elem) ? omSetCof->EleQuantity - elementIdx - 1 : elementIdx;
-                double delta_n = (nth * nth * 0.6 * 0.6 * 1e6) / (2 * focus * omSetCof->Velocity);
-                if (delay_noFocus > 0) delay = delay_noFocus - delta_n;
-                logger += fmt::format("{:>5} {:>10.3f} {:>10.3f} {:>10.3f}\n", VirAperture, delay_noFocus, delta_n, delay);
-            }
-
+            delay += 500;
             pulserDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             pulserDelays->GetElementDelay(elementIdx)->SetDelay(delay);
             receiverDelays->GetElementDelay(elementIdx)->SetElementId(VirAperture);
             receiverDelays->GetElementDelay(elementIdx)->SetDelay(500 + delay);
-            cout << delay << " ";
+
+            appendLog(logger, VirAperture, delay_noFocus, delta_n, delay);
             VirAperture += omSetCof->EleStep;
             if (VirAperture > omSetCof->EleLast) {
                 iBeam = omSetCof->beamNumber;
                 break;
             }
-        } cout << endl;
+        }
         beamFormations->Add(beamFormation);
     }
+    debugLogger->debug(logger + std::string(40, '-') + "\n");
 }
 
 void OmConfigSetup::ConfigureDigitizingSettings(IDigitizerTechnologyPtr digitizerTechnology)

@@ -37,9 +37,13 @@ extern "C" {
 
 
 
+void SviewFrame::Wait3DScreen() {
+    // start
+
+};
 void SviewFrame::initializeGL() {     
     initializeOpenGLFunctions();
-    glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+    glClearColor(0.09f, 0.09f, 0.09f, 1.0f);
     if (nIsGlTexture) 
     {
         if (!shaderProgram) {
@@ -57,28 +61,36 @@ void SviewFrame::initializeGL() {
             shaderProgram = std::make_unique<QOpenGLShaderProgram>();
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
                 R"(
-                #version 330 core
-                layout (location = 0) in vec2 position;
+                #version 430 core
+                layout (location = 0) in vec3 position;
                 layout (location = 1) in vec2 texCoord;
 
-                out vec2 fragTexCoord;
+                uniform mat4 mvp;            // Model-View-Projection matrix
+                uniform bool is3D;           // Flag: is 3D or 2D
 
+                out vec2 fragTexCoord;                
                 void main() {
-                    gl_Position = vec4(position, 0.0, 1.0);
-                    fragTexCoord = vec2( texCoord.x, 1.0 - texCoord.y);
-
+                    if (is3D) {
+                        gl_Position = mvp * vec4(position, 1.0); 
+                    } else {
+                        gl_Position = vec4(position.xy, 0.0, 1.0); 
+                    }
+                    fragTexCoord = vec2(texCoord.x, 1.0 - texCoord.y);
                 }
                 )");
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
                 R"(
-                #version 330 core
+                #version 430 core
                 in vec2 fragTexCoord;
                 out vec4 FragColor;
 
                 uniform sampler2D u_Texture;
-
+                uniform vec2 zoomCenter; 
+                uniform float zoomRatio;
+                
                 void main() {
-                    FragColor = texture(u_Texture, fragTexCoord);
+                    vec2 zoomedTexCoord = (fragTexCoord - zoomCenter) * zoomRatio + zoomCenter;
+                    FragColor = texture(u_Texture, zoomedTexCoord);
                 }
                 )");
             shaderProgram->link();
@@ -149,13 +161,20 @@ void SviewFrame::initializeGL() {
         });
     QOpenGLWidget::update();
 }
-void SviewFrame::Wait3DScreen() {};
-void SviewFrame::paintGL() {   
+void SviewFrame::paintGL() {       
     static QElapsedTimer fpsTimer; static int frameCount = 0;
     auto ftime = FPS_Calc(fpsTimer, frameCount);
     if (ftime > 0) { ReadStatus::getinstance().set_sviewfps(ftime); }
+    
+    // wait screne
+    static bool startFlag = false;
+    if (!startFlag) {
+        Wait3DScreen();
+    }
+    // Render by GlTexture
     if (nIsGlTexture && ArtScan->SViewBuf) 
     {
+        startFlag = true;
         {
             std::lock_guard<std::mutex> lock(ArtScanMutex); 
             orgimage = std::make_shared<cv::Mat>(ArtScan->SViewBuf->clone());
@@ -164,55 +183,22 @@ void SviewFrame::paintGL() {
         }
         glBindTexture(GL_TEXTURE_2D, textureID); 
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, orgimage->cols, orgimage->rows, 0, GL_BGR, GL_UNSIGNED_BYTE, orgimage->data);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, orgimage->cols, orgimage->rows, 0, GL_BGR, GL_UNSIGNED_BYTE, orgimage->data); // Upload texture data to GPU
-        float aspectRatio = 1.0f;
-        if (ArtScan->SViewBuf->rows != 0) float aspectRatio = static_cast<float>(ArtScan->SViewBuf->cols) / ArtScan->SViewBuf->rows;
         shaderProgram->bind();
-        static const GLfloat vertices[] = {
-            -1.0f, -1.0f,  0.0f, 0.0f,
-             1.0f, -1.0f ,  1.0f, 0.0f, 
-             1.0f,  1.0f ,  1.0f, 1.0f, 
-            -1.0f,  1.0f ,  0.0f, 1.0f 
+        shaderProgram->setUniformValue("zoomCenter", zoomCenter);
+        shaderProgram->setUniformValue("zoomRatio", zoomRatio);
+        renderQuad();
+        shaderProgram->release();
 
-        };
-        static const GLuint indices[] = { 0, 1, 2, 2, 3, 0 };
-
-        GLuint vao, vbo, ebo;
-        glGenVertexArrays(1, &vao);
-        glGenBuffers(1, &vbo);
-        glGenBuffers(1, &ebo);
-
-        glBindVertexArray(vao);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
-        glEnableVertexAttribArray(1);
-
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        glBindVertexArray(0);
-
-        glDeleteBuffers(1, &vbo);
-        glDeleteBuffers(1, &ebo);
-        glDeleteVertexArrays(1, &vao);
-
-
-        shaderProgram->release(); // Release the shader program
-    }
+    } // Render by GlBufferData
     else if (!nIsGlTexture)
     {
+
+        startFlag = true;
         if (ftime > 0)
         {
-            glClearColor(0.5f, 0.4f, 0.0f, 1.0f);
+            glClearColor(0.09f, 0.09f, 0.09f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
         glPointSize(3.0f);
@@ -240,16 +226,99 @@ void SviewFrame::paintGL() {
         }
     }
     glFlush();
-    
 }
+void SviewFrame::renderQuad() {
+    static const GLfloat vertices[] = {
+        -1.0f, -1.0f,  0.0f, 0.0f,
+         1.0f, -1.0f,  1.0f, 0.0f,
+         1.0f,  1.0f,  1.0f, 1.0f,
+        -1.0f,  1.0f,  0.0f, 1.0f
+    };
+    static const GLuint indices[] = { 0, 1, 2, 2, 3, 0 };
 
+    GLuint vao, vbo, ebo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
+
+    glBindVertexArray(vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glBindVertexArray(0);
+
+    glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteVertexArrays(1, &vao);
+}
 void SviewFrame::resizeGL(int w, int h) {
     glViewport(0, 0, w, h);
-#ifndef _DEBUG
-    std::cout << "Sview ReSize: " << w << "x" << h << std::endl;
-#endif
 }
 
+bool isDragging = false;
+QPointF lastMousePos;
+void SviewFrame::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::RightButton) {
+        isDragging = true;                    
+        lastMousePos = event->pos();        
+    }
+    else if (event->button() == Qt::LeftButton) {
+        zoomRatio = 1.0f;                   
+        zoomCenter = QVector2D(0.5f, 0.5f); 
+        update();
+    }
+}
+void SviewFrame::mouseMoveEvent(QMouseEvent* event) {
+    if (isDragging) {
+        QPointF currentMousePos = event->pos();
+        QPointF delta = currentMousePos - lastMousePos; 
+        zoomCenter.setX(zoomCenter.x() - delta.x() / this->width());
+        zoomCenter.setY(zoomCenter.y() - delta.y() / this->height()); 
+        zoomCenter.setX(std::clamp(zoomCenter.x(), 0.0f, 1.0f));
+        zoomCenter.setY(std::clamp(zoomCenter.y(), 0.0f, 1.0f));
+
+        lastMousePos = currentMousePos; 
+        update(); 
+    }
+}
+void SviewFrame::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::RightButton) {
+        isDragging = false;
+    }
+}
+void SviewFrame::wheelEvent(QWheelEvent* event) {
+    QPointF mousePos = event->position();
+    float x = static_cast<float>(mousePos.x()) / this->width();
+    float y = static_cast<float>(mousePos.y()) / this->height();
+
+    y = 1.0f - y;
+
+    zoomCenter = QVector2D(x, y); 
+    float delta = event->angleDelta().y(); 
+    float zoomStep = 0.1f;
+    if (delta > 0) {
+        zoomRatio += zoomStep;
+    }
+    else {
+        zoomRatio -= zoomStep; 
+    }
+    if (zoomRatio > 1.0f) zoomRatio = 1.0f;
+    zoomRatio = std::clamp(zoomRatio, 0.1f, 5.0f);
+
+    update();
+}
 void SviewFrame::updateRealTime()
 {    
     if (!isRealTime)
@@ -264,7 +333,9 @@ void SviewFrame::updateRealTime()
     }
 }
 
-
+// ********************************************
+// Offline Reading
+// TODO: Optimize into GPU Rendering
 void SviewFrame::updateOffLine() {
     if (isRealTime)
     {
@@ -283,11 +354,10 @@ void SviewFrame::updateOffLine() {
     orgimage = std::make_unique<cv::Mat>(zsize, ysize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    auto everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
 #pragma omp parallel for
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {
-            uint64_t index = z * (xsize * ysize) + y * xsize + curpt.x;
+            uint64_t index = z * (xsize * ysize) + y * xsize + curpt[0];
             if (index >= scandat.Amplitudes.size()) {
                 sttlogs->logWarning("[Bscan] Out of range data: " + std::to_string(index));
                 return;
@@ -338,12 +408,12 @@ void SviewFrame::addPoints(bool Cviewlink, int x, int y)
     double pixelY, pixelZ;
     if (!isRealTime)
     {
-        pixelY = (Cviewlink) ? static_cast<double>(curpt.y) * scaledImage->cols / ysize : static_cast<double>(x);
-        pixelZ = (Cviewlink) ? static_cast<double>(curpt.z) * scaledImage->rows / zsize : static_cast<double>(y);
+        pixelY = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->cols / ysize : static_cast<double>(x);
+        pixelZ = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     else {
         pixelY = (Cviewlink) ? static_cast<double>(oms.OMS->beamCurrentID) * scaledImage->cols / ysize : static_cast<double>(x);
-        pixelZ = (Cviewlink) ? static_cast<double>(curpt.z) * scaledImage->rows / zsize : static_cast<double>(y);
+        pixelZ = (Cviewlink) ? static_cast<double>(curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     if (overlay) overlay->updatePoints(pixelY, pixelZ, Qt::red, Qt::color0);
     graphicsView->update();
@@ -375,7 +445,7 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
             if (!isRealTime)
             {
                 auto [original_y, original_z] = calculateOriginalPos(scaled_y, scaled_z);
-                QToolTip::showText(QCursor::pos(), QString("X: %1\nY: %2\nZ: %3").arg(curpt.x).arg(original_y).arg(original_z));
+                QToolTip::showText(QCursor::pos(), QString("X: %1\nY: %2\nZ: %3").arg(curpt[0]).arg(original_y).arg(original_z));
                 overlay->updateOverlay(scaled_y, scaled_z, scaledImage->cols, scaledImage->rows);
                 graphicsView->update();
             }
@@ -401,14 +471,14 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         {
             if (!isRealTime)
             {
-                std::tie(curpt.y, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
+                std::tie(curpt[1], curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
                 isPanning = false;
                 addPoints(false, scaled_y, scaled_z);
 
             }
             else
             {
-                std::tie(oms.OMS->beamCurrentID, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
+                std::tie(oms.OMS->beamCurrentID, curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
                 isPanning = false;
                 addPoints(false, scaled_y, scaled_z);
             }

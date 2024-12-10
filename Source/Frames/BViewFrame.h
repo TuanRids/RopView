@@ -11,7 +11,7 @@
 
 
 // Graphics Frame
-class BviewFrame : public QOpenGLWidget, public QOpenGLFunctions_3_3_Core, public nObserver {
+class BviewFrame : public QOpenGLWidget, public QOpenGLFunctions_4_3_Core, public nObserver {
 private:
     void CreateArtFrame();
     void MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsView);
@@ -25,7 +25,7 @@ private:
     std::shared_ptr<XYOverlayGrid> overlay;
     std::shared_ptr<cv::Mat> orgimage;
     std::shared_ptr<cv::Mat> scaledImage;
-    bool isRealTime = false;
+    bool isRealTime = true;
 
     // RealtimeGPU Variables
     QVBoxLayout* layout;

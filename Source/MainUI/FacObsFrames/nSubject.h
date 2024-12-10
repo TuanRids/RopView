@@ -18,7 +18,7 @@ private:
         if (ftime > 0) { ReadStatus::getinstance().set_processData(ftime+0.01); }
 
         if (observers[0]->isGLTexture()) observers[0]->RealDatProcess();
-        else observers[0]->RealDatProcessGPU();        
+        else observers[0]->processOnGPU();
     }
 
 public:
