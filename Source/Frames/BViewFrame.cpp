@@ -97,7 +97,7 @@ void BviewFrame::paintGL() {
         {
             std::lock_guard<std::mutex> lock(ArtScanMutex);
             orgimage = std::make_shared<cv::Mat>(prosdt.ArtScan->BViewBuf->clone());
-            //prosdt.ArtScan->BViewBuf = nullptr;
+            // prosdt.ArtScan->BViewBuf = nullptr;
             if (orgimage->size().width == 0 || orgimage->size().height == 0) return;
         }
         glBindTexture(GL_TEXTURE_2D, textureID);

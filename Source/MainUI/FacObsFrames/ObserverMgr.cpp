@@ -1,11 +1,14 @@
 #include "..\pch.h"
 #include "ObserverMgr.h"
-#include "SystemConfig/ConfigLocator.h"
-// Static variables *******************************************************************************
-    nmainUI::statuslogs* nObserver::sttlogs = nullptr;
-    ProcessingContext nObserver::prosdt = ProcessingContext();
 
-// Init Funcs *******************************************************************************
+nmainUI::statuslogs* nObserver::sttlogs = nullptr;
+ProcessingContext nObserver::prosdt = ProcessingContext();
+std::shared_mutex nObserver::collectionMutex = std::shared_mutex();
+std::mutex nObserver::ArtScanMutex = std::mutex();
+std::unique_ptr<QOpenGLShaderProgram> upFrame::computeShader = nullptr;
+std::unique_ptr<QOffscreenSurface> upFrame::surface = nullptr;
+std::unique_ptr<QOpenGLContext> upFrame::context = nullptr;
+
 std::vector<Color> CreateColorPalette(int gainFactor = 0)
     {
         std::vector<Color> colors;
@@ -53,104 +56,11 @@ nObserver::nObserver()
     if (!prosdt.ArtScan) prosdt.ArtScan = &UIArtScan::getInstance();
     everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
 }
+static const uint16_t BCsize = 1000;
 
-void preXYsectorial(
-    int gysize, int gzsize, double gbeamStartAngle, double gangleDefault,
-    double gmaxRadius, int gcenterX, int gcenterY,
-    std::vector<std::vector<cv::Point>>& gxySectorial)
-{
-    static int lastYSize = -1;
-    static int lastZSize = -1;
-
-    if (gysize != lastYSize || gzsize != lastZSize) {
-        gxySectorial.clear();
-        gxySectorial.resize(gysize, std::vector<cv::Point>(gzsize));
-        std::cout << "precalculate for prosdt.xySectorial with size: " << gysize << "x" << gzsize << std::endl;
-
-        for (int beamID = 0; beamID < gysize; ++beamID) {
-            double angle = gbeamStartAngle + gangleDefault + beamID;
-            double radian = angle * CV_PI / 180.0;
-            double cosValue = cos(radian);
-            double sinValue = sin(radian);
-
-            for (int z = 0; z < gzsize; ++z) {
-                double radius = gmaxRadius * (static_cast<double>(z) / gzsize);
-                int x = gcenterX + static_cast<int>(radius * cosValue);
-                int y = gcenterY - static_cast<int>(radius * sinValue);
-                gxySectorial[beamID][z] = cv::Point(x, y);
-            }
-        }
-
-        lastYSize = gysize;
-        lastZSize = gzsize;
-    }
-}
-
-// Process Func *******************************************************************************
-void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) {
-
-
-    std::shared_lock<std::shared_mutex> lock(collectionMutex);
-
-    // Clear remaining data if necessary
-    if (prosdt.nAscanCollection.size() > 0) {
-        while (!prosdt.nAscanCollection.empty()) {
-            prosdt.nAscanCollection.pop_front();
-        }
-        prosdt.zsize = -1;
-        return;
-    }
-
-    // Update all parameters
-    prosdt.zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
-    RawAsanDat->GetAscan(0)->GetAmplitudeDataRange()->GetUnit();
-    prosdt.ysize = static_cast<int>(RawAsanDat->GetCount());
-    prosdt.angStart = oms.OMS->BeamStartAngle;
-    prosdt.angEnd = oms.OMS->beamNumber + oms.OMS->BeamStartAngle;
-    prosdt.pautmode = ConfigL->visualConfig->setPautMode;
-
-    // Reset and clear all render buffer
-    prosdt.ArtScan->resetAll();
-    std::this_thread::sleep_for(std::chrono::milliseconds(400));
-    prosdt.xySectorial.clear();
-    prosdt.xySectorial.resize(prosdt.ysize, std::vector<cv::Point>(prosdt.zsize));
-
-    // Precalculate sectorial coordinates
-    int centerX = prosdt.angStart < 0 ? (prosdt.zsize * sin(((-prosdt.angStart) * M_PI / 180))) : 0;
-    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-        double angle = prosdt.angStart - 90 + beamID;
-        double radian = angle * CV_PI / 180.0;
-        double cosValue = cos(radian);
-        double sinValue = sin(radian);
-
-        for (int z = 0; z < prosdt.zsize; ++z) {
-            double radius = prosdt.zsize * (static_cast<double>(z) / prosdt.zsize);
-            int x = centerX + static_cast<int>(radius * cosValue);
-            int y = 0 - static_cast<int>(radius * sinValue);
-            prosdt.xySectorial[beamID][z] = cv::Point(x, y);
-        }
-    }
-
-    prosdt.sview_x = (prosdt.pautmode == PautModeOmni::Linear) ?
-        prosdt.ysize + std::abs(sin(prosdt.angStart * M_PI / 180) * prosdt.zsize) :
-        prosdt.angStart < 0 ?
-        (sin(((-prosdt.angStart) * M_PI / 180)) + sin((prosdt.angEnd)*M_PI / 180)) * prosdt.zsize :
-        sin((prosdt.angEnd)*M_PI / 180) * prosdt.zsize;
-
-    prosdt.minAmplitude = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMin();
-    prosdt.maxAmplitudeSampling = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
-    prosdt.maxAmplitudeUsable = RawAsanDat->GetAscan(0)->GetAmplitudeDataRange()->GetFloatingMax();
-
-    sttlogs->logInfo("Update Amplitude Range: \nminAmplitude: " + std::to_string(prosdt.minAmplitude) +
-        " prosdt.maxAmplitudeSampling: " + std::to_string(prosdt.maxAmplitudeSampling) +
-        " prosdt.maxAmplitudeUsable: " + std::to_string(prosdt.maxAmplitudeUsable));
-
-    IOmConnect::isUpdate = false;
-}
+// Process Func
 void nObserver::RealDatProcess() {
     shared_ptr<IAscanCollection> RawAsanDat;  
-
-    static const uint16_t BCsize = 1000;
 
     cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
     {
@@ -271,18 +181,13 @@ void nObserver::RealDatProcess() {
     }
     RawAsanDat.reset(); 
 }
-void nObserver::processOnGPU()
-{ 
-    static std::shared_ptr<upFrame> upframe = std::make_shared<upFrame>();
-    upframe->processOnGPU();
-}
 void upFrame::processOnGPU()
 {
+
+    // Step 1: Fetch data safely
     shared_ptr<IAscanCollection> RawAsanDat;
-
-    static const uint16_t BCsize = 1000;
-
     cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
+
     {
         std::shared_lock<std::shared_mutex> lock(collectionMutex);
         if (prosdt.nAscanCollection.empty() || !prosdt.nAscanCollection.front()) {
@@ -295,59 +200,21 @@ void upFrame::processOnGPU()
         prosdt.nAscanCollection.pop_front();
     }
 
-    // ****************************************************************************************
-    // Update
+    // Step 2: Update parameters if needed
     if (IOmConnect::isUpdate || prosdt.zsize == -1) {
         updateParameters(RawAsanDat);
         return;
     }
-    // ****************************************************************************************
-    // Compute shader
-    static std::unique_ptr<QOpenGLShaderProgram> computeShader = nullptr;
-    QOpenGLFunctions* glFuncs = QOpenGLContext::currentContext()->functions();
-    if (!computeShader)
-    {
-        computeShader = std::make_unique<QOpenGLShaderProgram>(QOpenGLContext::currentContext());
-        computeShader->addShaderFromSourceCode(QOpenGLShader::Compute,
-            R"(
-            #version 430
-            layout(local_size_x = 16, local_size_y = 16) in;
-            layout(std430, binding = 0) buffer InputData {
-                vec2 prosdt.xySectorial[];
-            };
-
-            layout(std430, binding = 1) buffer OutputData {
-                vec4 outputColor[];
-            };
-
-            uniform int prosdt.ysize;
-            uniform int prosdt.zsize;
-
-            void main() {
-                uint beamID = gl_GlobalInvocationID.x;
-                uint z = gl_GlobalInvocationID.y;
-
-                if (beamID < prosdt.ysize && z < prosdt.zsize) {
-                    // Perform calculations for prosdt.xySectorial and outputColor
-                    vec2 point = prosdt.xySectorial[beamID * prosdt.zsize + z];
-                    outputColor[beamID * prosdt.zsize + z] = vec4(point.x, point.y, 0.0, 1.0);
-                }
-            }
-            )");
-        computeShader->link();
-    }
+    
     computeShader->bind();
 
-    // ****************************************************************************************
-    // Create and upload texture class nObserver: public QOpenGLFunctions_4_3_Core {
-
+    // Step 4: Prepare OpenGL resources
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1270, 480);
     glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
 
-    // Prepare and upload ascanData buffer
     std::vector<int> flattenedAscanData;
     for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
         const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
@@ -360,50 +227,60 @@ void upFrame::processOnGPU()
     glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedAscanData.size() * sizeof(int), flattenedAscanData.data(), GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ascanBuffer);
 
-    // Prepare and upload sectorialPoints buffer
+    // Step 5: Upload sectorial points
     std::vector<cv::Point> flattenedSectorialPoints;
     for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-        flattenedSectorialPoints.insert(flattenedSectorialPoints.end(), prosdt.xySectorial[beamID].begin(), prosdt.xySectorial[beamID].end());
+        flattenedSectorialPoints.insert(flattenedSectorialPoints.end(),
+            prosdt.xySectorial[beamID].begin(),
+            prosdt.xySectorial[beamID].end());
     }
 
-    
     glGenBuffers(1, &prosdt.sectorialBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, prosdt.sectorialBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedSectorialPoints.size() * sizeof(cv::Point), flattenedSectorialPoints.data(), GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedSectorialPoints.size() * sizeof(cv::Point),
+        flattenedSectorialPoints.data(), GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, prosdt.sectorialBuffer);
 
-    // Prepare and upload color palette buffer
+    // Step 6: Upload color palette buffer
     GLuint colorBuffer;
     glGenBuffers(1, &colorBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, colorBuffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, everyColors.size() * sizeof(Color), everyColors.data(), GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, colorBuffer);
 
-    // Set uniforms
-    glUniform3f(glGetUniformLocation(computeShader->programId(), "u_amplitudeParams"), prosdt.minAmplitude, prosdt.maxAmplitudeSampling, prosdt.maxAmplitudeUsable);
+    // Step 7: Set uniforms
     glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.zsize"), prosdt.zsize);
     glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.ysize"), prosdt.ysize);
 
-    // Dispatch compute shader
+    // Step 8: Dispatch compute shader
     const int workGroupSizeX = 16;
     const int workGroupSizeY = 16;
     glDispatchCompute((prosdt.ysize + workGroupSizeX - 1) / workGroupSizeX,
         (prosdt.zsize + workGroupSizeY - 1) / workGroupSizeY, 1);
 
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    // Step 9: update
+    {
+        std::lock_guard<std::mutex> lock(ArtScanMutex);
+        std::vector<cv::Point> downloadedPoints(prosdt.ysize * prosdt.zsize);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, prosdt.sectorialBuffer);
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, downloadedPoints.size() * sizeof(cv::Point), downloadedPoints.data());
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    prosdt.vertice_sview.clear();
-    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-        for (int z = 0; z < prosdt.zsize; ++z) {
+        // Convert to vertice_sview
+        prosdt.vertice_sview.clear();
+        for (int i = 0; i < downloadedPoints.size(); ++i) {
             VertexData vertex;
-            const cv::Point& point = prosdt.xySectorial[beamID][z]; 
-            vertex.position = QVector2D(point.x, point.y); 
+            vertex.position = QVector2D(downloadedPoints[i].x, downloadedPoints[i].y);
             vertex.color = QVector3D(1.0f, 0.0f, 0.0f);
             prosdt.vertice_sview.append(vertex);
         }
+
+        // Log the result
+        qDebug() << "vertice_sview size:" << prosdt.vertice_sview.size();
     }
-    std::cout << "vertice_sview size: " << prosdt.vertice_sview.size() << std::endl;
-    // Clean up resources
+
+    // Step 10: Clean up resources
     computeShader->release();
     glDeleteTextures(1, &texture);
     glDeleteBuffers(1, &ascanBuffer);
@@ -412,6 +289,76 @@ void upFrame::processOnGPU()
 
 }
 
+// Init and update parameters
+void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) {
+
+
+    std::shared_lock<std::shared_mutex> lock(collectionMutex);
+
+    // Clear remaining data if necessary
+    if (prosdt.nAscanCollection.size() > 0) {
+        while (!prosdt.nAscanCollection.empty()) {
+            prosdt.nAscanCollection.pop_front();
+        }
+        prosdt.zsize = -1;
+        return;
+    }
+
+    // Update all parameters
+    prosdt.zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
+    RawAsanDat->GetAscan(0)->GetAmplitudeDataRange()->GetUnit();
+    prosdt.ysize = static_cast<int>(RawAsanDat->GetCount());
+    prosdt.angStart = oms.OMS->BeamStartAngle;
+    prosdt.angEnd = oms.OMS->beamNumber + oms.OMS->BeamStartAngle;
+    prosdt.pautmode = ConfigL->visualConfig->setPautMode;
+
+    // Reset and clear all render buffer
+    prosdt.ArtScan->resetAll();
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    prosdt.xySectorial.clear();
+    prosdt.xySectorial.resize(prosdt.ysize, std::vector<cv::Point>(prosdt.zsize));
+
+    // Precalculate sectorial coordinates
+    int centerX = prosdt.angStart < 0 ? (prosdt.zsize * sin(((-prosdt.angStart) * M_PI / 180))) : 0;
+    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
+        double angle = prosdt.angStart - 90 + beamID;
+        double radian = angle * CV_PI / 180.0;
+        double cosValue = cos(radian);
+        double sinValue = sin(radian);
+
+        for (int z = 0; z < prosdt.zsize; ++z) {
+            double radius = prosdt.zsize * (static_cast<double>(z) / prosdt.zsize);
+            int x = centerX + static_cast<int>(radius * cosValue);
+            int y = 0 - static_cast<int>(radius * sinValue);
+            prosdt.xySectorial[beamID][z] = cv::Point(x, y);
+        }
+    }
+
+    prosdt.sview_x = (prosdt.pautmode == PautModeOmni::Linear) ?
+        prosdt.ysize + std::abs(sin(prosdt.angStart * M_PI / 180) * prosdt.zsize) :
+        prosdt.angStart < 0 ?
+        (sin(((-prosdt.angStart) * M_PI / 180)) + sin((prosdt.angEnd) * M_PI / 180)) * prosdt.zsize :
+        sin((prosdt.angEnd) * M_PI / 180) * prosdt.zsize;
+
+    prosdt.minAmplitude = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMin();
+    prosdt.maxAmplitudeSampling = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
+    prosdt.maxAmplitudeUsable = RawAsanDat->GetAscan(0)->GetAmplitudeDataRange()->GetFloatingMax();
+
+    sttlogs->logInfo("Update Amplitude Range: \nminAmplitude: " + std::to_string(prosdt.minAmplitude) +
+        " prosdt.maxAmplitudeSampling: " + std::to_string(prosdt.maxAmplitudeSampling) +
+        " prosdt.maxAmplitudeUsable: " + std::to_string(prosdt.maxAmplitudeUsable));
+
+    IOmConnect::isUpdate = false;
+}
+void nObserver::processOnGPU()
+{
+    static std::shared_ptr<upFrame> upframe ;
+    if (!upframe) {
+        upframe = std::make_shared<upFrame>();
+        upframe->createFrame();
+    }
+    upframe->processOnGPU();
+}
 void nObserver::upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection)
 {
     if (!_nAscanCollection) return;
@@ -423,4 +370,71 @@ void nObserver::upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAsca
     prosdt.nAscanCollection.push_back(_nAscanCollection);
 }
 
+QWidget* upFrame::createFrame()
+{
+    if (!surface) {
+        surface = std::make_unique<QOffscreenSurface>();
+        surface->setFormat(QSurfaceFormat::defaultFormat());
+        surface->create();
+        if (!surface->isValid()) {
+            throw std::runtime_error("Failed to create QOffscreenSurface");
+        }
+    }
+
+    if (!context) {
+        context = std::make_unique<QOpenGLContext>();
+        context->setFormat(surface->format());
+        if (!context->create()) {
+            throw std::runtime_error("Failed to create QOpenGLContext");
+        }
+    }
+
+    // Step 2: Make context current and initialize OpenGL functions
+    context->makeCurrent(surface.get());
+
+    // Step 3: Create shader if not already created
+    if (!computeShader) {
+        initializeOpenGLFunctions();
+        qDebug() << "OpenGL Version:" << (const char*)glGetString(GL_VERSION);
+        qDebug() << "GLSL Version:" << (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+
+        computeShader = std::make_unique<QOpenGLShaderProgram>(QOpenGLContext::currentContext());
+        if (!computeShader->addShaderFromSourceCode(QOpenGLShader::Compute,
+            R"(
+            #version 430
+            layout(local_size_x = 16, local_size_y = 16) in;
+
+            layout(std430, binding = 0) buffer InputData {
+                vec2 xySectorial[];
+            };
+
+            layout(std430, binding = 1) buffer OutputData {
+                vec4 outputColor[];
+            };
+
+            // Uniforms
+            uniform int ysize;
+            uniform int zsize;
+
+            void main() {
+                uint beamID = gl_GlobalInvocationID.x;
+                uint z = gl_GlobalInvocationID.y;
+
+                if (beamID < ysize && z < zsize) {
+                    vec2 point = xySectorial[beamID * zsize + z];
+                    outputColor[beamID * zsize + z] = vec4(point.x, point.y, 0.0, 1.0);
+                }
+            }
+
+            )")) {
+            throw std::runtime_error("Failed to add shader source.");
+        }
+
+        if (!computeShader->link()) {
+            throw std::runtime_error("Failed to link compute shader.");
+        }
+    }
+
+    return nullptr;
+}
 

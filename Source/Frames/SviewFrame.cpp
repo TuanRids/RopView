@@ -204,7 +204,8 @@ void SviewFrame::paintGL() {
         glPointSize(3.0f);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if (!prosdt.vertice_sview.isEmpty()) {           
+        if (!prosdt.vertice_sview.isEmpty()) {          
+            std::lock_guard<std::mutex> lock(ArtScanMutex);
             // Update vertex buffer data
             size_t dataSize = prosdt.vertice_sview.size() * sizeof(VertexData);
             vbo.bind();

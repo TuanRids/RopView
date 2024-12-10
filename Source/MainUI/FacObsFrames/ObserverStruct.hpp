@@ -10,7 +10,7 @@ struct VertexData {
 };
 
 struct ProcessingContext {
-    std::atomic<bool> nIsGlTexture = true;
+    std::atomic<bool> nIsGlTexture = false;
     // Realtime processing parameters UpdateCPU/GPU
     static constexpr uint16_t BCsize = 1000;
     int zsize = -1;

@@ -31,7 +31,7 @@ public:
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection);
 	
 	// getter & check
-	bool isGLTexture() { std::cout << prosdt.nIsGlTexture.load() << std::endl; return prosdt.nIsGlTexture.load(); }
+	bool isGLTexture() { return prosdt.nIsGlTexture.load(); }
 	std::shared_mutex &getCollectionMutex() { return collectionMutex; }
 	size_t bufferSize() { return prosdt.nAscanCollection.size(); }
 
@@ -42,20 +42,32 @@ protected:
 	OmSetupL oms = OmSetupL::getInstance();
 
 	static nmainUI::statuslogs* sttlogs;
-	std::shared_mutex collectionMutex;
-	std::mutex ArtScanMutex;
+	static std::shared_mutex collectionMutex;
+	static std::mutex ArtScanMutex;
 	//Realtime Process variable glDatabuffer Processes
 	std::vector<Color> everyColors;
 	
 };
 
-class upFrame: public nObserver, public QOpenGLFunctions_4_3_Core {
-	QWidget* createFrame() override { return nullptr; }
-	void updateOffLine() override {}
-	void updateRealTime() override {}
+class upFrame : public QOpenGLFunctions_4_3_Core, public nObserver {
 public:
-	void processOnGPU() ;
+    upFrame() { }
+    ~upFrame() { }
+
+    void processOnGPU();
+
+	QWidget* createFrame() override;
+protected:
+    void updateOffLine() override {}
+    void updateRealTime() override {}
+
+private:
+    static std::unique_ptr<QOffscreenSurface> surface;
+    static std::unique_ptr<QOpenGLContext> context;
+    static std::unique_ptr<QOpenGLShaderProgram> computeShader;
 };
+
+
 
 
 #endif // NOBSERVER_H

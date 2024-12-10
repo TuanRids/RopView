@@ -11,11 +11,12 @@ private:
     std::jthread realtimeThread;
     QTimer* offlineTimer;
     std::mutex fpsmutex;
-    void notifyRealtimeInternal() {            
+
+    void notifyRealtimeInternal() {      
         if (observers[0]->bufferSize() < 1) return;
         static QElapsedTimer fpsTimer; static int frameCount = 0;
         auto ftime = FPS_Calc(fpsTimer, frameCount);
-        if (ftime > 0) { ReadStatus::getinstance().set_processData(ftime+0.01); }
+        if (ftime > 0) { ReadStatus::getinstance().set_processData(ftime + 0.01); }
 
         if (observers[0]->isGLTexture()) observers[0]->RealDatProcess();
         else observers[0]->processOnGPU();
@@ -57,7 +58,6 @@ public:
                 }
                 catch (const std::exception& e) {
                     nmainUI::statuslogs::getinstance().logCritical(e.what());
-                    //IOmConnect::ReleaseDevice();
                     runRealtime = false;
                 }
             }

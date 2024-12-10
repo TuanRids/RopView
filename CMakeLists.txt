@@ -63,6 +63,7 @@ set(HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/MainUI/mainwindow.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Model3D/MainViewport.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Frames/SviewFrame.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/MainUI/FacObsFrames/ObserverMgr.h
 
 )
 # Use qt6_wrap_cpp to process the headers with Q_OBJECT

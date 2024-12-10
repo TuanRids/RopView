@@ -118,7 +118,6 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
     ultrasoundConfiguration->GetFiringBeamSetCollection()->Add(beamSet, connector);
     double calAscanStart = 2 * omSetCof->BeamAStart * 1e6 / omSetCof->Velocity;
     double calAscanLength = 2 * omSetCof->BeamAEnd * 1e6 / omSetCof->Velocity;
-    std::cout << "calAscanStart: " << calAscanStart << " calAscanLength: " << calAscanLength << std::endl;
 
     for (size_t iBeam(0); iBeam < beamSet->GetBeamCount(); ++iBeam)
     {
