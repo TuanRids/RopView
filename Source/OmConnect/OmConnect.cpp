@@ -42,6 +42,7 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
                 if (i == 15) {
                     {
                         std::unique_lock<std::mutex> lock(mtx);
+                        progress.setLabelText("Create Device, Active Firmware,...");
                         if (!cv.wait_for(lock, std::chrono::seconds(3), [&]() { return isDeviceDiscovered.load(); })) {
                             cv.wait(lock, [&]() { return isDeviceDiscovered.load(); });
                         }
@@ -51,7 +52,8 @@ bool OmConnect::omConnectDevice(ConnectMode mode)
                     std::this_thread::sleep_for(std::chrono::nanoseconds(500000));
                 }
                 else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    i += 4;
                 }
                 
             }

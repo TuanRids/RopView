@@ -30,8 +30,8 @@ private:
     // RealtimeGPU Variables
     QVBoxLayout* layout;
     std::unique_ptr<QOpenGLShaderProgram> shaderProgram = nullptr;
-    QOpenGLVertexArrayObject vao;
-    QOpenGLBuffer vbo;
+    //QOpenGLVertexArrayObject vao;
+   // QOpenGLBuffer vbo;
     QOffscreenSurface* surface;
     int vertexLocation{ 0 };
     int colorLocation{ 0 };
@@ -39,6 +39,14 @@ private:
     // Realtime GPU variables for GLTexture
     QOpenGLBuffer ebo;      
     GLuint textureID;          
+    GLuint vao, vbo;
+
+    // select region
+    bool isSelectingRegion = false;
+    bool isDragging = false;
+    QPointF selectionStart, selectionEnd;
+    QPointF lastMousePos;
+
 
 public:
     explicit SviewFrame(QWidget* parent = nullptr);
@@ -54,6 +62,7 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event);
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
     QVector2D zoomCenter;
     float zoomRatio = 1.0f;
 };

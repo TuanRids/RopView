@@ -19,7 +19,11 @@ private:
         if (ftime > 0) { ReadStatus::getinstance().set_processData(ftime + 0.01); }
 
         if (observers[0]->isGLTexture()) observers[0]->RealDatProcess();
-        else observers[0]->processOnGPU();
+        else 
+        {
+            observers[0]->processOnGPU();
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 
 public:

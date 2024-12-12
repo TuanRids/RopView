@@ -49,6 +49,7 @@ protected:
 	
 };
 
+
 class upFrame : public QOpenGLFunctions_4_3_Core, public nObserver {
 public:
     upFrame() { }

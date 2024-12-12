@@ -1,6 +1,6 @@
 #include "..\pch.h"
 #include "ObserverMgr.h"
-
+#include "lines_util.hpp"
 nmainUI::statuslogs* nObserver::sttlogs = nullptr;
 ProcessingContext nObserver::prosdt = ProcessingContext();
 std::shared_mutex nObserver::collectionMutex = std::shared_mutex();
@@ -85,7 +85,6 @@ void nObserver::RealDatProcess() {
     tempSViewBuf = cv::Mat::zeros(prosdt.zsize, prosdt.sview_x, CV_8UC3);
     tempSViewBuf.setTo(cv::Scalar(0, 0, 0, 0));
 
-
     if (!prosdt.ArtScan->CViewBuf || prosdt.ArtScan->CViewBuf->empty() || !prosdt.ArtScan->BViewBuf || prosdt.ArtScan->BViewBuf->empty()) {
         tempCViewBuf = cv::Mat::zeros(prosdt.ysize, BCsize, CV_8UC3);
         tempBViewBuf = cv::Mat::zeros(prosdt.zsize, BCsize, CV_8UC3);
@@ -108,65 +107,96 @@ void nObserver::RealDatProcess() {
         prosdt.zsize = -1; return;
     }
 
-#pragma omp parallel for
-    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-        double maxAmplitudeCscan = 0;
-        Color maxColor{};
-        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
-        for (int z = 0; z < prosdt.zsize; ++z) {
-            double percentAmplitude = std::abs(ascanData[z] - prosdt.minAmplitude) / prosdt.maxAmplitudeSampling * prosdt.maxAmplitudeUsable;
-            Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
-            int adjustedX{ -1 }; 
-            if (prosdt.pautmode == PautModeOmni::Linear) {
-                int offsetX = std::abs(static_cast<int>(z * sin(prosdt.angStart * M_PI / 180)));
-                adjustedX = beamID + offsetX;
-                if (adjustedX >= 0 && adjustedX < tempSViewBuf.cols && z >= 0 && z < tempSViewBuf.rows) {
-                    auto& pixel = tempSViewBuf.at<cv::Vec3b>(z, adjustedX);
-                    pixel = cv::Vec3b(color.B, color.G, color.R);
-                }                
-            }
-            
-            else if (prosdt.pautmode == PautModeOmni::Sectorial || prosdt.pautmode == PautModeOmni::Compound) {
-                const cv::Point& point = prosdt.xySectorial[beamID][z];
-                adjustedX = point.x;
-                int y = point.y;
+    std::vector<Line> linesToDraw;
+    linesToDraw.reserve(prosdt.ysize * prosdt.zsize);
+    Color maxColor{}; int getx{ -1 }, gety{ -1 };
+    double maxAmplitudeCscan = -1;
+#pragma omp parallel
+    {
+        std::vector<Line> localLines;
+#pragma omp for nowait
+        for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
+            const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
+            double maxAmplitudeCscan = -1.0;
+            Color maxColor;
 
-                if (adjustedX >= 0 && adjustedX < tempSViewBuf.cols && y >= 0 && y < tempSViewBuf.rows) {
-                    uchar* row_ptr = tempSViewBuf.ptr<uchar>(y);
-                    row_ptr[adjustedX * 3 + 0] = color.B;
-                    row_ptr[adjustedX * 3 + 1] = color.G;
-                    row_ptr[adjustedX * 3 + 2] = color.R;
+            for (int z = 0; z < prosdt.zsize; ++z) {
+                double percentAmplitude = std::abs(ascanData[z] - prosdt.minAmplitude) / prosdt.maxAmplitudeSampling * prosdt.maxAmplitudeUsable;
+                Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
+                // Sview
+                if (prosdt.pautmode == PautModeOmni::Linear) {
+                    int getx = prosdt.xyLinear[beamID][z].x;
+                    if (getx >= 0 && getx < tempSViewBuf.cols && z >= 0 && z < tempSViewBuf.rows) {
+                        setPixelFast(tempSViewBuf, getx, z, cv::Vec3b(color.B, color.G, color.R));
+                    }
+                    if (beamID + 1 < prosdt.ysize) {
+                        cv::Point point = prosdt.xyLinear[beamID][z];
+                        cv::Point nextPoint = prosdt.xyLinear[beamID + 1][z];
+                        localLines.push_back(Line{ point, nextPoint, cv::Vec3b(color.B, color.G, color.R) });
+                    }
                 }
-                if (beamID + 1 < prosdt.ysize)
-                {
-                    const cv::Point& nextPoint = prosdt.xySectorial[beamID + 1][z];
-                    // currently use too much time to process, low performance TODO optimize for highest resolution
-                    cv::line(tempSViewBuf, point, nextPoint, cv::Scalar(color.B, color.G, color.R), 1, cv::LINE_4);
-                }
-            }
-            
-            if (percentAmplitude > maxAmplitudeCscan) {
-                maxAmplitudeCscan = percentAmplitude;
-                maxColor = color;
-            }
+                else if (prosdt.pautmode == PautModeOmni::Sectorial || prosdt.pautmode == PautModeOmni::Compound) {
+                    int getx = prosdt.xySectorial[beamID][z].x;
+                    int gety = prosdt.xySectorial[beamID][z].y;
 
-            if (oms.OMS->beamCurrentID == beamID) {
-                points[z] = glm::vec2((percentAmplitude / 50.0) - 1.0, -1.0 + 2.0 * static_cast<double>(z) / static_cast<double>(prosdt.zsize - 1));
-                tempBViewBuf.at<cv::Vec3b>(z, 0) = cv::Vec3b(color.B, color.G, color.R);
-                if ( z == prosdt.zsize - 1) //TODO: bring to GPU; need to convert cv pos into gltexture2D quad
-                {
-                    if (prosdt.pautmode == PautModeOmni::Linear)
-                        cv::line(tempSViewBuf, cv::Point(beamID, 0), cv::Point(adjustedX, tempSViewBuf.rows), cv::Scalar(10, 10, 160, 256), 1, cv::LINE_4);
-                    else if (prosdt.pautmode == PautModeOmni::Sectorial || prosdt.pautmode == PautModeOmni::Compound)
-                        cv::line(tempSViewBuf, prosdt.xySectorial[0][0], prosdt.xySectorial[beamID][prosdt.zsize - 1], cv::Scalar(10, 10, 160, 256), 1, cv::LINE_4);
+                    if (getx >= 0 && getx < tempSViewBuf.cols && gety >= 0 && gety < tempSViewBuf.rows) {
+                        setPixelFast(tempSViewBuf, getx, gety, cv::Vec3b(color.B, color.G, color.R));
+                    }
+
+                    if (beamID + 1 < prosdt.ysize) {
+                        cv::Point point = prosdt.xySectorial[beamID][z];
+                        cv::Point nextPoint = prosdt.xySectorial[beamID + 1][z];
+                        localLines.push_back(Line{ point, nextPoint, cv::Vec3b(color.B, color.G, color.R) });
+                    }
+                }
+                // Cview calc
+                if (percentAmplitude > maxAmplitudeCscan) {
+                    maxAmplitudeCscan = percentAmplitude;
+                    maxColor = color;
+                }
+                // Bview && Aview
+                if (oms.OMS->beamCurrentID == beamID) {
+                    points[z] = glm::vec2((percentAmplitude / 50.0) - 1.0, -1.0 + 2.0 * static_cast<double>(z) / static_cast<double>(prosdt.zsize - 1));
+                    setPixelFast(tempBViewBuf, 0, z, cv::Vec3b(color.B, color.G, color.R));
+
+                    
                 }
             }
+            // Cview
+            if (beamID >= tempCViewBuf.rows) {
+                prosdt.zsize = -1;
+                return;
+            }
+            setPixelFast(tempCViewBuf, 0, beamID, cv::Vec3b(maxColor.B, maxColor.G, maxColor.R));
         }
-        if (beamID >= tempCViewBuf.rows) { prosdt.zsize = -1; return; }
-        tempCViewBuf.at<cv::Vec3b>(beamID, 0) = cv::Vec3b(maxColor.B, maxColor.G, maxColor.R);
+#pragma omp critical
+        { linesToDraw.insert(linesToDraw.end(), localLines.begin(), localLines.end()); }
+    }
+
+#pragma omp parallel for
+    for (size_t i = 0; i < linesToDraw.size(); ++i) {
+        drawLineOptimized(tempSViewBuf, linesToDraw[i].start.x, linesToDraw[i].start.y,
+            linesToDraw[i].end.x, linesToDraw[i].end.y, linesToDraw[i].color);
+    }
+
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+    cv::morphologyEx(tempSViewBuf, tempSViewBuf, cv::MORPH_CLOSE, kernel);
+    cv::GaussianBlur(tempSViewBuf, tempSViewBuf, cv::Size(5, 5), 0);
+
+    auto beamID = oms.OMS->beamCurrentID;
+    if (prosdt.pautmode == PautModeOmni::Linear && beamID < prosdt.ysize) {
+        cv::Point startPt(prosdt.xyLinear[beamID][0].x, prosdt.xyLinear[beamID][0].y);
+        cv::Point endPt(prosdt.xyLinear[beamID][prosdt.zsize - 1].x, prosdt.xyLinear[beamID][prosdt.zsize - 1].y);
+        drawLineOptimized(tempSViewBuf, startPt.x, startPt.y, endPt.x, endPt.y, cv::Vec3b(160, 10, 10));
+    }
+    else if ((prosdt.pautmode == PautModeOmni::Sectorial || prosdt.pautmode == PautModeOmni::Compound) && beamID < prosdt.ysize){
+        cv::Point startPt(prosdt.xySectorial[0][0].x, prosdt.xySectorial[0][0].y);
+        cv::Point endPt(prosdt.xySectorial[beamID][prosdt.zsize - 1].x, prosdt.xySectorial[beamID][prosdt.zsize - 1].y);
+        drawLineOptimized(tempSViewBuf, startPt.x, startPt.y, endPt.x, endPt.y, cv::Vec3b(160, 10, 10));
+
     }
     
-    cv::GaussianBlur(tempSViewBuf, tempSViewBuf, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT);
+
     if (prosdt.angStart < 0 && prosdt.pautmode == PautModeOmni::Linear) cv::flip(tempSViewBuf, tempSViewBuf, 1);
     {
         std::lock_guard<std::mutex> lock(ArtScanMutex);
@@ -181,113 +211,7 @@ void nObserver::RealDatProcess() {
     }
     RawAsanDat.reset(); 
 }
-void upFrame::processOnGPU()
-{
 
-    // Step 1: Fetch data safely
-    shared_ptr<IAscanCollection> RawAsanDat;
-    cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
-
-    {
-        std::shared_lock<std::shared_mutex> lock(collectionMutex);
-        if (prosdt.nAscanCollection.empty() || !prosdt.nAscanCollection.front()) {
-            if (!prosdt.nAscanCollection.empty()) {
-                prosdt.nAscanCollection.pop_front();
-            }
-            return;
-        }
-        RawAsanDat = std::move(prosdt.nAscanCollection.front());
-        prosdt.nAscanCollection.pop_front();
-    }
-
-    // Step 2: Update parameters if needed
-    if (IOmConnect::isUpdate || prosdt.zsize == -1) {
-        updateParameters(RawAsanDat);
-        return;
-    }
-    
-    computeShader->bind();
-
-    // Step 4: Prepare OpenGL resources
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, 1270, 480);
-    glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
-
-    std::vector<int> flattenedAscanData;
-    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
-        flattenedAscanData.insert(flattenedAscanData.end(), ascanData, ascanData + prosdt.zsize);
-    }
-
-    GLuint ascanBuffer;
-    glGenBuffers(1, &ascanBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ascanBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedAscanData.size() * sizeof(int), flattenedAscanData.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ascanBuffer);
-
-    // Step 5: Upload sectorial points
-    std::vector<cv::Point> flattenedSectorialPoints;
-    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-        flattenedSectorialPoints.insert(flattenedSectorialPoints.end(),
-            prosdt.xySectorial[beamID].begin(),
-            prosdt.xySectorial[beamID].end());
-    }
-
-    glGenBuffers(1, &prosdt.sectorialBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, prosdt.sectorialBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedSectorialPoints.size() * sizeof(cv::Point),
-        flattenedSectorialPoints.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, prosdt.sectorialBuffer);
-
-    // Step 6: Upload color palette buffer
-    GLuint colorBuffer;
-    glGenBuffers(1, &colorBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, colorBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, everyColors.size() * sizeof(Color), everyColors.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, colorBuffer);
-
-    // Step 7: Set uniforms
-    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.zsize"), prosdt.zsize);
-    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.ysize"), prosdt.ysize);
-
-    // Step 8: Dispatch compute shader
-    const int workGroupSizeX = 16;
-    const int workGroupSizeY = 16;
-    glDispatchCompute((prosdt.ysize + workGroupSizeX - 1) / workGroupSizeX,
-        (prosdt.zsize + workGroupSizeY - 1) / workGroupSizeY, 1);
-
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-    // Step 9: update
-    {
-        std::lock_guard<std::mutex> lock(ArtScanMutex);
-        std::vector<cv::Point> downloadedPoints(prosdt.ysize * prosdt.zsize);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, prosdt.sectorialBuffer);
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, downloadedPoints.size() * sizeof(cv::Point), downloadedPoints.data());
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-        // Convert to vertice_sview
-        prosdt.vertice_sview.clear();
-        for (int i = 0; i < downloadedPoints.size(); ++i) {
-            VertexData vertex;
-            vertex.position = QVector2D(downloadedPoints[i].x, downloadedPoints[i].y);
-            vertex.color = QVector3D(1.0f, 0.0f, 0.0f);
-            prosdt.vertice_sview.append(vertex);
-        }
-
-        // Log the result
-        qDebug() << "vertice_sview size:" << prosdt.vertice_sview.size();
-    }
-
-    // Step 10: Clean up resources
-    computeShader->release();
-    glDeleteTextures(1, &texture);
-    glDeleteBuffers(1, &ascanBuffer);
-    glDeleteBuffers(1, &prosdt.sectorialBuffer);
-    glDeleteBuffers(1, &colorBuffer);
-
-}
 
 // Init and update parameters
 void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) {
@@ -305,7 +229,7 @@ void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) 
     }
 
     // Update all parameters
-    prosdt.zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity());
+    prosdt.zsize = static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity()); 
     RawAsanDat->GetAscan(0)->GetAmplitudeDataRange()->GetUnit();
     prosdt.ysize = static_cast<int>(RawAsanDat->GetCount());
     prosdt.angStart = oms.OMS->BeamStartAngle;
@@ -316,10 +240,13 @@ void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) 
     prosdt.ArtScan->resetAll();
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
     prosdt.xySectorial.clear();
+    prosdt.xyLinear.clear();
     prosdt.xySectorial.resize(prosdt.ysize, std::vector<cv::Point>(prosdt.zsize));
+    prosdt.xyLinear.resize(prosdt.ysize, std::vector<cv::Point>(prosdt.zsize));
 
-    // Precalculate sectorial coordinates
+    // Precalculate sectorial and linear coordinates
     int centerX = prosdt.angStart < 0 ? (prosdt.zsize * sin(((-prosdt.angStart) * M_PI / 180))) : 0;
+
     for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
         double angle = prosdt.angStart - 90 + beamID;
         double radian = angle * CV_PI / 180.0;
@@ -328,15 +255,24 @@ void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) 
 
         for (int z = 0; z < prosdt.zsize; ++z) {
             double radius = prosdt.zsize * (static_cast<double>(z) / prosdt.zsize);
-            int x = centerX + static_cast<int>(radius * cosValue);
-            int y = 0 - static_cast<int>(radius * sinValue);
-            prosdt.xySectorial[beamID][z] = cv::Point(x, y);
+
+            // Calculate Sectorial coordinates
+            int xSectorial = centerX + static_cast<int>(radius * cosValue);
+            int ySectorial = 0 - static_cast<int>(radius * sinValue);
+            prosdt.xySectorial[beamID][z] = cv::Point(xSectorial, ySectorial);
+
+            // Calculate Linear coordinates
+            int offsetX = std::abs(static_cast<int>(z * sin(prosdt.angStart * M_PI / 180)));
+            int xLinear = oms.OMS->SviewScaleX * beamID + offsetX ;
+            prosdt.xyLinear[beamID][z] = cv::Point(xLinear , z);
+
         }
     }
+    std::cout << "Size: Beam*Ascan [ " << prosdt.ysize << " x " << prosdt.zsize << " ]" << std::endl;
 
     prosdt.sview_x = (prosdt.pautmode == PautModeOmni::Linear) ?
-        prosdt.ysize + std::abs(sin(prosdt.angStart * M_PI / 180) * prosdt.zsize) :
-        prosdt.angStart < 0 ?
+        oms.OMS->SviewScaleX * prosdt.ysize + std::abs(sin(prosdt.angStart * M_PI / 180) * prosdt.zsize) : /*Linear*/
+            prosdt.angStart < 0 ? /*Not Linear*/
         (sin(((-prosdt.angStart) * M_PI / 180)) + sin((prosdt.angEnd) * M_PI / 180)) * prosdt.zsize :
         sin((prosdt.angEnd) * M_PI / 180) * prosdt.zsize;
 
@@ -370,6 +306,163 @@ void nObserver::upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAsca
     prosdt.nAscanCollection.push_back(_nAscanCollection);
 }
 
+
+
+void upFrame::processOnGPU()
+{
+    static bool pointsUploaded = false;
+    static bool colorsUploaded = false;
+
+    shared_ptr<IAscanCollection> RawAsanDat;
+    cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
+
+    // Step 1: Fetch data safely
+    {
+        std::shared_lock<std::shared_mutex> lock(collectionMutex);
+        if (prosdt.nAscanCollection.empty() || !prosdt.nAscanCollection.front()) {
+            if (!prosdt.nAscanCollection.empty()) {
+                prosdt.nAscanCollection.pop_front();
+            }
+            return;
+        }
+        RawAsanDat = std::move(prosdt.nAscanCollection.front());
+        prosdt.nAscanCollection.pop_front();
+    }
+
+    // Step 2: Update parameters if needed
+    if (IOmConnect::isUpdate || prosdt.zsize == -1) {
+        updateParameters(RawAsanDat);
+        pointsUploaded = false; // Mark points for re-upload if parameters changed
+        return;
+    }
+
+    computeShader->bind();
+
+    // Step 3: Prepare OpenGL resources
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, prosdt.ysize, prosdt.zsize);
+    glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    std::vector<int> flattenedAscanData;
+    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
+        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
+        flattenedAscanData.insert(flattenedAscanData.end(), ascanData, ascanData + prosdt.zsize);
+    }
+
+    GLuint ascanBuffer;
+    glGenBuffers(1, &ascanBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ascanBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedAscanData.size() * sizeof(int), flattenedAscanData.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ascanBuffer);
+
+    // Step 4: Upload sectorial points only if not already uploaded
+    if (!pointsUploaded) {
+        std::vector<glm::vec2> flattenedSectorialPoints;
+        for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
+            for (int z = 0; z < prosdt.zsize; ++z) {
+                flattenedSectorialPoints.emplace_back(
+                    (beamID / float(prosdt.ysize)) * 2.0f - 1.0f, // Normalize x
+                    (z / float(prosdt.zsize)) * 2.0f - 1.0f        // Normalize y
+                );
+            }
+        }
+
+        GLuint vao, vbo;
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+
+        glBindVertexArray(vao);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, flattenedSectorialPoints.size() * sizeof(glm::vec2), flattenedSectorialPoints.data(), GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
+        glEnableVertexAttribArray(0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+
+        pointsUploaded = true;
+    }
+
+    // Step 5: Upload color palette buffer only if not already uploaded
+    if (!colorsUploaded) {
+        GLuint colorBuffer;
+        glGenBuffers(1, &colorBuffer);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, colorBuffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, everyColors.size() * sizeof(Color), everyColors.data(), GL_STATIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, colorBuffer);
+
+        colorsUploaded = true;
+    }
+
+    // Step 6: Set uniforms
+    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.zsize"), prosdt.zsize);
+    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.ysize"), prosdt.ysize);
+
+    // Step 7: Dispatch compute shader
+    const int workGroupSizeX = 16;
+    const int workGroupSizeY = 16;
+    glDispatchCompute((prosdt.ysize + workGroupSizeX - 1) / workGroupSizeX,
+        (prosdt.zsize + workGroupSizeY - 1) / workGroupSizeY, 1);
+
+    // Ensure memory barriers for texture updates
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    GLuint err = glGetError();
+    if (err != GL_NO_ERROR) {
+        qDebug() << "Failed to ensure memory barriers for texture updates: " << err;
+    }
+    // Bind the result to prosdt.sviewID
+    if (glIsTexture(prosdt.sviewID)) {
+        glDeleteTextures(1, &prosdt.sviewID); // Delete previous texture if exists
+    }
+    glGenTextures(1, &prosdt.sviewID);
+    glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, prosdt.ysize, prosdt.zsize);
+    glBindImageTexture(0, prosdt.sviewID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    // Optional: Validate binding
+    if (!glIsTexture(prosdt.sviewID)) {
+        qDebug() << "Failed to bind compute shader output to prosdt.sviewID.";
+    }
+    std::vector<float> textureData(prosdt.ysize * prosdt.zsize * 4); // RGBA32F
+    glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, textureData.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    int loggedPixels = 0;
+    for (int i = 0; i < int(textureData.size() / 4) && loggedPixels < 10; ++i) {
+        float r = textureData[i * 4];
+        float g = textureData[i * 4 + 1];
+        float b = textureData[i * 4 + 2];
+        float a = textureData[i * 4 + 3];
+
+        if (std::abs(r) > 0.1f || std::abs(g) > 0.1f || std::abs(b) > 0.1f || std::abs(a) > 0.1f) {
+            qDebug() << "Pixel" << i << ": R=" << r
+                << " G=" << g
+                << " B=" << b
+                << " A=" << a;
+            ++loggedPixels;
+        }
+    }
+    if (loggedPixels == 0) {
+        qDebug() << "No non-zero pixels found in texture.";
+    }
+
+
+    // Step 8: Clean up resources
+    computeShader->release();
+
+    // Don't delete prosdt.sviewID, as it's needed for rendering
+    if (texture != prosdt.sviewID) {
+        glDeleteTextures(1, &texture);
+    }
+
+    glDeleteBuffers(1, &ascanBuffer);
+
+}
 QWidget* upFrame::createFrame()
 {
     if (!surface) {
@@ -404,15 +497,8 @@ QWidget* upFrame::createFrame()
             #version 430
             layout(local_size_x = 16, local_size_y = 16) in;
 
-            layout(std430, binding = 0) buffer InputData {
-                vec2 xySectorial[];
-            };
+            layout(binding = 0, rgba32f) uniform image2D outputTexture;
 
-            layout(std430, binding = 1) buffer OutputData {
-                vec4 outputColor[];
-            };
-
-            // Uniforms
             uniform int ysize;
             uniform int zsize;
 
@@ -421,11 +507,10 @@ QWidget* upFrame::createFrame()
                 uint z = gl_GlobalInvocationID.y;
 
                 if (beamID < ysize && z < zsize) {
-                    vec2 point = xySectorial[beamID * zsize + z];
-                    outputColor[beamID * zsize + z] = vec4(point.x, point.y, 0.0, 1.0);
+                    vec4 color = vec4(1.0, 0.0, 0.0, 1.0); // Entire texture filled with red
+                    imageStore(outputTexture, ivec2(beamID, z), color);
                 }
             }
-
             )")) {
             throw std::runtime_error("Failed to add shader source.");
         }

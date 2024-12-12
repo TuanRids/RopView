@@ -34,9 +34,11 @@ struct VisualizeConfig
     
 };
 
-
 struct Om_Settup_Config
 {
+    // ViewScanSetting
+    int SviewScaleX = 5;
+
     // === Configure a phased array BeamSet
     // Phased Array BeamFormation
     unsigned int beamNumber     = 60;
@@ -64,7 +66,7 @@ struct Om_Settup_Config
     // === Each Individual Beam
     double BeamGain = 35.0;
     double BeamAStart = 0; // mm 
-    double BeamAEnd = 100; // mm
+    double BeamAEnd = 50; // mm
     
     int Rate = 120; // 120 Hz screen
 

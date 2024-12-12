@@ -13,8 +13,6 @@ int main(int argc, char* argv[]) {
         return 1; 
     }
 
-    std::cout << "Application started.\n";
-
 
 	nmainUI::UIFrame::getInstance().mainloop(argc, argv);
     CloseHandle(hPipe);

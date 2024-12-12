@@ -10,7 +10,7 @@ struct VertexData {
 };
 
 struct ProcessingContext {
-    std::atomic<bool> nIsGlTexture = false;
+    std::atomic<bool> nIsGlTexture = true;
     // Realtime processing parameters UpdateCPU/GPU
     static constexpr uint16_t BCsize = 1000;
     int zsize = -1;
@@ -24,7 +24,7 @@ struct ProcessingContext {
     double maxAmplitudeUsable = -1.0;
 
     // Realtime processing state
-    GLuint sectorialBuffer = 0;
+    GLuint sviewID = 0;
     deque<std::shared_ptr<IAscanCollection>> nAscanCollection;
     UIArtScan* ArtScan = nullptr;
 
@@ -36,6 +36,7 @@ struct ProcessingContext {
     AscanData scandat;
 
     std::vector<std::vector<cv::Point>> xySectorial;
+    std::vector<std::vector<cv::Point>> xyLinear;
 
     ProcessingContext()
         : angStart(OmSetupL::getInstance().OMS->BeamStartAngle),

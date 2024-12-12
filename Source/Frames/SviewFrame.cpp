@@ -51,8 +51,8 @@ void SviewFrame::initializeGL() {
             // Create texture
             glGenTextures(1, &textureID);
             glBindTexture(GL_TEXTURE_2D, textureID);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glBindTexture(GL_TEXTURE_2D, 0);
@@ -104,56 +104,60 @@ void SviewFrame::initializeGL() {
             shaderProgram = std::make_unique<QOpenGLShaderProgram>();
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex,
                 R"(
-                #version 330 core
-                layout (location = 0) in vec2 position;
-                layout (location = 1) in vec3 color;
+            #version 430 core
+            layout (location = 0) in vec2 position;
+            layout (location = 1) in vec2 texCoord;
 
-                uniform vec2 u_Scale;
-                out vec3 vertexColor;
+            out vec2 TexCoord;
 
-                void main() {
-                    gl_Position = vec4(position.x * u_Scale.x, -position.y * u_Scale.y , 0.0, 1.0);
-                    vertexColor = color;
-                }
-
-                )");
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                TexCoord = texCoord;
+            }
+            )");
             shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment,
                 R"(
-                #version 330 core
-                in vec3 vertexColor; 
-                out vec4 FragColor;
+            #version 430 core
+            in vec2 TexCoord;
+            out vec4 FragColor;
 
-                void main() {
-                    FragColor = vec4(vertexColor, 1.0);
-                }
-                )");
+            uniform sampler2D u_Texture;
+
+            void main() {
+                FragColor = texture(u_Texture, TexCoord);
+            }
+            )");
             shaderProgram->link();
-            shaderProgram->bind();
 
-            // Configure vertex and color attributes
-            vertexLocation = shaderProgram->attributeLocation("position");
-            colorLocation = shaderProgram->attributeLocation("color");
+            // Set up VAO and VBO
+            glGenVertexArrays(1, &vao);
+            glGenBuffers(1, &vbo);
 
-            vao.create();
-            vao.bind();
+            // Define quad vertices (normalized device coordinates)
+            float vertices[] = {
+                // Positions    // TexCoords
+                -1.0f, -1.0f,  0.0f, 0.0f,
+                 1.0f, -1.0f,  1.0f, 0.0f,
+                -1.0f,  1.0f,  0.0f, 1.0f,
 
-            vbo.create();
-            vbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
-            vbo.bind();
-            const size_t initialBufferSize = 720000 * 1.5 * sizeof(VertexData);
-            vbo.allocate(initialBufferSize);
+                 1.0f, -1.0f,  1.0f, 0.0f,
+                 1.0f,  1.0f,  1.0f, 1.0f,
+                -1.0f,  1.0f,  0.0f, 1.0f
+            };
 
-            //vbo.allocate(prosdt.vertice_sview.constData(), prosdt.vertice_sview.size() * sizeof(VertexData));
+            glBindVertexArray(vao);
 
-            glEnableVertexAttribArray(vertexLocation);
-            glVertexAttribPointer(vertexLocation, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, position)));
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-            glEnableVertexAttribArray(colorLocation);
-            glVertexAttribPointer(colorLocation, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), reinterpret_cast<void*>(offsetof(VertexData, color)));
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 
-            vao.release();
-            vbo.release();
-            shaderProgram->release();
+            glEnableVertexAttribArray(1);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
         }
     }
     connect(this, &QOpenGLWidget::frameSwapped, this, [&]() {
@@ -161,11 +165,13 @@ void SviewFrame::initializeGL() {
         });
     QOpenGLWidget::update();
 }
-void SviewFrame::paintGL() {       
+void SviewFrame::paintGL() {     
     static QElapsedTimer fpsTimer; static int frameCount = 0;
     auto ftime = FPS_Calc(fpsTimer, frameCount);
-    if (ftime > 0) { ReadStatus::getinstance().set_sviewfps(ftime); }
-    
+    if (ftime > 0) 
+    { 
+        ReadStatus::getinstance().set_sviewfps(ftime);     
+    }    
     // wait screne
     static bool startFlag = false;
     if (!startFlag) {
@@ -192,40 +198,29 @@ void SviewFrame::paintGL() {
         shaderProgram->release();
 
     } // Render by GlBufferData
-    else if (!isGLTexture())
-    {
+    else if (!isGLTexture() && prosdt.sviewID) {
+        if (ftime > 0 ) { qDebug() << "Texture ID is: " << prosdt.sviewID; } 
+        // Clear texture (optional, if needed)
+        glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+        float clearColor[4] = { 0.2f, 0.0f, 0.0f, 0.0f };
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, prosdt.ysize, prosdt.zsize, GL_RGBA, GL_FLOAT, clearColor);
+        glBindTexture(GL_TEXTURE_2D, 0);    
 
-        startFlag = true;
-        if (ftime > 0)
-        {
-            glClearColor(0.09f, 0.09f, 0.09f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        }
-        glPointSize(3.0f);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if (!prosdt.vertice_sview.isEmpty()) {          
-            std::lock_guard<std::mutex> lock(ArtScanMutex);
-            // Update vertex buffer data
-            size_t dataSize = prosdt.vertice_sview.size() * sizeof(VertexData);
-            vbo.bind();
-            glBufferSubData(GL_ARRAY_BUFFER, 0, dataSize, prosdt.vertice_sview.constData());
-            vbo.release();
+        // Render texture
+        shaderProgram->bind();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+        shaderProgram->setUniformValue("u_Texture", 0);
 
-            // Draw
-            shaderProgram->bind();
-            shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
-            vao.bind();
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
 
-            glDrawArrays(GL_POINTS, 0, prosdt.vertice_sview.size());
-            GLenum error = glGetError();
-            if (error != GL_NO_ERROR) {
-                qDebug() << "OpenGL Error:" << error;
-            }
-            vao.release();
-            shaderProgram->release();
-        }
+        glBindTexture(GL_TEXTURE_2D, 0);
+        shaderProgram->release();
     }
+
+
     glFlush();
 }
 void SviewFrame::renderQuad() {
@@ -271,59 +266,78 @@ void SviewFrame::resizeGL(int w, int h) {
 bool isDragging = false;
 QPointF lastMousePos;
 void SviewFrame::mousePressEvent(QMouseEvent* event) {
-    if (event->button() == Qt::RightButton) {
-        isDragging = true;                    
-        lastMousePos = event->pos();        
+    if (event->button() == Qt::LeftButton) {
+        isSelectingRegion = true;
+        selectionStart = event->pos();
+        selectionEnd = event->pos();
     }
-    else if (event->button() == Qt::LeftButton) {
-        zoomRatio = 1.0f;                   
-        zoomCenter = QVector2D(0.5f, 0.5f); 
+    else if (event->button() == Qt::RightButton) {
+        isDragging = true;
+        lastMousePos = event->pos();
+    }
+}
+
+void SviewFrame::mouseMoveEvent(QMouseEvent* event) {
+    if (isSelectingRegion) {
+        selectionEnd = event->pos();
+        update();
+    }
+    else if (isDragging) {
+        QPointF currentMousePos = event->pos();
+        QPointF delta = currentMousePos - lastMousePos;
+        zoomCenter.setX(zoomCenter.x() - delta.x() / this->width());
+        zoomCenter.setY(zoomCenter.y() - delta.y() / this->height());
+        zoomCenter.setX(std::clamp(zoomCenter.x(), 0.0f, 1.0f));
+        zoomCenter.setY(std::clamp(zoomCenter.y(), 0.0f, 1.0f));
+        lastMousePos = currentMousePos;
         update();
     }
 }
-void SviewFrame::mouseMoveEvent(QMouseEvent* event) {
-    if (isDragging) {
-        QPointF currentMousePos = event->pos();
-        QPointF delta = currentMousePos - lastMousePos; 
-        zoomCenter.setX(zoomCenter.x() - delta.x() / this->width());
-        zoomCenter.setY(zoomCenter.y() - delta.y() / this->height()); 
-        zoomCenter.setX(std::clamp(zoomCenter.x(), 0.0f, 1.0f));
-        zoomCenter.setY(std::clamp(zoomCenter.y(), 0.0f, 1.0f));
 
-        lastMousePos = currentMousePos; 
-        update(); 
-    }
-}
 void SviewFrame::mouseReleaseEvent(QMouseEvent* event) {
-    if (event->button() == Qt::RightButton) {
+    if (event->button() == Qt::LeftButton && isSelectingRegion) {
+        isSelectingRegion = false;
+        QRectF selectionRect = QRectF(selectionStart, selectionEnd).normalized();
+        if (selectionRect.width() > 5 && selectionRect.height() > 5) {
+            float centerX = (selectionRect.x() + selectionRect.width() / 2.0f) / this->width();
+            float centerY = (selectionRect.y() + selectionRect.height() / 2.0f) / this->height();
+            centerY = 1.0f - centerY;
+            float xRatio = (float)this->width() / (float)selectionRect.width();
+            float yRatio = (float)this->height() / (float)selectionRect.height();
+            float newZoomRatio = std::min(xRatio, yRatio);
+            zoomCenter = QVector2D(centerX, centerY);
+            zoomRatio = std::clamp(1.0f / newZoomRatio, 0.1f, 20.0f);
+            update();
+        }
+        selectionStart = QPointF();
+        selectionEnd = QPointF();
+    }
+    else if (event->button() == Qt::RightButton) {
         isDragging = false;
     }
 }
+
 void SviewFrame::wheelEvent(QWheelEvent* event) {
     QPointF mousePos = event->position();
     float x = static_cast<float>(mousePos.x()) / this->width();
     float y = static_cast<float>(mousePos.y()) / this->height();
-
     y = 1.0f - y;
-
-    zoomCenter = QVector2D(x, y); 
-    float delta = event->angleDelta().y(); 
-    float zoomStep = 0.1f;
+    zoomCenter = QVector2D(x, y);
+    float delta = event->angleDelta().y();
+    float zoomStep = 0.05f;
     if (delta > 0) {
         zoomRatio += zoomStep;
     }
     else {
-        zoomRatio -= zoomStep; 
+        zoomRatio -= zoomStep;
     }
     if (zoomRatio > 1.0f) zoomRatio = 1.0f;
     zoomRatio = std::clamp(zoomRatio, 0.1f, 5.0f);
-
     update();
 }
-void SviewFrame::updateRealTime()
-{    
-    if (!isRealTime)
-    {
+
+void SviewFrame::updateRealTime() {
+    if (!isRealTime) {
         if (graphicsView) {
             layout->removeWidget(graphicsView.get());
             graphicsView->hide();
@@ -333,6 +347,20 @@ void SviewFrame::updateRealTime()
         isRealTime = true;
     }
 }
+
+void SviewFrame::paintEvent(QPaintEvent* event) {
+    QOpenGLWidget::paintEvent(event);
+    if (isSelectingRegion) {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, false);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+        painter.setPen(Qt::DashLine);
+        painter.setBrush(Qt::NoBrush);
+        QRectF selectionRect = QRectF(selectionStart, selectionEnd).normalized();
+        painter.drawRect(selectionRect);
+    }
+}
+
 
 // ********************************************
 // Offline Reading

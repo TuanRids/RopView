@@ -41,7 +41,7 @@ private:
         QHBoxLayout* setupConfigLayout = new QHBoxLayout(setupConfigTab);
         setupConfigLayout->setContentsMargins(0, 0, 0, 0);
         setupConfigTabContent(setupConfigLayout);
-        settingModeWidget->addTab(setupConfigTab, "Config");
+        settingModeWidget->addTab(setupConfigTab, "ViewConfig");
 
         mainLayout->addWidget(settingModeWidget);
         widgetContainer->setLayout(mainLayout);
@@ -300,8 +300,25 @@ private:
         layout->addWidget(separator);
     }
     void setupConfigTabContent(QHBoxLayout* layout) {
-        auto setupConfig = OmSetupL::getInstance().OMS;
-        return;
+        auto scanPlan = OmSetupL::getInstance().OMS;
+
+        // Group for Phased Array Transducer Settings
+        QGroupBox* group1 = new QGroupBox("Beam Formation");
+        QGridLayout* layout1 = new QGridLayout(group1);
+        int x = 0; int y = 0;
+        {
+            createSpinBox(1, 64, scanPlan->SviewScaleX, layout1, "Sview ScaleX", x, y, [=](double value) {
+                scanPlan->SviewScaleX = value;
+                });
+        }
+
+        QFrame* separator = new QFrame();
+        separator->setFrameShape(QFrame::HLine);
+        separator->setFrameShadow(QFrame::Sunken);
+        group1->setFixedWidth(cwidth - 70);
+        layout->addWidget(group1);
+        layout->addWidget(separator);
+    
     }
     void addSettingToGrid(QGridLayout* layout, const QString& label, QWidget* widget, int row, int column) {
         QLabel* labelWidget = new QLabel(label);
