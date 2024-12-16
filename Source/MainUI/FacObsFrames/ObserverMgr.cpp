@@ -2,9 +2,12 @@
 #include "ObserverMgr.h"
 #include "lines_util.hpp"
 nmainUI::statuslogs* nObserver::sttlogs = nullptr;
-ProcessingContext nObserver::prosdt = ProcessingContext();
-std::shared_mutex nObserver::collectionMutex = std::shared_mutex();
-std::mutex nObserver::ArtScanMutex = std::mutex();
+AscanData nObserver::scandat = AscanData();
+bool nObserver::isPanning = false;
+int nObserver::curpt[3] = { 0, 0, 0 };
+std::vector<Color> nObserver::everyColors;
+PAUTManager* nObserver::pautmgr = nullptr;
+
 std::unique_ptr<QOpenGLShaderProgram> upFrame::computeShader = nullptr;
 std::unique_ptr<QOffscreenSurface> upFrame::surface = nullptr;
 std::unique_ptr<QOpenGLContext> upFrame::context = nullptr;
@@ -53,26 +56,24 @@ std::vector<Color> CreateColorPalette(int gainFactor = 0)
 nObserver::nObserver()
 {
     if (!sttlogs)  sttlogs = &nmainUI::statuslogs::getinstance();
+    if (!pautmgr)  pautmgr = &PAUTManager::getInstance();
+    everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
+}
+PAUTManager::PAUTManager()
+{
     if (!prosdt.ArtScan) prosdt.ArtScan = &UIArtScan::getInstance();
     everyColors = CreateColorPalette(ConfigL->visualConfig->Color_Palette);
 }
 static const uint16_t BCsize = 1000;
 
 // Process Func
-void nObserver::RealDatProcess() {
+
+void PAUTManager::RealDatProcess() {
     shared_ptr<IAscanCollection> RawAsanDat;  
 
     cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
     {
-        std::shared_lock<std::shared_mutex> lock(collectionMutex);
-        if (prosdt.nAscanCollection.empty() || !prosdt.nAscanCollection.front()) {
-            if (!prosdt.nAscanCollection.empty()) {
-                prosdt.nAscanCollection.pop_front();
-            }
-            return;
-        }
-        RawAsanDat = std::move(prosdt.nAscanCollection.front());
-        prosdt.nAscanCollection.pop_front();
+        RawAsanDat = std::move(prosdt.nAscanCollection.pop_front().value());
     }
 
     // Update
@@ -80,26 +81,24 @@ void nObserver::RealDatProcess() {
         updateParameters(RawAsanDat);
         return;
     }
-
     // Process
     tempSViewBuf = cv::Mat::zeros(prosdt.zsize, prosdt.sview_x, CV_8UC3);
     tempSViewBuf.setTo(cv::Scalar(0, 0, 0, 0));
 
-    if (!prosdt.ArtScan->CViewBuf || prosdt.ArtScan->CViewBuf->empty() || !prosdt.ArtScan->BViewBuf || prosdt.ArtScan->BViewBuf->empty()) {
+    bool invalidCViewBuf = !prosdt.ArtScan->CViewBuf || prosdt.ArtScan->CViewBuf->empty();
+    bool invalidBViewBuf = !prosdt.ArtScan->BViewBuf || prosdt.ArtScan->BViewBuf->empty();
+    bool sizeMismatch = prosdt.ArtScan->BViewBuf &&
+        (prosdt.ArtScan->BViewBuf->rows < prosdt.zsize || prosdt.ArtScan->BViewBuf->cols < prosdt.ysize);
+
+    if (invalidCViewBuf || invalidBViewBuf || sizeMismatch) {
         tempCViewBuf = cv::Mat::zeros(prosdt.ysize, BCsize, CV_8UC3);
         tempBViewBuf = cv::Mat::zeros(prosdt.zsize, BCsize, CV_8UC3);
     }
     else {
-        if (prosdt.ArtScan->BViewBuf->rows < prosdt.zsize || prosdt.ArtScan->BViewBuf->cols < prosdt.ysize) {
-            tempCViewBuf = cv::Mat::zeros(prosdt.ysize, BCsize, CV_8UC3);
-            tempBViewBuf = cv::Mat::zeros(prosdt.zsize, BCsize, CV_8UC3);
-        }
-        else
-        {
-            prosdt.ArtScan->CViewBuf->copyTo(tempCViewBuf);
-            prosdt.ArtScan->BViewBuf->copyTo(tempBViewBuf);
-        }
+        prosdt.ArtScan->CViewBuf->copyTo(tempCViewBuf);
+        prosdt.ArtScan->BViewBuf->copyTo(tempBViewBuf);
     }
+
     std::vector<glm::vec2> points(prosdt.zsize);
     //check if prosdt.zsize > SampleQuantity: return for update
     if (std::abs(prosdt.zsize - static_cast<int>(RawAsanDat->GetAscan(0)->GetSampleQuantity())) > 2) {
@@ -183,19 +182,21 @@ void nObserver::RealDatProcess() {
     cv::morphologyEx(tempSViewBuf, tempSViewBuf, cv::MORPH_CLOSE, kernel);
     cv::GaussianBlur(tempSViewBuf, tempSViewBuf, cv::Size(5, 5), 0);
 
+    // Draw beamID Pos
     auto beamID = oms.OMS->beamCurrentID;
     if (prosdt.pautmode == PautModeOmni::Linear && beamID < prosdt.ysize) {
         cv::Point startPt(prosdt.xyLinear[beamID][0].x, prosdt.xyLinear[beamID][0].y);
         cv::Point endPt(prosdt.xyLinear[beamID][prosdt.zsize - 1].x, prosdt.xyLinear[beamID][prosdt.zsize - 1].y);
-        drawLineOptimized(tempSViewBuf, startPt.x, startPt.y, endPt.x, endPt.y, cv::Vec3b(160, 10, 10));
+        cv::line(tempSViewBuf, startPt, endPt, cv::Vec4b(160, 10, 10, 30), 1,  cv::LINE_AA);
+        //drawLineOptimized(tempSViewBuf, startPt.x, startPt.y, endPt.x, endPt.y, cv::Vec3b(160, 10, 10));
     }
     else if ((prosdt.pautmode == PautModeOmni::Sectorial || prosdt.pautmode == PautModeOmni::Compound) && beamID < prosdt.ysize){
         cv::Point startPt(prosdt.xySectorial[0][0].x, prosdt.xySectorial[0][0].y);
         cv::Point endPt(prosdt.xySectorial[beamID][prosdt.zsize - 1].x, prosdt.xySectorial[beamID][prosdt.zsize - 1].y);
-        drawLineOptimized(tempSViewBuf, startPt.x, startPt.y, endPt.x, endPt.y, cv::Vec3b(160, 10, 10));
+        cv::line(tempSViewBuf, startPt, endPt, cv::Vec4b(160, 10, 10, 30), 2, cv::LINE_AA);
+        //drawLineOptimized(tempSViewBuf, startPt.x, startPt.y, endPt.x, endPt.y, cv::Vec3b(160, 10, 10));
 
     }
-    
 
     if (prosdt.angStart < 0 && prosdt.pautmode == PautModeOmni::Linear) cv::flip(tempSViewBuf, tempSViewBuf, 1);
     {
@@ -209,21 +210,41 @@ void nObserver::RealDatProcess() {
         prosdt.ArtScan->BViewBuf->colRange(0, prosdt.ArtScan->BViewBuf->cols - 1).copyTo(tempBViewBuf.colRange(1, tempBViewBuf.cols));
         *prosdt.ArtScan->AViewBuf = points;
     }
+    // export Images to files
+    if (oms.OMS->SviewExp) {
+        auto now = std::chrono::system_clock::now();
+        auto timeT = std::chrono::system_clock::to_time_t(now);
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+
+        std::tm tm;
+        localtime_s(&tm, &timeT);
+
+        std::ostringstream dir_oss, time_oss;
+        dir_oss << "ExportedImages/Sview/Sview_" << std::put_time(&tm, "%d_%m_%y");
+        if (!std::filesystem::exists(dir_oss.str())) std::filesystem::create_directories(dir_oss.str());
+
+        time_oss << std::put_time(&tm, "%H.%M.%S.") << std::setw(3) << std::setfill('0') << ms.count();
+        cv::imwrite(dir_oss.str() + "/Sview_" + time_oss.str() + ".png", tempSViewBuf);
+
+        oms.OMS->SviewExp = false;
+    }
+
     RawAsanDat.reset(); 
 }
 
 
+
 // Init and update parameters
-void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) {
+void PAUTManager::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) {
 
-
-    std::shared_lock<std::shared_mutex> lock(collectionMutex);
+    // No need to mutex, blockingqueue has its own mutex
+    // std::shared_lock<std::shared_mutex> lock(observerMutex);
 
     // Clear remaining data if necessary
     if (prosdt.nAscanCollection.size() > 0) {
-        while (!prosdt.nAscanCollection.empty()) {
+        /*while (!prosdt.nAscanCollection.empty()) {
             prosdt.nAscanCollection.pop_front();
-        }
+        }*/
         prosdt.zsize = -1;
         return;
     }
@@ -268,7 +289,6 @@ void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) 
 
         }
     }
-    std::cout << "Size: Beam*Ascan [ " << prosdt.ysize << " x " << prosdt.zsize << " ]" << std::endl;
 
     prosdt.sview_x = (prosdt.pautmode == PautModeOmni::Linear) ?
         oms.OMS->SviewScaleX * prosdt.ysize + std::abs(sin(prosdt.angStart * M_PI / 180) * prosdt.zsize) : /*Linear*/
@@ -279,23 +299,20 @@ void nObserver::updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat) 
     prosdt.minAmplitude = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMin();
     prosdt.maxAmplitudeSampling = RawAsanDat->GetAscan(0)->GetAmplitudeSamplingDataRange()->GetFloatingMax();
     prosdt.maxAmplitudeUsable = RawAsanDat->GetAscan(0)->GetAmplitudeDataRange()->GetFloatingMax();
-
+    std::cout << "Size: Beam*Ascan [ " << prosdt.ysize << " x " << prosdt.zsize << " ]" << std::endl;
+    std::cout << "Sview_X " << prosdt.sview_x << std::endl;
     sttlogs->logInfo("Update Amplitude Range: \nminAmplitude: " + std::to_string(prosdt.minAmplitude) +
         " prosdt.maxAmplitudeSampling: " + std::to_string(prosdt.maxAmplitudeSampling) +
         " prosdt.maxAmplitudeUsable: " + std::to_string(prosdt.maxAmplitudeUsable));
 
     IOmConnect::isUpdate = false;
 }
-void nObserver::processOnGPU()
+void PAUTManager::processOnGPU()
 {
-    static std::shared_ptr<upFrame> upframe ;
-    if (!upframe) {
-        upframe = std::make_shared<upFrame>();
-        upframe->createFrame();
-    }
-    upframe->processOnGPU();
+    //upframe->processOnGPU();
 }
-void nObserver::upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection)
+
+void PAUTManager::upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection)
 {
     if (!_nAscanCollection) return;
     if (prosdt.nAscanCollection.size() > 200) {
@@ -308,218 +325,220 @@ void nObserver::upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAsca
 
 
 
-void upFrame::processOnGPU()
-{
-    static bool pointsUploaded = false;
-    static bool colorsUploaded = false;
-
-    shared_ptr<IAscanCollection> RawAsanDat;
-    cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
-
-    // Step 1: Fetch data safely
-    {
-        std::shared_lock<std::shared_mutex> lock(collectionMutex);
-        if (prosdt.nAscanCollection.empty() || !prosdt.nAscanCollection.front()) {
-            if (!prosdt.nAscanCollection.empty()) {
-                prosdt.nAscanCollection.pop_front();
-            }
-            return;
-        }
-        RawAsanDat = std::move(prosdt.nAscanCollection.front());
-        prosdt.nAscanCollection.pop_front();
-    }
-
-    // Step 2: Update parameters if needed
-    if (IOmConnect::isUpdate || prosdt.zsize == -1) {
-        updateParameters(RawAsanDat);
-        pointsUploaded = false; // Mark points for re-upload if parameters changed
-        return;
-    }
-
-    computeShader->bind();
-
-    // Step 3: Prepare OpenGL resources
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, prosdt.ysize, prosdt.zsize);
-    glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-    std::vector<int> flattenedAscanData;
-    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
-        flattenedAscanData.insert(flattenedAscanData.end(), ascanData, ascanData + prosdt.zsize);
-    }
-
-    GLuint ascanBuffer;
-    glGenBuffers(1, &ascanBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ascanBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedAscanData.size() * sizeof(int), flattenedAscanData.data(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ascanBuffer);
-
-    // Step 4: Upload sectorial points only if not already uploaded
-    if (!pointsUploaded) {
-        std::vector<glm::vec2> flattenedSectorialPoints;
-        for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
-            for (int z = 0; z < prosdt.zsize; ++z) {
-                flattenedSectorialPoints.emplace_back(
-                    (beamID / float(prosdt.ysize)) * 2.0f - 1.0f, // Normalize x
-                    (z / float(prosdt.zsize)) * 2.0f - 1.0f        // Normalize y
-                );
-            }
-        }
-
-        GLuint vao, vbo;
-        glGenVertexArrays(1, &vao);
-        glGenBuffers(1, &vbo);
-
-        glBindVertexArray(vao);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, flattenedSectorialPoints.size() * sizeof(glm::vec2), flattenedSectorialPoints.data(), GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-
-        pointsUploaded = true;
-    }
-
-    // Step 5: Upload color palette buffer only if not already uploaded
-    if (!colorsUploaded) {
-        GLuint colorBuffer;
-        glGenBuffers(1, &colorBuffer);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, colorBuffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, everyColors.size() * sizeof(Color), everyColors.data(), GL_STATIC_DRAW);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, colorBuffer);
-
-        colorsUploaded = true;
-    }
-
-    // Step 6: Set uniforms
-    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.zsize"), prosdt.zsize);
-    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.ysize"), prosdt.ysize);
-
-    // Step 7: Dispatch compute shader
-    const int workGroupSizeX = 16;
-    const int workGroupSizeY = 16;
-    glDispatchCompute((prosdt.ysize + workGroupSizeX - 1) / workGroupSizeX,
-        (prosdt.zsize + workGroupSizeY - 1) / workGroupSizeY, 1);
-
-    // Ensure memory barriers for texture updates
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-    GLuint err = glGetError();
-    if (err != GL_NO_ERROR) {
-        qDebug() << "Failed to ensure memory barriers for texture updates: " << err;
-    }
-    // Bind the result to prosdt.sviewID
-    if (glIsTexture(prosdt.sviewID)) {
-        glDeleteTextures(1, &prosdt.sviewID); // Delete previous texture if exists
-    }
-    glGenTextures(1, &prosdt.sviewID);
-    glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
-    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, prosdt.ysize, prosdt.zsize);
-    glBindImageTexture(0, prosdt.sviewID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-    // Optional: Validate binding
-    if (!glIsTexture(prosdt.sviewID)) {
-        qDebug() << "Failed to bind compute shader output to prosdt.sviewID.";
-    }
-    std::vector<float> textureData(prosdt.ysize * prosdt.zsize * 4); // RGBA32F
-    glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, textureData.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    int loggedPixels = 0;
-    for (int i = 0; i < int(textureData.size() / 4) && loggedPixels < 10; ++i) {
-        float r = textureData[i * 4];
-        float g = textureData[i * 4 + 1];
-        float b = textureData[i * 4 + 2];
-        float a = textureData[i * 4 + 3];
-
-        if (std::abs(r) > 0.1f || std::abs(g) > 0.1f || std::abs(b) > 0.1f || std::abs(a) > 0.1f) {
-            qDebug() << "Pixel" << i << ": R=" << r
-                << " G=" << g
-                << " B=" << b
-                << " A=" << a;
-            ++loggedPixels;
-        }
-    }
-    if (loggedPixels == 0) {
-        qDebug() << "No non-zero pixels found in texture.";
-    }
 
 
-    // Step 8: Clean up resources
-    computeShader->release();
-
-    // Don't delete prosdt.sviewID, as it's needed for rendering
-    if (texture != prosdt.sviewID) {
-        glDeleteTextures(1, &texture);
-    }
-
-    glDeleteBuffers(1, &ascanBuffer);
-
-}
-QWidget* upFrame::createFrame()
-{
-    if (!surface) {
-        surface = std::make_unique<QOffscreenSurface>();
-        surface->setFormat(QSurfaceFormat::defaultFormat());
-        surface->create();
-        if (!surface->isValid()) {
-            throw std::runtime_error("Failed to create QOffscreenSurface");
-        }
-    }
-
-    if (!context) {
-        context = std::make_unique<QOpenGLContext>();
-        context->setFormat(surface->format());
-        if (!context->create()) {
-            throw std::runtime_error("Failed to create QOpenGLContext");
-        }
-    }
-
-    // Step 2: Make context current and initialize OpenGL functions
-    context->makeCurrent(surface.get());
-
-    // Step 3: Create shader if not already created
-    if (!computeShader) {
-        initializeOpenGLFunctions();
-        qDebug() << "OpenGL Version:" << (const char*)glGetString(GL_VERSION);
-        qDebug() << "GLSL Version:" << (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-
-        computeShader = std::make_unique<QOpenGLShaderProgram>(QOpenGLContext::currentContext());
-        if (!computeShader->addShaderFromSourceCode(QOpenGLShader::Compute,
-            R"(
-            #version 430
-            layout(local_size_x = 16, local_size_y = 16) in;
-
-            layout(binding = 0, rgba32f) uniform image2D outputTexture;
-
-            uniform int ysize;
-            uniform int zsize;
-
-            void main() {
-                uint beamID = gl_GlobalInvocationID.x;
-                uint z = gl_GlobalInvocationID.y;
-
-                if (beamID < ysize && z < zsize) {
-                    vec4 color = vec4(1.0, 0.0, 0.0, 1.0); // Entire texture filled with red
-                    imageStore(outputTexture, ivec2(beamID, z), color);
-                }
-            }
-            )")) {
-            throw std::runtime_error("Failed to add shader source.");
-        }
-
-        if (!computeShader->link()) {
-            throw std::runtime_error("Failed to link compute shader.");
-        }
-    }
-
-    return nullptr;
-}
+//void upFrame::processOnGPU()
+//{
+//    static bool pointsUploaded = false;
+//    static bool colorsUploaded = false;
+//
+//    shared_ptr<IAscanCollection> RawAsanDat;
+//    cv::Mat tempSViewBuf, tempCViewBuf, tempBViewBuf;
+//
+//    // Step 1: Fetch data safely
+//    {
+//        // No need to mutex, blockingqueue has its own mutex
+//        // std::shared_lock<std::shared_mutex> lock(observerMutex);
+//        /*if (prosdt.nAscanCollection.empty() || !prosdt.nAscanCollection.front()) {
+//            if (!prosdt.nAscanCollection.empty()) {
+//                prosdt.nAscanCollection.pop_front();
+//            }
+//            return;
+//        }*/
+//        RawAsanDat = std::move(prosdt.nAscanCollection.pop_front().value());
+//    }
+//
+//    // Step 2: Update parameters if needed
+//    if (IOmConnect::isUpdate || prosdt.zsize == -1) {
+//        updateParameters(RawAsanDat);
+//        pointsUploaded = false; // Mark points for re-upload if parameters changed
+//        return;
+//    }
+//
+//    computeShader->bind();
+//
+//    // Step 3: Prepare OpenGL resources
+//    GLuint texture;
+//    glGenTextures(1, &texture);
+//    glBindTexture(GL_TEXTURE_2D, texture);
+//    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, prosdt.ysize, prosdt.zsize);
+//    glBindImageTexture(0, texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+//
+//    std::vector<int> flattenedAscanData;
+//    for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
+//        const int* ascanData = RawAsanDat->GetAscan(beamID)->GetData();
+//        flattenedAscanData.insert(flattenedAscanData.end(), ascanData, ascanData + prosdt.zsize);
+//    }
+//
+//    GLuint ascanBuffer;
+//    glGenBuffers(1, &ascanBuffer);
+//    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ascanBuffer);
+//    glBufferData(GL_SHADER_STORAGE_BUFFER, flattenedAscanData.size() * sizeof(int), flattenedAscanData.data(), GL_STATIC_DRAW);
+//    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ascanBuffer);
+//
+//    // Step 4: Upload sectorial points only if not already uploaded
+//    if (!pointsUploaded) {
+//        std::vector<glm::vec2> flattenedSectorialPoints;
+//        for (int beamID = 0; beamID < prosdt.ysize; ++beamID) {
+//            for (int z = 0; z < prosdt.zsize; ++z) {
+//                flattenedSectorialPoints.emplace_back(
+//                    (beamID / float(prosdt.ysize)) * 2.0f - 1.0f, // Normalize x
+//                    (z / float(prosdt.zsize)) * 2.0f - 1.0f        // Normalize y
+//                );
+//            }
+//        }
+//
+//        GLuint vao, vbo;
+//        glGenVertexArrays(1, &vao);
+//        glGenBuffers(1, &vbo);
+//
+//        glBindVertexArray(vao);
+//
+//        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+//        glBufferData(GL_ARRAY_BUFFER, flattenedSectorialPoints.size() * sizeof(glm::vec2), flattenedSectorialPoints.data(), GL_STATIC_DRAW);
+//
+//        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)0);
+//        glEnableVertexAttribArray(0);
+//
+//        glBindBuffer(GL_ARRAY_BUFFER, 0);
+//        glBindVertexArray(0);
+//
+//        pointsUploaded = true;
+//    }
+//
+//    // Step 5: Upload color palette buffer only if not already uploaded
+//    if (!colorsUploaded) {
+//        GLuint colorBuffer;
+//        glGenBuffers(1, &colorBuffer);
+//        glBindBuffer(GL_SHADER_STORAGE_BUFFER, colorBuffer);
+//        glBufferData(GL_SHADER_STORAGE_BUFFER, everyColors.size() * sizeof(Color), everyColors.data(), GL_STATIC_DRAW);
+//        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, colorBuffer);
+//
+//        colorsUploaded = true;
+//    }
+//
+//    // Step 6: Set uniforms
+//    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.zsize"), prosdt.zsize);
+//    glUniform1i(glGetUniformLocation(computeShader->programId(), "prosdt.ysize"), prosdt.ysize);
+//
+//    // Step 7: Dispatch compute shader
+//    const int workGroupSizeX = 16;
+//    const int workGroupSizeY = 16;
+//    glDispatchCompute((prosdt.ysize + workGroupSizeX - 1) / workGroupSizeX,
+//        (prosdt.zsize + workGroupSizeY - 1) / workGroupSizeY, 1);
+//
+//    // Ensure memory barriers for texture updates
+//    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+//    GLuint err = glGetError();
+//    if (err != GL_NO_ERROR) {
+//        qDebug() << "Failed to ensure memory barriers for texture updates: " << err;
+//    }
+//    // Bind the result to prosdt.sviewID
+//    if (glIsTexture(prosdt.sviewID)) {
+//        glDeleteTextures(1, &prosdt.sviewID); // Delete previous texture if exists
+//    }
+//    glGenTextures(1, &prosdt.sviewID);
+//    glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+//    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, prosdt.ysize, prosdt.zsize);
+//    glBindImageTexture(0, prosdt.sviewID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+//
+//    // Optional: Validate binding
+//    if (!glIsTexture(prosdt.sviewID)) {
+//        qDebug() << "Failed to bind compute shader output to prosdt.sviewID.";
+//    }
+//    std::vector<float> textureData(prosdt.ysize * prosdt.zsize * 4); // RGBA32F
+//    glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+//    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, textureData.data());
+//    glBindTexture(GL_TEXTURE_2D, 0);
+//
+//    int loggedPixels = 0;
+//    for (int i = 0; i < int(textureData.size() / 4) && loggedPixels < 10; ++i) {
+//        float r = textureData[i * 4];
+//        float g = textureData[i * 4 + 1];
+//        float b = textureData[i * 4 + 2];
+//        float a = textureData[i * 4 + 3];
+//
+//        if (std::abs(r) > 0.1f || std::abs(g) > 0.1f || std::abs(b) > 0.1f || std::abs(a) > 0.1f) {
+//            qDebug() << "Pixel" << i << ": R=" << r
+//                << " G=" << g
+//                << " B=" << b
+//                << " A=" << a;
+//            ++loggedPixels;
+//        }
+//    }
+//    if (loggedPixels == 0) {
+//        qDebug() << "No non-zero pixels found in texture.";
+//    }
+//
+//
+//    // Step 8: Clean up resources
+//    computeShader->release();
+//
+//    // Don't delete prosdt.sviewID, as it's needed for rendering
+//    if (texture != prosdt.sviewID) {
+//        glDeleteTextures(1, &texture);
+//    }
+//
+//    glDeleteBuffers(1, &ascanBuffer);
+//
+//}
+//QWidget* upFrame::createFrame()
+//{
+//    if (!surface) {
+//        surface = std::make_unique<QOffscreenSurface>();
+//        surface->setFormat(QSurfaceFormat::defaultFormat());
+//        surface->create();
+//        if (!surface->isValid()) {
+//            throw std::runtime_error("Failed to create QOffscreenSurface");
+//        }
+//    }
+//
+//    if (!context) {
+//        context = std::make_unique<QOpenGLContext>();
+//        context->setFormat(surface->format());
+//        if (!context->create()) {
+//            throw std::runtime_error("Failed to create QOpenGLContext");
+//        }
+//    }
+//
+//    // Step 2: Make context current and initialize OpenGL functions
+//    context->makeCurrent(surface.get());
+//
+//    // Step 3: Create shader if not already created
+//    if (!computeShader) {
+//        initializeOpenGLFunctions();
+//        qDebug() << "OpenGL Version:" << (const char*)glGetString(GL_VERSION);
+//        qDebug() << "GLSL Version:" << (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+//
+//        computeShader = std::make_unique<QOpenGLShaderProgram>(QOpenGLContext::currentContext());
+//        if (!computeShader->addShaderFromSourceCode(QOpenGLShader::Compute,
+//            R"(
+//            #version 430
+//            layout(local_size_x = 16, local_size_y = 16) in;
+//
+//            layout(binding = 0, rgba32f) uniform image2D outputTexture;
+//
+//            uniform int ysize;
+//            uniform int zsize;
+//
+//            void main() {
+//                uint beamID = gl_GlobalInvocationID.x;
+//                uint z = gl_GlobalInvocationID.y;
+//
+//                if (beamID < ysize && z < zsize) {
+//                    vec4 color = vec4(1.0, 0.0, 0.0, 1.0); // Entire texture filled with red
+//                    imageStore(outputTexture, ivec2(beamID, z), color);
+//                }
+//            }
+//            )")) {
+//            throw std::runtime_error("Failed to add shader source.");
+//        }
+//
+//        if (!computeShader->link()) {
+//            throw std::runtime_error("Failed to link compute shader.");
+//        }
+//    }
+//
+//    return nullptr;
+//}
 

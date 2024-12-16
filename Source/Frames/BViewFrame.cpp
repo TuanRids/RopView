@@ -30,7 +30,7 @@ QWidget* BviewFrame::createFrame() {
 void BviewFrame::initializeGL() {
     initializeOpenGLFunctions();
     glClearColor(0.3f, 0.2f, 0.4f, 1.0f);
-    if (isGLTexture())
+    if (pautmgr->isGLTexture())
     {
         if (!shaderProgram) {
             sttlogs->logInfo("Start initialize OpenGL - GLTexture on GPU for BviewFrame");
@@ -86,18 +86,13 @@ void BviewFrame::paintGL() {
         sttlogs->logCritical("OpenGL context is not valid");
         return;
     }
-    static QElapsedTimer fpsTimer; static int frameCount = 0;
-    auto ftime = FPS_Calc(fpsTimer, frameCount);
-    if (ftime > 0)
-    {
-        ReadStatus::getinstance().set_sviewfps(ftime);
-    }
-    if (isGLTexture() && prosdt.ArtScan->BViewBuf) // Check if OpenGL texture rendering is enabled and SViewBuf is valid
+
+    if (pautmgr->isGLTexture() && pautmgr->prosdt.ArtScan->BViewBuf) // Check if OpenGL texture rendering is enabled and SViewBuf is valid
     {
         {
-            std::lock_guard<std::mutex> lock(ArtScanMutex);
-            orgimage = std::make_shared<cv::Mat>(prosdt.ArtScan->BViewBuf->clone());
-            // prosdt.ArtScan->BViewBuf = nullptr;
+            std::lock_guard<std::mutex> lock(pautmgr->ArtScanMutex);
+            orgimage = std::make_shared<cv::Mat>(pautmgr->prosdt.ArtScan->BViewBuf->clone());
+            // pautmgr->prosdt.ArtScan->BViewBuf = nullptr;
             if (orgimage->size().width == 0 || orgimage->size().height == 0) return;
         }
         glBindTexture(GL_TEXTURE_2D, textureID);
@@ -145,7 +140,7 @@ void BviewFrame::paintGL() {
 
         shaderProgram->release(); // Release the shader program
     }
-    else if (!isGLTexture())
+    else if (!pautmgr->isGLTexture())
     {
         return;
         glPointSize(5.0f);
@@ -155,16 +150,16 @@ void BviewFrame::paintGL() {
 
         shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
 
-        if (!prosdt.vertice_cview.isEmpty()) {
+        if (!pautmgr->prosdt.vertice_cview.isEmpty()) {
             vao.bind();
             vbo.bind();
 
             // Update vertex buffer data
-            size_t dataSize = prosdt.vertice_cview.size() * sizeof(VertexData);
-            glBufferData(GL_ARRAY_BUFFER, dataSize, prosdt.vertice_cview.constData(), GL_DYNAMIC_DRAW);
+            size_t dataSize = pautmgr->prosdt.vertice_cview.size() * sizeof(VertexData);
+            glBufferData(GL_ARRAY_BUFFER, dataSize, pautmgr->prosdt.vertice_cview.constData(), GL_DYNAMIC_DRAW);
 
             // Draw points
-            glDrawArrays(GL_POINTS, 0, prosdt.vertice_cview.size());
+            glDrawArrays(GL_POINTS, 0, pautmgr->prosdt.vertice_cview.size());
 
             vao.release();
             vbo.release();
@@ -206,31 +201,31 @@ void BviewFrame::updateOffLine() {
         graphicsView->show();
         isRealTime = false;
     }
-    if (prosdt.scandat.Amplitudes.empty()) return;
+    if (scandat.Amplitudes.empty()) return;
 
     CreateArtFrame();    
     addPoints(true, -1, -1);
 }
 void BviewFrame::CreateArtFrame()
 {
-    if (prosdt.scandat.Amplitudes.empty()) return;
+    if (scandat.Amplitudes.empty()) return;
 
-    zsize = prosdt.scandat.AmplitudeAxes[0].Quantity;
-    ysize = prosdt.scandat.AmplitudeAxes[1].Quantity;
-    xsize = prosdt.scandat.AmplitudeAxes[2].Quantity;
+    zsize = scandat.AmplitudeAxes[0].Quantity;
+    ysize = scandat.AmplitudeAxes[1].Quantity;
+    xsize = scandat.AmplitudeAxes[2].Quantity;
 
     orgimage = std::make_unique<cv::Mat>(zsize, xsize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t x = 0; x < xsize; ++x) {
-            uint64_t index = z * (xsize * ysize) + prosdt.curpt[1] * xsize + x;
-            if (index >= prosdt.scandat.Amplitudes.size()) {
+            uint64_t index = z * (xsize * ysize) + curpt[1] * xsize + x;
+            if (index >= scandat.Amplitudes.size()) {
                 sttlogs->logWarning("[Bscan] Out of range data: " + std::to_string(index));
                 return;
             }
 
-            int16_t samplingAmplitude = std::abs(prosdt.scandat.Amplitudes[index]);
+            int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
             double percentAmplitude = samplingAmplitude / (32768 / 100.0);
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
             orgimage->at<cv::Vec3b>(z, x) = cv::Vec3b(color.B, color.G, color.R);
@@ -243,7 +238,7 @@ void BviewFrame::CreateArtFrame()
     auto newWidth = (frameRatio > imageRatio) ? static_cast<int>(orgimage->rows * frameRatio) : orgimage->cols;
     auto newHeight = (frameRatio > imageRatio) ? orgimage->rows : static_cast<int>(orgimage->cols / frameRatio);
 
-    auto scaleFactor = (!prosdt.isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? 1 : 1.0;
+    auto scaleFactor = (!curpt || ConfigLocator::getInstance().settingconf->bhighResBscan) ? 1 : 1.0;
     cv::resize(*orgimage, *scaledImage, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), 0);
@@ -283,8 +278,8 @@ void BviewFrame::addPoints(bool Cviewlink, int x, int y)
     gpen.setWidth(3);
     gpen.setCosmetic(true);
 
-    double pixelX = (Cviewlink) ? static_cast<double>(prosdt.curpt[0]) * scaledImage->cols / xsize : static_cast<double>(x);
-    double pixelZ = (Cviewlink) ? static_cast<double>(prosdt.curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
+    double pixelX = (Cviewlink) ? static_cast<double>(curpt[0]) * scaledImage->cols / xsize : static_cast<double>(x);
+    double pixelZ = (Cviewlink) ? static_cast<double>(curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
 
     auto* verticalLine = new QGraphicsLineItem(pixelX, 0, pixelX, scaledImage->rows);
     verticalLine->setPen(gpen);
@@ -309,7 +304,7 @@ void BviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         try
         {
             auto [original_x, original_z] = calculateOriginalPos(scaled_x, scaled_z);
-            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(prosdt.curpt[1]).arg(original_z);
+            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(curpt[1]).arg(original_z);
             QToolTip::showText(QCursor::pos(), tooltipText);
             overlay->updateOverlay(scaled_x, scaled_z, scaledImage->cols, scaledImage->rows);
             graphicsView->update();
@@ -321,9 +316,7 @@ void BviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
     QObject::connect(graphicsView.get(), &ZoomableGraphicsView::mouseClicked, [=](int scaled_x, int scaled_z) {
         try
         {
-            std::tie(prosdt.curpt[0], prosdt.curpt[2]) = calculateOriginalPos(scaled_x, scaled_z);
-
-            prosdt.isPanning = false;
+            std::tie(curpt[0], curpt[2]) = calculateOriginalPos(scaled_x, scaled_z);
             addPoints(false, scaled_x, scaled_z);
 
         }

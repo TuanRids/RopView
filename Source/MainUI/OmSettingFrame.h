@@ -310,6 +310,13 @@ private:
             createSpinBox(1, 64, scanPlan->SviewScaleX, layout1, "Sview ScaleX", x, y, [=](double value) {
                 scanPlan->SviewScaleX = value;
                 });
+            // create a save Sview Button, will set std::atomic<bool> SviewExp = false; to True
+            QPushButton* sviewButton = new QPushButton("Sview Export");
+            layout1->addWidget(sviewButton, ++x, y);
+            QObject::connect(sviewButton, &QPushButton::clicked, [=]() mutable {
+                scanPlan->SviewExp = true;
+                });
+
         }
 
         QFrame* separator = new QFrame();

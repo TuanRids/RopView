@@ -32,7 +32,7 @@ QWidget* CviewFrame::createFrame(){
 void CviewFrame::initializeGL() {
     initializeOpenGLFunctions();
     glClearColor(0.3f, 0.4f, 0.0f, 1.0f);
-    if (isGLTexture())
+    if (pautmgr->isGLTexture())
     {
         if (!shaderProgram) {
             sttlogs->logInfo("Start initialize OpenGL - GLTexture on GPU for CviewFrame");
@@ -89,18 +89,13 @@ void CviewFrame::paintGL() {
         sttlogs->logCritical("OpenGL context is not valid");
         return;
     }
-    static QElapsedTimer fpsTimer; static int frameCount = 0;
-    auto ftime = FPS_Calc(fpsTimer, frameCount);
-    if (ftime > 0)
-    {
-        ReadStatus::getinstance().set_sviewfps(ftime);
-    }
-    if (isGLTexture() && prosdt.ArtScan->CViewBuf) // Check if OpenGL texture rendering is enabled and SViewBuf is valid
+
+    if (pautmgr->isGLTexture() && pautmgr->prosdt.ArtScan->CViewBuf) // Check if OpenGL texture rendering is enabled and SViewBuf is valid
     {
         {
-            std::lock_guard<std::mutex> lock(ArtScanMutex); 
-            orgimage = std::make_shared<cv::Mat>(prosdt.ArtScan->CViewBuf->clone()); 
-            //prosdt.ArtScan->CViewBuf = nullptr;
+            std::lock_guard<std::mutex> lock(pautmgr->ArtScanMutex);
+            orgimage = std::make_shared<cv::Mat>(pautmgr->prosdt.ArtScan->CViewBuf->clone()); 
+            //pautmgr->prosdt.ArtScan->CViewBuf = nullptr;
             if (orgimage->size().width == 0 || orgimage->size().height == 0) return;
         }
         glBindTexture(GL_TEXTURE_2D, textureID);
@@ -148,7 +143,7 @@ void CviewFrame::paintGL() {
 
         shaderProgram->release(); // Release the shader program
     }
-    else if (!isGLTexture())
+    else if (!pautmgr->isGLTexture())
     {
         return;
         glPointSize(5.0f);
@@ -158,16 +153,16 @@ void CviewFrame::paintGL() {
 
         shaderProgram->setUniformValue("u_Scale", QVector2D(1, 1));
 
-        if (!prosdt.vertice_cview.isEmpty()) {
+        if (!pautmgr->prosdt.vertice_cview.isEmpty()) {
             vao.bind();
             vbo.bind();
 
             // Update vertex buffer data
-            size_t dataSize = prosdt.vertice_cview.size() * sizeof(VertexData);
-            glBufferData(GL_ARRAY_BUFFER, dataSize, prosdt.vertice_cview.constData(), GL_DYNAMIC_DRAW);
+            size_t dataSize = pautmgr->prosdt.vertice_cview.size() * sizeof(VertexData);
+            glBufferData(GL_ARRAY_BUFFER, dataSize, pautmgr->prosdt.vertice_cview.constData(), GL_DYNAMIC_DRAW);
 
             // Draw points
-            glDrawArrays(GL_POINTS, 0, prosdt.vertice_cview.size());
+            glDrawArrays(GL_POINTS, 0, pautmgr->prosdt.vertice_cview.size());
 
             vao.release();
             vbo.release();
@@ -214,7 +209,7 @@ void CviewFrame::updateOffLine() {
     }
 
     static int lastResolution = -1;
-    if (prosdt.scandat.Amplitudes.empty()) { return; }
+    if (scandat.Amplitudes.empty()) { return; }
     if (lastResolution != ConfigL->sysParams->resolution) {
         lastResolution = ConfigL->sysParams->resolution;
         CreateXYview();
@@ -233,18 +228,18 @@ void CviewFrame::updateOffLine() {
 }
 void CviewFrame::CreateXYview() {
     // Declaration and initialization
-    if (prosdt.scandat.Amplitudes.empty()) {
+    if (scandat.Amplitudes.empty()) {
         return;
     }
 
-    zsize = prosdt.scandat.AmplitudeAxes[0].Quantity;
-    ysize = prosdt.scandat.AmplitudeAxes[1].Quantity;
-    xsize = prosdt.scandat.AmplitudeAxes[2].Quantity;
+    zsize = scandat.AmplitudeAxes[0].Quantity;
+    ysize = scandat.AmplitudeAxes[1].Quantity;
+    xsize = scandat.AmplitudeAxes[2].Quantity;
 
     orgimage = std::make_unique<cv::Mat>(ysize, xsize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
 
-    uint64_t z_offset = prosdt.curpt[2] * (xsize * ysize);
+    uint64_t z_offset = curpt[2] * (xsize * ysize);
     double percentAmplitude;
 
     // Processing amplitude data to assign colors
@@ -254,11 +249,11 @@ void CviewFrame::CreateXYview() {
                 int16_t maxAmplitude = 0;
                 for (uint64_t z = 0; z < zsize; ++z) {
                     uint64_t index = z * (xsize * ysize) + y * xsize + x;
-                    if (index >= prosdt.scandat.Amplitudes.size()) {
-                        sttlogs->logWarning("Out of range data: " + std::to_string(index) + " / " + std::to_string(prosdt.scandat.Amplitudes.size()));
+                    if (index >= scandat.Amplitudes.size()) {
+                        sttlogs->logWarning("Out of range data: " + std::to_string(index) + " / " + std::to_string(scandat.Amplitudes.size()));
                         return;
                     }
-                    int16_t samplingAmplitude = std::abs(prosdt.scandat.Amplitudes[index]);
+                    int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
                     if (samplingAmplitude > maxAmplitude) {
                         maxAmplitude = samplingAmplitude;
                     }
@@ -267,11 +262,11 @@ void CviewFrame::CreateXYview() {
             }
             else {
                 uint64_t index = z_offset + y * xsize + x;
-                if (index >= prosdt.scandat.Amplitudes.size()) {
-                    sttlogs->logWarning("Out of range data: " + std::to_string(index) + " / " + std::to_string(prosdt.scandat.Amplitudes.size()));
+                if (index >= scandat.Amplitudes.size()) {
+                    sttlogs->logWarning("Out of range data: " + std::to_string(index) + " / " + std::to_string(scandat.Amplitudes.size()));
                     return;
                 }
-                int16_t samplingAmplitude = std::abs(prosdt.scandat.Amplitudes[index]);
+                int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
                 percentAmplitude = samplingAmplitude / (32768.0 / 100.0);
             }
 
@@ -286,7 +281,7 @@ void CviewFrame::CreateXYview() {
     auto newWidth = (frameRatio > imageRatio) ? static_cast<int>(orgimage->rows * frameRatio) : orgimage->cols;
     auto newHeight = (frameRatio > imageRatio) ? orgimage->rows : static_cast<int>(orgimage->cols / frameRatio);
 
-    auto scaleFactor = (!prosdt.isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? 1 : 1.0;
+    auto scaleFactor = (!isPanning || ConfigLocator::getInstance().settingconf->bhighResBscan) ? 1 : 1.0;
     cv::resize(*orgimage, *scaledImage, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), 0);
@@ -309,8 +304,8 @@ void CviewFrame::CreateXYview() {
 }
 void CviewFrame::addPoints(bool Cviewlink, int x, int y)
 {
-    double pixelX= (Cviewlink) ? static_cast<double>(prosdt.curpt[0]) * scaledImage->cols / xsize : static_cast<double>(x);
-    double pixelY = (Cviewlink) ? static_cast<double>(prosdt.curpt[1]) * scaledImage->rows / ysize : static_cast<double>(y);
+    double pixelX= (Cviewlink) ? static_cast<double>(curpt[0]) * scaledImage->cols / xsize : static_cast<double>(x);
+    double pixelY = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->rows / ysize : static_cast<double>(y);
 
     if (overlay) { overlay->updatePoints(pixelX, pixelY, Qt::blue, Qt::red); }
     graphicsView->update();
@@ -338,7 +333,7 @@ void CviewFrame::MouseGetPosXY()
         {
             temX = scaled_x; temY = scaled_y;
             auto [original_x, original_y] = calculateOriginalPos(scaled_x, scaled_y);
-            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(original_y).arg(prosdt.curpt[2]);
+            QString tooltipText = QString("X: %1\nY: %2\nZ: %3").arg(original_x).arg(original_y).arg(curpt[2]);
             QToolTip::showText(QCursor::pos(), tooltipText);
             overlay->updateOverlay(scaled_x, scaled_y, scaledImage->cols, scaledImage->rows);
             graphicsView->update();
@@ -351,8 +346,8 @@ void CviewFrame::MouseGetPosXY()
         try
         {
             temX = scaled_x; temY = scaled_y;
-            std::tie(prosdt.curpt[0], prosdt.curpt[1]) = calculateOriginalPos(scaled_x, scaled_y);
-            prosdt.isPanning = false;
+            std::tie(curpt[0], curpt[1]) = calculateOriginalPos(scaled_x, scaled_y);
+            isPanning = false;
 
             addPoints(false, scaled_x, scaled_y);
         }

@@ -80,6 +80,7 @@ std::string OmConfigSetup::appendLog(std::string& logger, unsigned int VirApertu
         logger += fmt::format("{:>5} {:>10.3f}\n", VirAperture, delay);
     }
     else logger += fmt::format("{:>5} {:>10.3f} {:>10.3f} {:>10.3f}\n", VirAperture, delayNoFocus, deltaN, delay);
+    return logger;
 }
 
 IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
@@ -101,6 +102,9 @@ IAcquisitionPtr OmConfigSetup::ConfigDeviceSetting()
         ConfigureSectorialBeam(phasedArrayFactory, beamFormations);
         break;
     case PautModeOmni::Compound:
+        ConfigureCompoundBeam(phasedArrayFactory, beamFormations);
+        break;
+    case PautModeOmni::TFM:
         ConfigureCompoundBeam(phasedArrayFactory, beamFormations);
         break;
     default:
@@ -280,6 +284,30 @@ void OmConfigSetup::ConfigureCompoundBeam(std::shared_ptr<Instrumentation::IBeam
         }
         beamFormations->Add(beamFormation);
     }
+    debugLogger->debug(logger + std::string(40, '-') + "\n");
+}
+
+void OmConfigSetup::ConfigureTFM(std::shared_ptr<Instrumentation::IBeamSetFactory> phasedArrayFactory, shared_ptr<IBeamFormationCollection> beamFormations) {
+    std::string logger = fmt::format("Configure: TFM\n");
+    logger += std::string(40, '-') + "\n";
+    logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", "Pulser", "Receiver", "Delay", "Final");
+
+    for (unsigned int iPulser = 0; iPulser < omSetCof->EleQuantity; ++iPulser) {
+        shared_ptr<IBeamFormation> beamFormation = phasedArrayFactory->CreateBeamFormation(1, omSetCof->EleQuantity);
+        auto pulserDelays = beamFormation->GetPulserDelayCollection();
+        auto receiverDelays = beamFormation->GetReceiverDelayCollection();
+
+        pulserDelays->GetElementDelay(0)->SetElementId(iPulser);
+        pulserDelays->GetElementDelay(0)->SetDelay(0); 
+        for (unsigned int iReceiver = 0; iReceiver < omSetCof->EleQuantity; ++iReceiver) {
+            receiverDelays->GetElementDelay(iReceiver)->SetElementId(iReceiver);
+            receiverDelays->GetElementDelay(iReceiver)->SetDelay(0);
+            logger += fmt::format("{:>5} {:>10} {:>10} {:>10}\n", iPulser, iReceiver, 0, 0);
+        }
+
+        beamFormations->Add(beamFormation);
+    }
+
     debugLogger->debug(logger + std::string(40, '-') + "\n");
 }
 

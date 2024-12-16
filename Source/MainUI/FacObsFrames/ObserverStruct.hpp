@@ -3,6 +3,7 @@
 #include "../pch.h"
 #include "SystemConfig/ConfigLocator.h"
 #include "Instrumentation/IAScanCollection.h"
+#include "BlockQueueAscan.hpp"
 
 struct VertexData {
 	QVector2D position;
@@ -25,15 +26,14 @@ struct ProcessingContext {
 
     // Realtime processing state
     GLuint sviewID = 0;
-    deque<std::shared_ptr<IAscanCollection>> nAscanCollection;
+    //deque<std::shared_ptr<IAscanCollection>> nAscanCollection;
+    BlockingQueue<std::shared_ptr<IAscanCollection>> nAscanCollection;
     UIArtScan* ArtScan = nullptr;
 
     QVector<VertexData> vertice_sview;
     QVector<VertexData> vertice_cview;
     std::atomic<bool> isGlTexture = false;
-    bool isPanning = false;
-    int curpt[3] = { 0, 0, 0 };
-    AscanData scandat;
+
 
     std::vector<std::vector<cv::Point>> xySectorial;
     std::vector<std::vector<cv::Point>> xyLinear;
@@ -41,7 +41,7 @@ struct ProcessingContext {
     ProcessingContext()
         : angStart(OmSetupL::getInstance().OMS->BeamStartAngle),
         angEnd(OmSetupL::getInstance().OMS->beamNumber + OmSetupL::getInstance().OMS->BeamStartAngle),
-        pautmode(ConfigLocator::getInstance().visualConfig->setPautMode) {}
+        pautmode(ConfigLocator::getInstance().visualConfig->setPautMode) {   }
 };
 
 

@@ -38,7 +38,7 @@ struct Om_Settup_Config
 {
     // ViewScanSetting
     int SviewScaleX = 5;
-
+    std::atomic<bool> SviewExp = false;
     // === Configure a phased array BeamSet
     // Phased Array BeamFormation
     unsigned int beamNumber     = 60;
@@ -65,13 +65,13 @@ struct Om_Settup_Config
     
     // === Each Individual Beam
     double BeamGain = 35.0;
-    double BeamAStart = 0; // mm 
-    double BeamAEnd = 50; // mm
+    double BeamAStart = 10; // mm 
+    double BeamAEnd = 80; // mm
     
-    int Rate = 120; // 120 Hz screen
+    int Rate = 60; // 120 Hz screen
 
     // === Used for ScanSection
-    int beamCurrentID = 0;             // Current ID
+    int beamCurrentID = 5;             // Current ID
 
 
 };

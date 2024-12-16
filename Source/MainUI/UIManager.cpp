@@ -409,12 +409,12 @@ namespace nmainUI {
 
         layout->addWidget(logTable);
         logWidget->setWidget(logContainer);
-
         QTimer* timer = new QTimer(logWidget);
         QObject::connect(timer, &QTimer::timeout, [logTable]() {
             static std::mutex mtx;
+            static PAUTManager* pautmgr = &PAUTManager::getInstance();
             static auto readStatus = &ReadStatus::getinstance();
-            size_t buffer = std::make_shared<upFrame>()->bufferSize();
+            size_t buffer = pautmgr->bufferSize();
 
             logTable->item(0, 1)->setText(QString::number(static_cast<int>(buffer)));
             logTable->item(1, 1)->setText(QString::number(readStatus->get_throughout(), 'f', 2));
@@ -536,8 +536,10 @@ namespace nmainUI {
         if (!processor) { processor = std::make_shared<AscanProcessor>(); }
         if (processor)
         {
+            PAUTManager* pautmgr = &PAUTManager::getInstance();
+            pautmgr->clearAll();
+
             auto factframe = nFactoryFrame::crCviewFrm();
-            factframe->clearAll();
             auto res = processor->analyze(&*factframe);
             if (res) { sttlogs->logInfo("Scanning Data is Loaded."); }
             factframe->setter_Curpt(1, 1, 1);

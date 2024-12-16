@@ -5,32 +5,12 @@
 #include "statuslogs.h"
 
 class nSubject {
-private:
-    std::vector<std::shared_ptr<nObserver>> observers;
-    std::atomic<bool> runRealtime{ false };
-    std::jthread realtimeThread;
-    QTimer* offlineTimer;
-    std::mutex fpsmutex;
-
-    void notifyRealtimeInternal() {      
-        if (observers[0]->bufferSize() < 1) return;
-        static QElapsedTimer fpsTimer; static int frameCount = 0;
-        auto ftime = FPS_Calc(fpsTimer, frameCount);
-        if (ftime > 0) { ReadStatus::getinstance().set_processData(ftime + 0.01); }
-
-        if (observers[0]->isGLTexture()) observers[0]->RealDatProcess();
-        else 
-        {
-            observers[0]->processOnGPU();
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-    }
-
 public:
     nSubject() : offlineTimer(new QTimer()) {
         QObject::connect(offlineTimer, &QTimer::timeout, [this]() {
             this->notify();
             });
+        if (!pautmgr) pautmgr = &PAUTManager::getInstance();
     }
 
     ~nSubject() {
@@ -55,9 +35,11 @@ public:
     void startRealtimeUpdate() {
         if (runRealtime) return; // Avoid duplicate threads
         runRealtime = true;
+        
         realtimeThread = std::jthread([this](std::stop_token stopToken) {
             while (runRealtime && !stopToken.stop_requested()) {
                 try {
+                    pautmgr->waitAscan();
                     notifyRealtimeInternal();
                 }
                 catch (const std::exception& e) {
@@ -80,8 +62,9 @@ public:
         }
 
         if (!observers.empty()) {
-            observers[0]->clearAll();
+            pautmgr->clearAll();
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
     }
 
     void startNotifyTimer(int intervalMs) {
@@ -92,5 +75,31 @@ public:
         offlineTimer->stop();
         nmainUI::statuslogs::getinstance().logNotify(" Stop Offline Timer.");
     }
+private:
+    std::vector<std::shared_ptr<nObserver>> observers;
+    std::atomic<bool> runRealtime{ false };
+    std::jthread realtimeThread;
+    QTimer* offlineTimer;
+    std::mutex fpsmutex;
+    PAUTManager* pautmgr;
+    void notifyRealtimeInternal() {
+        static FrameTimeTracker frameTracker;
+        StartFrameTimer(frameTracker); // EndFrameTimer       
+
+        if (pautmgr->isGLTexture()) {
+            pautmgr->RealDatProcess();
+        }
+        else {
+            pautmgr->processOnGPU();
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        if (float avgFrameTime = EndFrameTimer(frameTracker); avgFrameTime > 0) {
+            ReadStatus::getinstance().set_processData(avgFrameTime + 0.01);
+        }
+    }
+
 };
+
+
+
 #endif

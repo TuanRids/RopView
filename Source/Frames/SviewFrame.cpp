@@ -7,7 +7,6 @@ SviewFrame::SviewFrame(QWidget* parent)
 {
     QOpenGLWidget::setUpdateBehavior(QOpenGLWidget::PartialUpdate); 
 }
-
 QWidget* SviewFrame::createFrame() {
     if (!graphicsView) {
         graphicsView = std::make_shared<ZoomableGraphicsView>();
@@ -29,13 +28,6 @@ QWidget* SviewFrame::createFrame() {
     return frame;
 }
 
-extern "C" {
-    __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
-    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
-}
-
-
-
 
 void SviewFrame::Wait3DScreen() {
     // start
@@ -44,7 +36,7 @@ void SviewFrame::Wait3DScreen() {
 void SviewFrame::initializeGL() {     
     initializeOpenGLFunctions();
     glClearColor(0.09f, 0.09f, 0.09f, 1.0f);
-    if (isGLTexture())
+    if (pautmgr->isGLTexture())
     {
         if (!shaderProgram) {
             sttlogs->logInfo("Start initialize OpenGL - GLTexture on GPU for SviewFrame");
@@ -166,25 +158,22 @@ void SviewFrame::initializeGL() {
     QOpenGLWidget::update();
 }
 void SviewFrame::paintGL() {     
-    static QElapsedTimer fpsTimer; static int frameCount = 0;
-    auto ftime = FPS_Calc(fpsTimer, frameCount);
-    if (ftime > 0) 
-    { 
-        ReadStatus::getinstance().set_sviewfps(ftime);     
-    }    
+    static FrameTimeTracker frameTracker;
+    StartFrameTimer(frameTracker); // EndFrameTimer
+
     // wait screne
     static bool startFlag = false;
     if (!startFlag) {
         Wait3DScreen();
     }
     // Render by GlTexture
-    if (isGLTexture() && prosdt.ArtScan->SViewBuf)
+    if (pautmgr->isGLTexture() && pautmgr->prosdt.ArtScan->SViewBuf)
     {
         startFlag = true;
         {
-            std::lock_guard<std::mutex> lock(ArtScanMutex); 
-            orgimage = std::make_shared<cv::Mat>(prosdt.ArtScan->SViewBuf->clone());
-            prosdt.ArtScan->SViewBuf = nullptr; 
+            std::lock_guard<std::mutex> lock(pautmgr->ArtScanMutex);
+            orgimage = std::make_shared<cv::Mat>(pautmgr->prosdt.ArtScan->SViewBuf->clone());
+            pautmgr->prosdt.ArtScan->SViewBuf = nullptr;
             if (orgimage->size().width == 0 || orgimage->size().height == 0) return;
         }
         glBindTexture(GL_TEXTURE_2D, textureID); 
@@ -198,18 +187,17 @@ void SviewFrame::paintGL() {
         shaderProgram->release();
 
     } // Render by GlBufferData
-    else if (!isGLTexture() && prosdt.sviewID) {
-        if (ftime > 0 ) { qDebug() << "Texture ID is: " << prosdt.sviewID; } 
+    else if (!pautmgr->isGLTexture() && pautmgr->prosdt.sviewID) {
         // Clear texture (optional, if needed)
-        glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+        glBindTexture(GL_TEXTURE_2D, pautmgr->prosdt.sviewID);
         float clearColor[4] = { 0.2f, 0.0f, 0.0f, 0.0f };
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, prosdt.ysize, prosdt.zsize, GL_RGBA, GL_FLOAT, clearColor);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pautmgr->prosdt.ysize, pautmgr->prosdt.zsize, GL_RGBA, GL_FLOAT, clearColor);
         glBindTexture(GL_TEXTURE_2D, 0);    
 
         // Render texture
         shaderProgram->bind();
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, prosdt.sviewID);
+        glBindTexture(GL_TEXTURE_2D, pautmgr->prosdt.sviewID);
         shaderProgram->setUniformValue("u_Texture", 0);
 
         glBindVertexArray(vao);
@@ -219,9 +207,8 @@ void SviewFrame::paintGL() {
         glBindTexture(GL_TEXTURE_2D, 0);
         shaderProgram->release();
     }
-
-
     glFlush();
+    if (float avgFrameTime = EndFrameTimer(frameTracker); avgFrameTime > 0) { ReadStatus::getinstance().set_sviewfps(avgFrameTime + 0.01); }
 }
 void SviewFrame::renderQuad() {
     static const GLfloat vertices[] = {
@@ -276,7 +263,6 @@ void SviewFrame::mousePressEvent(QMouseEvent* event) {
         lastMousePos = event->pos();
     }
 }
-
 void SviewFrame::mouseMoveEvent(QMouseEvent* event) {
     if (isSelectingRegion) {
         selectionEnd = event->pos();
@@ -293,7 +279,6 @@ void SviewFrame::mouseMoveEvent(QMouseEvent* event) {
         update();
     }
 }
-
 void SviewFrame::mouseReleaseEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton && isSelectingRegion) {
         isSelectingRegion = false;
@@ -316,7 +301,6 @@ void SviewFrame::mouseReleaseEvent(QMouseEvent* event) {
         isDragging = false;
     }
 }
-
 void SviewFrame::wheelEvent(QWheelEvent* event) {
     QPointF mousePos = event->position();
     float x = static_cast<float>(mousePos.x()) / this->width();
@@ -335,7 +319,6 @@ void SviewFrame::wheelEvent(QWheelEvent* event) {
     zoomRatio = std::clamp(zoomRatio, 0.1f, 5.0f);
     update();
 }
-
 void SviewFrame::updateRealTime() {
     if (!isRealTime) {
         if (graphicsView) {
@@ -347,7 +330,6 @@ void SviewFrame::updateRealTime() {
         isRealTime = true;
     }
 }
-
 void SviewFrame::paintEvent(QPaintEvent* event) {
     QOpenGLWidget::paintEvent(event);
     if (isSelectingRegion) {
@@ -375,10 +357,10 @@ void SviewFrame::updateOffLine() {
         isRealTime = false;
     }
 
-    if (prosdt.scandat.Amplitudes.empty()) return;
-    zsize = prosdt.scandat.AmplitudeAxes[0].Quantity;
-    ysize = prosdt.scandat.AmplitudeAxes[1].Quantity;
-    xsize = prosdt.scandat.AmplitudeAxes[2].Quantity;
+    if (scandat.Amplitudes.empty()) return;
+    zsize = scandat.AmplitudeAxes[0].Quantity;
+    ysize = scandat.AmplitudeAxes[1].Quantity;
+    xsize = scandat.AmplitudeAxes[2].Quantity;
 
     orgimage = std::make_unique<cv::Mat>(zsize, ysize, CV_8UC3);
     scaledImage = std::make_unique<cv::Mat>();
@@ -386,12 +368,12 @@ void SviewFrame::updateOffLine() {
 #pragma omp parallel for
     for (uint64_t z = 0; z < zsize; ++z) {
         for (uint64_t y = 0; y < ysize; ++y) {
-            uint64_t index = z * (xsize * ysize) + y * xsize + prosdt.curpt[0];
-            if (index >= prosdt.scandat.Amplitudes.size()) {
+            uint64_t index = z * (xsize * ysize) + y * xsize + curpt[0];
+            if (index >= scandat.Amplitudes.size()) {
                 sttlogs->logWarning("[Bscan] Out of range data: " + std::to_string(index));
                 return;
             }
-            double percentAmplitude = std::abs(prosdt.scandat.Amplitudes[index]) / (32768 / 100.0);
+            double percentAmplitude = std::abs(scandat.Amplitudes[index]) / (32768 / 100.0);
             Color color = everyColors[static_cast<int16_t>(percentAmplitude)];
             orgimage->at<cv::Vec3b>(z, y) = cv::Vec3b(color.B, color.G, color.R);
         }
@@ -403,7 +385,7 @@ void SviewFrame::updateOffLine() {
     int newWidth = (frameRatio > imageRatio) ? static_cast<int>(orgimage->rows * frameRatio) : orgimage->cols;
     int newHeight = (frameRatio > imageRatio) ? orgimage->rows : static_cast<int>(orgimage->cols / frameRatio);
 
-    int scaleFactor = (!prosdt.isPanning || ConfigL->settingconf->bhighResBscan) ? ConfigL->sysParams->resolution : 1;
+    int scaleFactor = (!curpt || ConfigL->settingconf->bhighResBscan) ? ConfigL->sysParams->resolution : 1;
     cv::resize(*orgimage, *scaledImage, cv::Size(newWidth * scaleFactor, newHeight * scaleFactor), 0, 0, cv::INTER_LINEAR);
 
     cv::GaussianBlur(*scaledImage, *scaledImage, cv::Size(1, 1), 0);
@@ -437,12 +419,12 @@ void SviewFrame::addPoints(bool Cviewlink, int x, int y)
     double pixelY, pixelZ;
     if (!isRealTime)
     {
-        pixelY = (Cviewlink) ? static_cast<double>(prosdt.curpt[1]) * scaledImage->cols / ysize : static_cast<double>(x);
-        pixelZ = (Cviewlink) ? static_cast<double>(prosdt.curpt[1]) * scaledImage->rows / zsize : static_cast<double>(y);
+        pixelY = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->cols / ysize : static_cast<double>(x);
+        pixelZ = (Cviewlink) ? static_cast<double>(curpt[1]) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     else {
         pixelY = (Cviewlink) ? static_cast<double>(oms.OMS->beamCurrentID) * scaledImage->cols / ysize : static_cast<double>(x);
-        pixelZ = (Cviewlink) ? static_cast<double>(prosdt.curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
+        pixelZ = (Cviewlink) ? static_cast<double>(curpt[2]) * scaledImage->rows / zsize : static_cast<double>(y);
     }
     if (overlay) overlay->updatePoints(pixelY, pixelZ, Qt::red, Qt::color0);
     graphicsView->update();
@@ -474,14 +456,14 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
             if (!isRealTime)
             {
                 auto [original_y, original_z] = calculateOriginalPos(scaled_y, scaled_z);
-                QToolTip::showText(QCursor::pos(), QString("X: %1\nY: %2\nZ: %3").arg(prosdt.curpt[0]).arg(original_y).arg(original_z));
+                QToolTip::showText(QCursor::pos(), QString("X: %1\nY: %2\nZ: %3").arg(curpt[0]).arg(original_y).arg(original_z));
                 overlay->updateOverlay(scaled_y, scaled_z, scaledImage->cols, scaledImage->rows);
                 graphicsView->update();
             }
             else
             {
                 int newy;
-                //std::tie(newy, prosdt.curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
+                //std::tie(newy, curpt.z) = calculateOriginalPos(scaled_y, scaled_z);
                 if (!scaledImage) return;                
                 QString tooltipText = QString("X: %1\nY: %2\nZ: %3")
                     .arg("...")
@@ -500,15 +482,15 @@ void SviewFrame::MouseGetPosXY(std::shared_ptr<ZoomableGraphicsView> graphicsVie
         {
             if (!isRealTime)
             {
-                std::tie(prosdt.curpt[1], prosdt.curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
-                prosdt.isPanning = false;
+                std::tie(curpt[1], curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
+                isPanning = false;
                 addPoints(false, scaled_y, scaled_z);
 
             }
             else
             {
-                std::tie(oms.OMS->beamCurrentID, prosdt.curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
-                prosdt.isPanning = false;
+                std::tie(oms.OMS->beamCurrentID, curpt[2]) = calculateOriginalPos(scaled_y, scaled_z);
+                isPanning = false;
                 addPoints(false, scaled_y, scaled_z);
             }
         }

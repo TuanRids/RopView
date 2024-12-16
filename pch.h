@@ -129,7 +129,6 @@
 #include <QOpenGLWindow>
 #include <QOpenGLFunctions_3_3_Core>
 #include <QOpenGLFunctions_4_3_Core> 
-
 // ======== Logs ============
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -138,20 +137,34 @@
 #include <spdlog/fmt/fmt.h> 
 
 // return -1 if no update, otherwise return the Frametime.
-inline float FPS_Calc(QElapsedTimer& fpsTimer, int& frameCount) {
-    if (!fpsTimer.isValid()) {
-        fpsTimer.start();
+struct FrameTimeTracker {
+    QElapsedTimer timer;
+    double totalFrameTime = 0.0;
+    int totalFrames = 0;
+};
+inline void StartFrameTimer(FrameTimeTracker& tracker) {
+    if (!tracker.timer.isValid()) {
+        tracker.timer.start(); 
     }
+    else {
+        tracker.timer.restart(); 
+    }
+}
 
-    if (fpsTimer.elapsed() >= 1000) {
-        float avgEachFrameTime = static_cast<float>(fpsTimer.elapsed()) / static_cast<float>(frameCount);
-        fpsTimer.restart();
-        frameCount = 0;
-        return avgEachFrameTime; 
+inline float EndFrameTimer(FrameTimeTracker& tracker) {
+    float currentFrameTime = static_cast<float>(tracker.timer.elapsed()); 
+    tracker.totalFrameTime += currentFrameTime;
+    tracker.totalFrames++;
+    if (tracker.totalFrameTime >= 1000.0) {
+        float avgFrameTime = static_cast<float>(tracker.totalFrameTime) / static_cast<float>(tracker.totalFrames);
+        tracker.totalFrameTime = 0.0; 
+        tracker.totalFrames = 0;     
+        return avgFrameTime;        
     }
-    frameCount++;
     return -1.0f; 
 }
+
+
 // return Loger File_Logger for recording.
 // can recheck the loger file in the folder.
 inline std::shared_ptr<spdlog::logger> CoutLogger() {

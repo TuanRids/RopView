@@ -64,9 +64,10 @@ void AviewFrame::initializeGL() {
             R"(
             #version 430 core
             out vec4 FragColor;
+            uniform vec4 lineColor;
 
             void main() {
-                FragColor = vec4(1.0, 0.5, 0.0, 1.0); // White line
+                FragColor = lineColor;
             }
             )");
         shaderProgram->link();
@@ -106,23 +107,31 @@ void AviewFrame::paintGL() {
     }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     shaderProgram->bind();
-    if (!isGLTexture())
+    if (!pautmgr->isGLTexture())
     {
         return;
     }
-    if (prosdt.ArtScan->AViewBuf && !prosdt.ArtScan->AViewBuf->size() < 1) {
+    float maxY = 1.0f;
+    if (pautmgr->prosdt.ArtScan->AViewBuf && pautmgr->prosdt.ArtScan->AViewBuf->size() > 0) {
+        maxY = static_cast<float>(pautmgr->prosdt.ArtScan->AViewBuf->size());
+    }
+    drawAxesAndGrid(maxY);
+
+    int lineColorLocation = shaderProgram->uniformLocation("lineColor");
+    if (pautmgr->prosdt.ArtScan->AViewBuf && !pautmgr->prosdt.ArtScan->AViewBuf->size() < 1) {
         vao.bind();
         vbo.bind();
 
         // Update VBO with current data
-        glBufferData(GL_ARRAY_BUFFER, prosdt.ArtScan->AViewBuf->size() * sizeof(glm::vec2), prosdt.ArtScan->AViewBuf->data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, pautmgr->prosdt.ArtScan->AViewBuf->size() * sizeof(glm::vec2), pautmgr->prosdt.ArtScan->AViewBuf->data(), GL_DYNAMIC_DRAW);
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
             qDebug() << "OpenGL Error:" << error;
         }
 
         // Draw line strip
-        glDrawArrays(GL_LINE_STRIP, 0, prosdt.ArtScan->AViewBuf->size());
+        shaderProgram->setUniformValue(lineColorLocation, QVector4D(1.0f, 0.5f, 0.0f, 1.0f)); // orange
+        glDrawArrays(GL_LINE_STRIP, 0, pautmgr->prosdt.ArtScan->AViewBuf->size());
         error = glGetError();
         if (error != GL_NO_ERROR) {
             qDebug() << "OpenGL Error:" << error;
@@ -132,10 +141,14 @@ void AviewFrame::paintGL() {
         vbo.release();
     }
 
+    gridVao.bind();
+    shaderProgram->setUniformValue(lineColorLocation, QVector4D(0.3f, 0.3f, 0.3f, 1.0f)); // gray
+    glDrawArrays(GL_LINES, 0, gridVertexCount);
+    gridVao.release();
+
     shaderProgram->release();
 
 }
-
 void AviewFrame::updateRealTime()
 {
     if (!isRealTime)
@@ -154,6 +167,40 @@ void AviewFrame::resizeGL(int width, int height)
     glViewport(0, 0, width, height);
     std::cout << "Aview ReSize: " << width << "x" << height << std::endl;
 }
+void AviewFrame::drawAxesAndGrid(float maxY) {
+    std::vector<glm::vec2> lines;
+    auto toX = [&](float x) {return (x / 100.0f) * 2.0f - 1.0f; };
+    auto toY = [&](float y) {return (y / maxY) * 2.0f - 1.0f; };
+    lines.push_back(glm::vec2(toX(0.0f), toY(0.0f)));
+    lines.push_back(glm::vec2(toX(100.0f), toY(0.0f)));
+    lines.push_back(glm::vec2(toX(0.0f), toY(0.0f)));
+    lines.push_back(glm::vec2(toX(0.0f), toY(maxY)));
+    std::vector<float> oxMarks = { 20.0f,40.0f,60.0f,80.0f,100.0f };
+    for (auto mark : oxMarks) {
+        lines.push_back(glm::vec2(toX(mark), toY(0.0f)));
+        lines.push_back(glm::vec2(toX(mark), toY(maxY)));
+    }
+    std::vector<float> oyPercents = { 0.2f,0.4f,0.6f,0.8f,1.0f };
+    for (auto pct : oyPercents) {
+        float yval = maxY * pct;
+        lines.push_back(glm::vec2(toX(0.0f), toY(yval)));
+        lines.push_back(glm::vec2(toX(100.0f), toY(yval)));
+    }
+    gridVertexCount = (int)lines.size();
+    if (!gridVao.isCreated()) gridVao.create();
+    gridVao.bind();
+    if (!gridVbo.isCreated()) {
+        gridVbo.create();
+        gridVbo.setUsagePattern(QOpenGLBuffer::DynamicDraw);
+    }
+    gridVbo.bind();
+    gridVbo.allocate(lines.data(), (int)(lines.size() * sizeof(glm::vec2)));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), nullptr);
+    gridVao.release();
+    gridVbo.release();
+}
+
 
 // ********************************************
 // Offline Reading
@@ -169,7 +216,7 @@ void AviewFrame::updateOffLine()
         isRealTime = false;
     }    static bool first_flag = false;
     // ********** PARAMETER VALIDATION **********
-    if (prosdt.scandat.Amplitudes.empty()) {
+    if (scandat.Amplitudes.empty()) {
         if (sttlogs) {
             sttlogs->logWarning("No amplitude data available");
         }
@@ -179,9 +226,9 @@ void AviewFrame::updateOffLine()
     // ********** PARAMETER PROCESSING **********
     if (!lineSeries) RenderFrame();
 
-    uint64_t zsize = prosdt.scandat.AmplitudeAxes[0].Quantity;
-    uint64_t ysize = prosdt.scandat.AmplitudeAxes[1].Quantity;
-    uint64_t xsize = prosdt.scandat.AmplitudeAxes[2].Quantity;
+    uint64_t zsize = scandat.AmplitudeAxes[0].Quantity;
+    uint64_t ysize = scandat.AmplitudeAxes[1].Quantity;
+    uint64_t xsize = scandat.AmplitudeAxes[2].Quantity;
 
     points.clear();
     points.reserve(zsize);
@@ -190,14 +237,14 @@ void AviewFrame::updateOffLine()
     double maxY = std::numeric_limits<double>::min();
 
     for (uint64_t z = 0; z < zsize; ++z) {
-        uint64_t index = z * (xsize * ysize) + prosdt.curpt[1] * xsize + prosdt.curpt[0];
+        uint64_t index = z * (xsize * ysize) + curpt[1] * xsize + curpt[0];
 
-        if (index >= prosdt.scandat.Amplitudes.size()) {
-            sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(prosdt.scandat.Amplitudes.size()));
+        if (index >= scandat.Amplitudes.size()) {
+            sttlogs->logWarning("Out of range data: " + std::to_string(index) + " " + std::to_string(scandat.Amplitudes.size()));
             return;
         }
 
-        int16_t samplingAmplitude = std::abs(prosdt.scandat.Amplitudes[index]);
+        int16_t samplingAmplitude = std::abs(scandat.Amplitudes[index]);
         double percentAmplitude = samplingAmplitude / (32768 / 100.0);
 
         minY = std::min(minY, percentAmplitude);
@@ -215,13 +262,13 @@ void AviewFrame::updateOffLine()
         axisY->setReverse(true);
     }
 
-    if (!prosdt.isPanning)
+    if (!isPanning)
     {
-        static int lastpos[3] = { prosdt.curpt[0], prosdt.curpt[1], prosdt.curpt[2]};
-        if (prosdt.curpt[0] != lastpos[0] || prosdt.curpt[1] != lastpos[1] || prosdt.curpt[2] != lastpos[2])
+        static int lastpos[3] = { curpt[0], curpt[1], curpt[2]};
+        if (curpt[0] != lastpos[0] || curpt[1] != lastpos[1] || curpt[2] != lastpos[2])
         {
-            lastpos[0] = prosdt.curpt[0]; lastpos[1] = prosdt.curpt[1]; lastpos[2] = prosdt.curpt[2];
-            sttlogs->logInfo("Coord x: " + std::to_string(prosdt.curpt[0]) + " - Coord y: " + std::to_string(prosdt.curpt[1]) + " Coord z: " + std::to_string(prosdt.curpt[2]) + ".");
+            lastpos[0] = curpt[0]; lastpos[1] = curpt[1]; lastpos[2] = curpt[2];
+            sttlogs->logInfo("Coord x: " + std::to_string(curpt[0]) + " - Coord y: " + std::to_string(curpt[1]) + " Coord z: " + std::to_string(curpt[2]) + ".");
         }
     }
 }

@@ -3,7 +3,7 @@
 #include "MainUI/statuslogs.h"
 #include "OmConnect/OmConfigSetup.h"
 
-std::shared_ptr<upFrame> obser = std::make_shared<upFrame>();
+PAUTManager* PAUTmgr = &PAUTManager::getInstance();
 
 nDataProcess::nDataProcess(IAcquisitionPtr gacquisition, IDevicePtr gdevice)
     : acquisition(gacquisition), device (gdevice)
@@ -60,14 +60,13 @@ void nDataProcess::Run()
 {    
     acquisition->Start();
     static auto readfps = &ReadStatus::getinstance();
+    FrameTimeTracker frameTracker;
     try
     {
         do
         {
             static double last_beamGain = 0; static int last_InternalDelay = -1; static double last_smoothFilter = -1;
-            static QElapsedTimer fpsTimer; static int frameCount = 0;
-            auto ftime = FPS_Calc(fpsTimer, frameCount);
-            if (ftime > 0) { readfps->set_readPAUT(ftime); }
+            StartFrameTimer(frameTracker); // EndFrameTimer
 
             auto waitForDataResult = acquisition->WaitForDataEx();
             if ( !acquisition || waitForDataResult.status != IAcquisition::WaitForDataResultEx::DataAvailable)
@@ -78,8 +77,9 @@ void nDataProcess::Run()
             if (waitForDataResult.cycleData == nullptr) continue;   
             {
                 // use unique_lock for writing the data
-                std::unique_lock<std::shared_mutex> lock(obser->getCollectionMutex());
-                obser->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
+                // ::unique_lock<std::shared_mutex> lock(PAUTmgr->getCollectionMutex());
+                // No need to mutex, blockingqueue has its own mutex
+                PAUTmgr->upAscanCollector(waitForDataResult.cycleData->GetAscanCollection());
             }
             readfps->set_throughout(acquisition->GetThroughput());
 
@@ -88,6 +88,8 @@ void nDataProcess::Run()
                 auto cscan = waitForDataResult.cycleData->GetCscanCollection()->GetCscan(0);
                 double crossingTime = !cscan->GetCrossingTime();
             } 
+
+            if (float avgFrameTime = EndFrameTimer(frameTracker); avgFrameTime > 0) { readfps->set_readPAUT(avgFrameTime); }
         } while ((*m_running));
 
     }

@@ -10,8 +10,10 @@
 #include <mutex>
 #include "ObserverStruct.hpp"
 
-
 using namespace std;
+class upFrame;
+class PAUTManager;
+
 class nObserver {
 public:
 	nObserver();
@@ -21,33 +23,73 @@ public:
 	virtual void updateOffLine() = 0;
 	virtual void updateRealTime() = 0;
 
+	void setScandat(const AscanData& dataa) { scandat = dataa; }
+	void clsScanDat() { scandat = AscanData(); }
+
+protected:
+	static PAUTManager* pautmgr;
+	static std::vector<Color> everyColors;
+	static AscanData scandat;
+	static nmainUI::statuslogs* sttlogs;
+	static bool isPanning;
+	static int curpt[3];
+	ConfigLocator* ConfigL = &ConfigLocator::getInstance();
+	OmSetupL oms = OmSetupL::getInstance();
+};
+
+
+
+class PAUTManager : public QOpenGLFunctions_4_3_Core {
+public:
+	// Singleton Access
+	static PAUTManager& getInstance() {
+		static PAUTManager instance;
+		return instance;
+	}
+	~PAUTManager() = default;
+
+	PAUTManager(const PAUTManager&) = delete;
+	PAUTManager& operator=(const PAUTManager&) = delete;
+
 	//process
 	void RealDatProcess();
 	void processOnGPU(); // use childClass to process by OpenGL4_3 for avoiding multi inhertitance
 
-	//setter
-	void setScandat(const AscanData& dataa) { prosdt.scandat = dataa; }
-	void clearAll() { prosdt.scandat = AscanData(); prosdt.ArtScan->resetAll(); prosdt.nAscanCollection.clear(); }
+	void clearAll() {
+		std::unique_lock<std::shared_mutex> lock(pautMutex);
+		prosdt.ArtScan->resetAll(); prosdt.nAscanCollection.clear();
+	}
+
 	void upAscanCollector(const std::shared_ptr<IAscanCollection>& _nAscanCollection);
-	
+	void waitAscan() { prosdt.nAscanCollection.checkOrWait(); }
+
 	// getter & check
 	bool isGLTexture() { return prosdt.nIsGlTexture.load(); }
-	std::shared_mutex &getCollectionMutex() { return collectionMutex; }
+	std::shared_mutex& getCollectionMutex() { return pautMutex; }
 	size_t bufferSize() { return prosdt.nAscanCollection.size(); }
 
-protected:
-	void updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat);
-	static ProcessingContext prosdt;	
+	// public for avoiding too much setter. can be private if have time
+	ProcessingContext prosdt; 
+	std::shared_mutex pautMutex;
+	std::mutex ArtScanMutex;
+private:
+	PAUTManager();
+
+	void initializeGLResources();
+
+	nmainUI::statuslogs* sttlogs;
+	//Realtime Process variable glDatabuffer Processes
+	std::vector<Color> everyColors;
+
+	std::unique_ptr<QOffscreenSurface> surface;
+	std::unique_ptr<QOpenGLContext> context;
+	std::unique_ptr<QOpenGLShaderProgram> computeShader;
 	ConfigLocator* ConfigL = &ConfigLocator::getInstance();
 	OmSetupL oms = OmSetupL::getInstance();
 
-	static nmainUI::statuslogs* sttlogs;
-	static std::shared_mutex collectionMutex;
-	static std::mutex ArtScanMutex;
-	//Realtime Process variable glDatabuffer Processes
-	std::vector<Color> everyColors;
-	
+	void updateParameters(std::shared_ptr<IAscanCollection>& RawAsanDat);
 };
+
 
 
 class upFrame : public QOpenGLFunctions_4_3_Core, public nObserver {

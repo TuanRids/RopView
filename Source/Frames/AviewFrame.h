@@ -7,12 +7,13 @@
 #include "MainUI/FacObsFrames/ObserverMgr.h"
 #include "MainUI/mainwindow.h"
 
+
 // Aview Frame
 class AviewFrame : public QOpenGLWidget, public QOpenGLFunctions_4_3_Core, public nObserver {
 private:
     //************** Method
     void RenderFrame();
-
+    void drawAxesAndGrid(float maxY);
     //************** Properties   
     std::shared_ptr<QGraphicsScene> scene;
     std::shared_ptr<QGraphicsView> graphicsView;
@@ -36,6 +37,11 @@ private:
     // Realtime GPU variables for GLTexture
     QOpenGLBuffer ebo;
     GLuint textureID;
+
+    // Grid
+    QOpenGLBuffer gridVbo;
+    QOpenGLVertexArrayObject gridVao;
+    int gridVertexCount = 0;
 public:
     explicit AviewFrame(QWidget* parent = nullptr);
     QWidget* createFrame() override;
