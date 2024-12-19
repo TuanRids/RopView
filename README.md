@@ -43,6 +43,8 @@ This project focuses on real-time 3D visualization of Phased Array Ultrasonic Te
 
 ## Results (Ongoing)
    ![realtimePAUT_withoutoptimization](https://github.com/user-attachments/assets/b0baf511-1284-461f-88f8-cce91b33ea4b)
+   ![RealtimePAUT GPU All Mode](https://github.com/user-attachments/assets/5a82aa52-8887-46a6-953a-2d1b2e71bba4)
+
 - **Render Performance**:
   - Successfully rendered **~1.5 million pixels** in **2ms** (~500 FPS).
   - Exceeds real-time industrial standards (60-120 FPS).
